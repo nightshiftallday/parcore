@@ -1,4 +1,4 @@
-# FPGA Parquet Reader
+# ParCore Project
 This repo contains a hardware design to read Parquet data pages of specific compression/encoding combinations.
 
 ## Project Setup
@@ -45,7 +45,7 @@ In folder benchmarks/data_csv run `python3 gen.py` with many options. The file c
 
 The rest are the older benchmarks by Phillip.
 
-### Old Benchmarks by Phillip
+### Old Benchmarks by Phillip (deprecated and already in parts removed)
 * The name of a benchmark folder is the compression + encoding used (`rle` stands for hybrid encoding). The last part is the type of measurement: nothing -> different input sizes; `distinct` -> different numbers of distinct values (bit widths) in dict encoding; `rgs` -> different number of row groups; `ratio` -> varied compression ratio in hybrid encoding
 * Each benchmark folder contains:
     * A `data` folder with a `gen.py` script to generate input data.
