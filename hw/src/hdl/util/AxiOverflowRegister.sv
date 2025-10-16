@@ -13,11 +13,11 @@ module OverflowRegister (
 );
     // state
     typedef struct packed {
-    logic [AXI_DATA_BITS-1:0]       data, ov_data;
-    logic [CONFIG_WIDTH-1:0]        cfg,  ov_cfg;
-    logic [AXI_DATA_BITS/8-1:0]     keep, ov_keep;
-    logic                           last, ov_last;
-    logic                           valid, ov_valid;
+        logic [AXI_DATA_BITS-1:0]       data, ov_data;
+        logic [CONFIG_WIDTH-1:0]        cfg,  ov_cfg;
+        logic [AXI_DATA_BITS/8-1:0]     keep, ov_keep;
+        logic                           last, ov_last;
+        logic                           valid, ov_valid;
     } st_t;
 
     st_t s = '{default: '0};
@@ -26,37 +26,38 @@ module OverflowRegister (
 
     // Combinational next-state
     always_comb begin
-    ns = s;                            // hold by default
+        ns = s;                            // hold by default
 
-    if (take_in) begin
-        ns.data  = in.tdata;
-        ns.cfg   = in.tconfig;
-        ns.keep  = in.tkeep;
-        ns.last  = in.tlast;
-        ns.valid = in.tvalid;
-    end
+        if (take_in) begin
+            ns.data  = in.tdata;
+            ns.cfg   = in.tconfig;
+            ns.keep  = in.tkeep;
+            ns.last  = in.tlast;
+            ns.valid = in.tvalid;
+        end
 
-    // Clear overflow first (highest priority)
-    if (out.tready && s.ov_valid) begin
-        ns.ov_valid = 1'b0;
-    end
-    // Else capture overflow exactly once when needed
-    else if (!out.tready && s.valid && !s.ov_valid) begin
-        ns.ov_data  = s.data;
-        ns.ov_cfg   = s.cfg;
-        ns.ov_keep  = s.keep;
-        ns.ov_last  = s.last;
-        ns.ov_valid = 1'b1;
-    end
+        // Clear overflow first (highest priority)
+        if (out.tready && s.ov_valid) begin
+            ns.ov_valid = 1'b0;
+        end
+        // Else capture overflow exactly once when needed
+        else if (!out.tready && s.valid && !s.ov_valid) begin
+            ns.ov_data  = s.data;
+            ns.ov_cfg   = s.cfg;
+            ns.ov_keep  = s.keep;
+            ns.ov_last  = s.last;
+            ns.ov_valid = 1'b1;
+        end
     end
 
     // Registers
     always_ff @(posedge clk) begin
-    if (!rst_n) begin 
-        s.ov_valid <= 1'b0;
-        s.valid <= 1'b0;
-    end
-    else        s <= ns;
+        if (rst_n == 1'b0) begin 
+            s.ov_valid <= 1'b0;
+            s.valid <= 1'b0;
+        end
+        else
+            s <= ns;
     end
 
     assign in.tready   = rst_n && ((~s.ov_valid) || (~s.valid));

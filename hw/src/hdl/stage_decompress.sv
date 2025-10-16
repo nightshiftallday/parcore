@@ -31,17 +31,17 @@ module decompressor #(
     wire beat_accepted = in_stream_ff.tvalid && in_stream_ff.tready;
 
     always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-        inside_pkt_ff <= 1'b0;
-    end else if (beat_accepted) begin
-        if (!inside_pkt_ff) begin
-        // First accepted beat (SOP): be inside the packet only if not last
-        inside_pkt_ff <= ~in_stream_ff.tlast;
-        end else begin
-        // Inside packet: drop to 0 when the last beat is accepted
-        if (in_stream_ff.tlast) inside_pkt_ff <= 1'b0;
+        if (!rst_n) begin
+            inside_pkt_ff <= 1'b0;
+        end else if (beat_accepted) begin
+            if (!inside_pkt_ff) begin
+                // First accepted beat (SOP): be inside the packet only if not last
+                inside_pkt_ff <= ~in_stream_ff.tlast;
+            end else begin
+              // Inside packet: drop to 0 when the last beat is accepted
+              if (in_stream_ff.tlast) inside_pkt_ff <= 1'b0;
+            end
         end
-    end
     end
 
     wire first_beat_comb = beat_accepted && !inside_pkt_ff;
@@ -57,13 +57,13 @@ module decompressor #(
 
     logic [2:0] compression_mode_ff;
     always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-        compression_mode_ff <= 'b000; // default plain route (bypass)
-    end else if (first_beat_comb) begin
-        compression_mode_ff <= compression_mode;
-    end else if (beat_accepted && in_stream_ff.tlast) begin
-        compression_mode_ff <= 'b000; // optional: clear to default after packet
-    end
+        if (!rst_n) begin
+            compression_mode_ff <= 'b000; // default plain route (bypass)
+        end else if (first_beat_comb) begin
+            compression_mode_ff <= compression_mode;
+        end else if (beat_accepted && in_stream_ff.tlast) begin
+            compression_mode_ff <= 'b000; // optional: clear to default after packet
+        end
     end
 
     // Active selection: before SOP use combinational decode, inside packet use latched route
@@ -147,11 +147,11 @@ module decompressor #(
         out_inside_pkt_ff <= 1'b0;
     end else if (out_beat_acc) begin
         if (!out_inside_pkt_ff) begin
-        // First accepted beat (SOP): be inside the packet only if not last
-        out_inside_pkt_ff <= ~out_stream.tlast;
+            // First accepted beat (SOP): be inside the packet only if not last
+            out_inside_pkt_ff <= ~out_stream.tlast;
         end else begin
-        // Inside packet: drop to 0 when the last beat is accepted
-        if (out_stream.tlast) out_inside_pkt_ff <= 1'b0;
+            // Inside packet: drop to 0 when the last beat is accepted
+            if (out_stream.tlast) out_inside_pkt_ff <= 1'b0;
         end
     end
     end
