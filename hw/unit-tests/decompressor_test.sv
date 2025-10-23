@@ -73,7 +73,7 @@ always_ff @(posedge aclk) begin
         output_databeat  <= 0;
     end else begin
         // if (host_in.tvalid && host_in.tready) begin
-        //     $display("< in valid: %x, ready: %x, last: %x", host_out.tvalid, host_out.tready, host_out.tlast);
+        //     $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
         // end
 
         if (host_out.tvalid && host_out.tready) begin

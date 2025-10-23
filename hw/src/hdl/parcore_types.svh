@@ -8,7 +8,7 @@ typedef enum logic {
   COMPRESSION_SNAPPY
 } compression_t;
 
-typedef struct {
+typedef struct packed {
 	compression_t compression;
 } page_metadata_t;
 

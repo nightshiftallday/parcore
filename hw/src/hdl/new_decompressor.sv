@@ -90,9 +90,7 @@ new_vhsnunzip_wrapper snappy_decompressor (
     .out(decompressor_out)
 );
 
-
-// Bypass fifo
-new_axi_overflow_register bypass_fifo (
+AXISkidBuffer bypass_fifo (
     .clk(clk),
     .rst_n(rst_n),
 
