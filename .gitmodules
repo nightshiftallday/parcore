@@ -3,8 +3,7 @@
 	url = https://github.com/electrum/tpch-dbgen.git
 [submodule "coyote"]
 	path = coyote
-	url = https://github.com/lucat1/coyote.git
-	branch = sim/fully-consume-fifo
+	url = https://github.com/fpgasystems/coyote.git
 [submodule "arrow"]
 	path = arrow
 	url = https://github.com/apache/arrow.git
@@ -13,4 +12,4 @@
 	url = https://github.com/abs-tudelft/vhsnunzip.git
 [submodule "libstf"]
 	path = libstf
-	url = https://github.com/JonasDann/libstf
+	url = https://github.com/lucat1/libstf.git
