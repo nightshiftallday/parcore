@@ -22,10 +22,8 @@ class DecompressorTestCase(fpga_test_case.FPGATestCase):
 
         compressed_data = read_data('rg0_col0_chunk_compressed.bin')
         self.set_stream_input(0, compressed_data)
-        self.set_stream_input(0, raw_data)
         decompressed_data = read_data('rg0_col0_chunk_decompressed.bin')
         self.set_expected_output(0, decompressed_data)
-        self.set_expected_output(0, raw_data)
 
         # Act
         self.simulate_fpga()
@@ -52,12 +50,7 @@ class DecompressorTestCase(fpga_test_case.FPGATestCase):
         # Assert
         self.assert_simulation_output()
 
-class DecompressorThreeTestCase(fpga_test_case.FPGATestCase):
-    alternative_vfpga_top_file = "decompressor_test_three.sv"
-    debug_mode = True
-    # verbose_logging = True
-
-    def test_three_compression_decompress(self):
+    def test_multiple_compression_decompress(self):
         reps = 2
         n = 1024
         data = [randint(-n, n) for _ in range(n)]

@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 `include "parcore_types.svh"
+import parcore::*;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -25,12 +26,13 @@ always_comb notify.tie_off_m();
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
+AXI4SR #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
 assign axis_host_recv[0].tready = host_in.tready;
 assign host_in.tdata = axis_host_recv[0].tdata;
 assign host_in.tkeep = axis_host_recv[0].tkeep;
 assign host_in.tlast = axis_host_recv[0].tlast;
 assign host_in.tvalid = axis_host_recv[0].tvalid;
+assign host_in.tid = axis_host_recv[0].tid;
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
@@ -46,35 +48,53 @@ assign axis_host_send[0].tid = output_databeat;
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-valid_i #(decompression_t) in_decompression ();
-valid_i #(decompression_t) out_decompression ();
-assign in_decompression.valid = host_in.tvalid;
+ready_valid_i #(page_metadata_t) in_meta ();
+ready_valid_i #(page_metadata_t) out_meta ();
+// tie off out_meta as we're not going to read its output
+assign out_meta.ready = 1;
+
+page_metadata_t test_metadata[2:0];
+assign test_metadata = '{
+    '{compression: COMPRESSION_SNAPPY},
+    '{compression: COMPRESSION_RAW},
+    '{compression: COMPRESSION_SNAPPY}
+};
+
+ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .data(test_metadata),
+    .out_data(in_meta)
+);
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
         output_databeat  <= 0;
-        in_decompression.data <= SNAPPY;
     end else begin
-        if (host_out.tvalid && host_out.tready) begin
-          $display("! got databeat out(valid: %x, ready: %x) out_decompression(%b, %b)", host_out.tvalid, host_out.tready, out_decompression.data, out_decompression.valid);
-          output_databeat <= output_databeat + 1;
+        // if (host_in.tvalid && host_in.tready) begin
+        //     $display("< in valid: %x, ready: %x, last: %x", host_out.tvalid, host_out.tready, host_out.tlast);
+        // end
 
-          if (host_out.tlast) begin
-            $display("!! got tlast after %d databeats", output_databeat);
-            output_databeat <= 0;
-            in_decompression.data <= RAW;
-          end
+        if (host_out.tvalid && host_out.tready) begin
+            // $display("> out valid: %x, ready: %x, last: %x", host_out.tvalid, host_out.tready, host_out.tlast);
+            output_databeat <= output_databeat + 1;
+
+            if (host_out.tlast) begin
+              // $display(">>! got tlast after %d databeats", output_databeat);
+              output_databeat <= 0;
+            end
         end
     end
 end
 
-new_decompressor decompressor_inst (
-  .clk(aclk),
-  .rst_n(aresetn),
+Decompressor decompressor_inst (
+    .clk(aclk),
+    .rst_n(aresetn),
 
-  .in(host_in),
-  .in_decompression(in_decompression),
+    .in(host_in),
+    .in_meta(in_meta),
 
-  .out(host_out),
-  .out_decompression(out_decompression)
+    .out(host_out),
+    .out_meta(out_meta)
 );
