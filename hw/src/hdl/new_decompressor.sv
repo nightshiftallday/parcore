@@ -18,7 +18,7 @@ module Decompressor (
 );
 
 ready_valid_i #(page_metadata_t) meta ();
-HoldTransaction #(page_metadata_t) hold_meta_transaction_inst (
+HoldForward #(page_metadata_t) hold_meta_transaction_inst (
     .clk(clk),
     .rst_n(rst_n),
 
