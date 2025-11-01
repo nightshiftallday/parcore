@@ -14,5 +14,5 @@ with open(sys.argv[1], 'rb') as f:
             data = f.read(col_meta.total_compressed_size)
             
             # Just save it - it contains all pages for this column
-            with open(f'rg{i}_col{j}_chunk.bin', 'wb') as out:
+            with open(sys.argv[1].replace('.parquet', f'_rg{i}_col{j}_chunk.bin'), 'wb') as out:
                 out.write(data)

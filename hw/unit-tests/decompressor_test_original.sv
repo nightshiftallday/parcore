@@ -63,7 +63,7 @@ always_ff @(posedge aclk) begin
           output_databeat <= output_databeat + 1;
 
           if (host_out.tlast) begin
-            $display("!! got tlast after %d databeats", output_databeat);
+            $display("!! got tlast after %d databeats", output_databeat+1);
             output_databeat <= 0;
 
             // if (read_one == 1'b1) begin

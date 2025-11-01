@@ -2,13 +2,14 @@
 
 `include "axi_macros.svh"
 `include "lynx_macros.svh"
+`include "parcore_types.svh"
 
 import lynxTypes::*;
+import parcore::*;
 
 module ExpandRLE #(
     parameter NUM_BITS,
-    parameter OUT_BIT_WIDTH = AXI_DATA_BITS,
-    parameter NUM_ELEMENTS = OUT_BIT_WIDTH / NUM_BITS
+    parameter NUM_ELEMENTS
 ) (
     input logic clk,
     input logic rst_n,

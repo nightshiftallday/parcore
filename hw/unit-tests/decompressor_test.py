@@ -20,9 +20,9 @@ class DecompressorTestCase(fpga_test_case.FPGATestCase):
         data_type = fpga_stream.StreamType.SIGNED_INT_32
         raw_data = fpga_stream.Stream(data_type, data)
 
-        compressed_data = read_data('rg0_col0_chunk_compressed.bin')
+        compressed_data = read_data('data_rg0_col0_chunk_compressed.bin')
         self.set_stream_input(0, compressed_data)
-        decompressed_data = read_data('rg0_col0_chunk_decompressed.bin')
+        decompressed_data = read_data('data_rg0_col0_chunk_decompressed.bin')
         self.set_expected_output(0, decompressed_data)
 
         # Act
@@ -37,10 +37,10 @@ class DecompressorTestCase(fpga_test_case.FPGATestCase):
         data_type = fpga_stream.StreamType.SIGNED_INT_32
         raw_data = fpga_stream.Stream(data_type, data)
 
-        compressed_data = read_data('rg0_col0_chunk_compressed.bin')
+        compressed_data = read_data('data_rg0_col0_chunk_compressed.bin')
         self.set_stream_input(0, compressed_data)
         self.set_stream_input(0, raw_data)
-        decompressed_data = read_data('rg0_col0_chunk_decompressed.bin')
+        decompressed_data = read_data('data_rg0_col0_chunk_decompressed.bin')
         self.set_expected_output(0, decompressed_data)
         self.set_expected_output(0, raw_data)
 
@@ -57,12 +57,12 @@ class DecompressorTestCase(fpga_test_case.FPGATestCase):
         data_type = fpga_stream.StreamType.SIGNED_INT_32
         raw_data = fpga_stream.Stream(data_type, data)
 
-        compressed_data = read_data('rg0_col0_chunk_compressed.bin')
+        compressed_data = read_data('data_rg0_col0_chunk_compressed.bin')
         for _ in range(reps):
             self.set_stream_input(0, compressed_data)
             self.set_stream_input(0, raw_data)
             self.set_stream_input(0, compressed_data)
-        decompressed_data = read_data('rg0_col0_chunk_decompressed.bin')
+        decompressed_data = read_data('data_rg0_col0_chunk_decompressed.bin')
         for _ in range(reps):
             self.set_expected_output(0, decompressed_data)
             self.set_expected_output(0, raw_data)

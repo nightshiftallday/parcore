@@ -26,13 +26,24 @@ always_comb notify.tie_off_m();
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4SR #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
-assign axis_host_recv[0].tready = host_in.tready;
-assign host_in.tdata = axis_host_recv[0].tdata;
-assign host_in.tkeep = axis_host_recv[0].tkeep;
-assign host_in.tlast = axis_host_recv[0].tlast;
-assign host_in.tvalid = axis_host_recv[0].tvalid;
-assign host_in.tid = axis_host_recv[0].tid;
+always_comb axis_host_recv[0].tie_off_s();
+
+bitdata_i #(32, rle_count_t) in ();
+
+logic[31:0] test_data[3:0];
+assign test_data = '{ 98412, 11, 1337, 1024 };
+
+rle_count_t test_meta[3:0];
+assign test_meta = '{ 127, 54, 7, 64 };
+
+BitdataCyclicDriver #(32, rle_count_t, 4) inst_in_driver (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .data(test_data),
+    .meta(test_meta),
+    .out_data(in)
+);
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
@@ -45,28 +56,17 @@ assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
-
-/* -- DESIGN WIRING ----------------------------------------------------- */
-
-ready_valid_i #(page_metadata_t) in_meta ();
-ready_valid_i #(page_metadata_t) out_meta ();
-// tie off out_meta as we're not going to read its output
-assign out_meta.ready = 1;
-
-page_metadata_t test_metadata[2:0];
-assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY},
-    '{compression: COMPRESSION_RAW},
-    '{compression: COMPRESSION_SNAPPY}
-};
-
-ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
+ndata_i #(logic[31:0], 16) out ();
+NDataToAXI #(logic[31:0], 16) ndata_to_axi_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .data(test_metadata),
-    .out_data(in_meta)
+    .in(out),
+    .out(host_out)
 );
+
+/* -- DESIGN WIRING ----------------------------------------------------- */
+
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
@@ -77,24 +77,21 @@ always_ff @(posedge aclk) begin
         // end
 
         if (host_out.tvalid && host_out.tready) begin
-            // $display("> out valid: %x, ready: %x, last: %x", host_out.tvalid, host_out.tready, host_out.tlast);
+            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats+1", output_databeat);
+              // $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end
     end
 end
 
-Decompressor decompressor_inst (
+ExpandRLE #(32, 16) expand_rle_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .in(host_in),
-    .in_meta(in_meta),
-
-    .out(host_out),
-    .out_meta(out_meta)
+    .in(in),
+    .out(out)
 );

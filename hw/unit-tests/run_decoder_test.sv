@@ -1,7 +1,11 @@
 `timescale 1ns / 1ps
 
 `include "parcore_types.svh"
-import parcore::*;
+`include "lynx_macros.svh"
+
+import parcore::run_decoder_metadata_t;
+import libstf::data8_t;
+import libstf::data32_t;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -26,13 +30,37 @@ always_comb notify.tie_off_m();
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4SR #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
 assign axis_host_recv[0].tready = host_in.tready;
 assign host_in.tdata = axis_host_recv[0].tdata;
 assign host_in.tkeep = axis_host_recv[0].tkeep;
 assign host_in.tlast = axis_host_recv[0].tlast;
 assign host_in.tvalid = axis_host_recv[0].tvalid;
-assign host_in.tid = axis_host_recv[0].tid;
+
+ndata_i #(data8_t, 64) in ();
+AXIToNData #(data8_t, 64) axi_to_ndata_inst (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .in(host_in),
+    .out(in)
+);
+
+ready_valid_i #(run_decoder_metadata_t) in_meta ();
+
+run_decoder_metadata_t test_metadata[1:0];
+assign test_metadata = '{
+    '{bit_width: 8, offset: 8, num_values: 150},
+    '{bit_width: 4, offset: 8, num_values: 150}
+};
+
+ReadyValidCyclicDriver #(run_decoder_metadata_t, 2) inst_meta_driver (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .data(test_metadata),
+    .out_data(in_meta)
+);
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
@@ -45,56 +73,42 @@ assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
-
-/* -- DESIGN WIRING ----------------------------------------------------- */
-
-ready_valid_i #(page_metadata_t) in_meta ();
-ready_valid_i #(page_metadata_t) out_meta ();
-// tie off out_meta as we're not going to read its output
-assign out_meta.ready = 1;
-
-page_metadata_t test_metadata[2:0];
-assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY},
-    '{compression: COMPRESSION_RAW},
-    '{compression: COMPRESSION_SNAPPY}
-};
-
-ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
+ndata_i #(data32_t, 16) out ();
+NDataToAXI #(data32_t, 16) ndata_to_axi_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .data(test_metadata),
-    .out_data(in_meta)
+    .in(out),
+    .out(host_out)
 );
+
+/* -- DESIGN WIRING ----------------------------------------------------- */
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
         output_databeat  <= 0;
     end else begin
-        // if (host_in.tvalid && host_in.tready) begin
-        //     $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
-        // end
+        if (host_in.tvalid && host_in.tready) begin
+            $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
+        end
 
         if (host_out.tvalid && host_out.tready) begin
-            // $display("> out valid: %x, ready: %x, last: %x", host_out.tvalid, host_out.tready, host_out.tlast);
+            $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats+1", output_databeat);
+              $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end
     end
 end
 
-Decompressor decompressor_inst (
+RunDecoder #(data32_t, 16) run_decoder_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .in(host_in),
+    .in(in),
     .in_meta(in_meta),
-
-    .out(host_out),
-    .out_meta(out_meta)
+    .out(out)
 );

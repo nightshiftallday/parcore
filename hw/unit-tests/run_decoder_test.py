@@ -1,0 +1,69 @@
+from dataclasses import dataclass
+from coyote_test import fpga_test_case, fpga_stream
+from os.path import dirname, realpath, join
+from random import randint
+
+def read_data(filename: str) -> bytearray:
+    dir = dirname(realpath(__file__))
+    with open(join(dir, 'data', filename), 'rb') as f:
+        data = bytearray(f.read())
+
+    return data
+
+@dataclass
+class _TestCase:
+    input: bytearray
+    output: list[list[int]]
+
+_test_cases = (
+    _TestCase(
+        input=read_data('rle_data_rg0_col0_chunk_decompressed.bin'),
+        output=[[i-10] * i for i in range(10, 20)],
+    ),
+    _TestCase(
+        input=read_data('bpe_data_rg0_col0_chunk_decompressed.bin'),
+        output=[list(range(10-10, 20-10)) * 15],
+    ),
+)
+
+class RunDecoderTestCase(fpga_test_case.FPGATestCase):
+    alternative_vfpga_top_file = "run_decoder_test.sv"
+    debug_mode = True
+    # verbose_logging = True
+
+    def test_one_rle_strip(self):
+        test_case = _test_cases[0]
+        self.set_stream_input(0, test_case.input)
+        for lst in test_case.output[:1]:
+            self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_many_rle_strips(self):
+        test_case = _test_cases[0]
+        self.set_stream_input(0, test_case.input)
+        for lst in test_case.output:
+            self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_one_bpe_strip(self):
+        test_case = _test_cases[1]
+        self.set_stream_input(0, test_case.input)
+        for lst in test_case.output:
+            print(len(lst))
+            self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
