@@ -50,7 +50,7 @@ ready_valid_i #(run_decoder_metadata_t) in_meta ();
 
 run_decoder_metadata_t test_metadata[1:0];
 assign test_metadata = '{
-    '{bit_width: 8, offset: 8, num_values: 150},
+    '{bit_width: 8, offset: 8, num_values: 802},
     '{bit_width: 4, offset: 8, num_values: 150}
 };
 

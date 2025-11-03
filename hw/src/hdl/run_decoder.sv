@@ -178,6 +178,9 @@ always_comb begin
             bpe_needs_more_input |= ~keep_keep[offset + i];
         end
     end
+    // TODO: consider possible edge cases by using keep_last_received and not
+    // last_receive. Should be fine at first thought.
+    bpe_needs_more_input &= ~keep_last_received;
 end
 assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || last_received);
 
@@ -267,9 +270,7 @@ task goto_decode(input data32_t remaining_values);
 
     keep_header <= varint_out.data.value;
 
-    if (remaining_values <= 0) begin
-        reset();
-    end else if (varint_out.data.value[0]) begin
+    if (varint_out.data.value[0]) begin
         state <= ST_DECODE_BPE;
         update_offset(varint_offset, varint_offset + varint_out.data.length);
 
@@ -294,10 +295,12 @@ endtask
 
 task finish_rle();
     remaining_values <= remaining_values - rle_count;
-    // If the varint for the next databeat is already valid and parsed, we can
-    // move forward to the next decode, otherwise we store the varint offset
-    // which we're trying to decode and move to a state waiting for more input).
-    if (varint_out.valid) begin
+    if (remaining_values <= rle_count) begin
+        reset();
+    end else if (varint_out.valid) begin
+        // If the varint for the next databeat is already valid and parsed, we can
+        // move forward to the next decode, otherwise we store the varint offset
+        // which we're trying to decode and move to a state waiting for more input).
         goto_decode(remaining_values - rle_count);
     end else begin
         // If ~varint_out.valid we need to fetch more input to
@@ -322,11 +325,14 @@ endtask
 
 task finish_bpe();
     bpe_valid <= 0;
+    remaining_values <= remaining_values - bpe_count;
 
-    // If the varint for the next databeat is already valid and parsed, we can
-    // move forward to the next decode, otherwise we store the varint offset
-    // which we're trying to decode and move to a state waiting for more input).
-    if (varint_out.valid) begin
+    if (remaining_values <= bpe_count) begin
+        reset();
+    end else if (varint_out.valid) begin
+        // If the varint for the next databeat is already valid and parsed, we can
+        // move forward to the next decode, otherwise we store the varint offset
+        // which we're trying to decode and move to a state waiting for more input).
         goto_decode(remaining_values - bpe_count);
     end else begin
         // If ~varint_out.valid we need to fetch more input to

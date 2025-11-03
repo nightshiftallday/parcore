@@ -15,8 +15,10 @@ pq.write_table(pa.table(bpe_data), 'bpe_data.parquet', data_page_version="1.0")
 
 
 mixed_data = {'col0':
-                [i**8 for i in range(20, 30) for _ in range(i)] +
-                list(range(128, 256)) * 4
+                [i**8 for i in range(10, 20) for _ in range(i)] +
+                list(range(128, 256)) * 2 +
+                [i**8 for i in range(10, 20) for _ in range(i)] +
+                list(range(128, 256)) * 2
              }
 print(mixed_data)
 pq.write_table(pa.table(mixed_data), 'mixed_data.parquet', data_page_version="1.0")
