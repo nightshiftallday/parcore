@@ -17,10 +17,10 @@ module RunDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ndata_i.s in,            // #(data8_t, NUM_BYTES)
     ready_valid_i.s in_meta, // #(run_decoder_metadata_t)
+    ndata_i.s in,            // #(data8_t, NUM_BYTES)
 
-    ndata_i.m out           // #(data_t, NUM_ELEMENTS)
+    ndata_i.m out            // #(data_t, NUM_ELEMENTS)
 );
 
 // ------- Input extraction ------
@@ -192,7 +192,7 @@ task store_input(input data8_t[NUM_BYTES - 1:0] data,
                  input logic[NUM_BYTES - 1:0] keep,
                  input logic last,
                  input logic second_half);
-    $display("!!!!!!!!!! storing in %d, %x, %x, %b", second_half, data, keep ,last);
+    // $display("!!!!!!!!!! storing in %d, %x, %x, %b", second_half, data, keep ,last);
     if (~second_half) begin
         keep_data[NUM_BYTES - 1:0] <= data;
         keep_keep[NUM_BYTES - 1:0] <= keep;
@@ -248,6 +248,7 @@ task update_offset(input offset_t varint_offset, input offset_t offset);
 endtask
 
 task reset();
+    // $display("resetting");
     state <= ST_IDLE;
     keep_data <= '0;
     keep_keep <= '0;
@@ -275,9 +276,11 @@ task goto_decode(input data32_t remaining_values);
         update_offset(varint_offset, varint_offset + varint_out.data.length);
 
         if (remaining_values < (varint_out.data.value >> 1 << 3)) begin
+            // $display("performing BPE (1) %d", remaining_values);
             bpe_count <= remaining_values;
             bpe_extra <= (varint_out.data.value >> 1 << 3) - remaining_values;
         end else begin
+            // $display("performing BPE (2) %d", varint_out.data.value >> 1 << 3);
             bpe_count <= varint_out.data.value >> 1 << 3;
             bpe_extra <= 0;
         end
@@ -285,6 +288,7 @@ task goto_decode(input data32_t remaining_values);
         bpe_offset <= 0;
         bpe_valid <= 1;
     end else begin
+        // $display("performing LRE %d", varint_out.data.value >> 1);
         state <= ST_DECODE_RLE;
         update_offset(varint_offset, varint_offset + varint_out.data.length);
        
@@ -346,7 +350,7 @@ always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
         reset();
     end else begin
-        $display("in state: %d, in.ready: %d, in.valid: %d, out.ready: %d, out.valid: %d", state, in.ready, in.valid, out.ready, out.valid);
+        // $display("in state: %d, in.ready: %d, in.valid: %d, out.ready: %d, out.valid: %d, offset: %d", state, in.ready, in.valid, out.ready, out.valid, offset);
 
         case (state)
             ST_IDLE: begin
@@ -360,10 +364,12 @@ always_ff @(posedge clk) begin
                         store_input(in_data, in_keep, in.last, 0);
                     end
 
-                    if (varint_out.valid) begin
+                    // NOTE: we must make sure this input we're on
+                    // is valid, otherwise we 
+                    if (in.valid && varint_out.valid) begin
                         // We received the meta, input and managed to parse
                         // the varint aleady. Move to decoding immediately.
-                        goto_decode(remaining_values);
+                        goto_decode(in_meta_data.num_values);
                     end else if (in.ready && in.valid) begin
                         // If we're already to read the input, but
                         // ~varint_out.valid, it means that we don't have
@@ -433,16 +439,17 @@ always_ff @(posedge clk) begin
             end
 
             ST_DECODE_BPE: begin
-                $display("| in BPE, bit_width: %d", bit_width);
-                $display("| bpe_count: %d, offset: %d, bpe_offset: %d, bpe_in.data: %x", bpe_count, offset, bpe_offset, bpe_in.data);
-                $display("| bpe_in.valid: %d, bpe_in.ready: %d", bpe_in.valid, bpe_in.ready);
-                $display("| bpe_out.valid: %d, bpe_out.ready: %d, bpe_out.keep: %x", bpe_out.valid, bpe_out.ready, bpe_out.keep);
+                // $display("| in BPE, bit_width: %d", bit_width);
+                // $display("| bpe_count: %d, offset: %d, bpe_offset: %d, bpe_in.data: %x", bpe_count, offset, bpe_offset, bpe_in.data);
+                // $display("| bpe_in.valid: %d, bpe_in.ready: %d", bpe_in.valid, bpe_in.ready);
+                // $display("| bpe_out.valid: %d, bpe_out.ready: %d, bpe_out.keep: %x", bpe_out.valid, bpe_out.ready, bpe_out.keep);
 
                 if (in.ready && in.valid) begin
                     store_input(in_data, in_keep, in.last, 1);
                 end
 
                 if (bpe_out.ready && bpe_out.valid) begin
+                    // $display("putting out bpe batch, %b, remaining: %d, bpe_count: %d", bpe_out.last, remaining_values, bpe_count);
                     if (bpe_out.last) begin
                         finish_bpe();
                     end else begin
@@ -595,13 +602,9 @@ end
 // ------- Driving output --------
 
 always_comb begin
-    in_meta.ready = state == ST_IDLE;
+    in_meta.ready = state == ST_IDLE && rst_n;
 
     case (state)
-        ST_IDLE, ST_HEADER, ST_HEADER2: begin
-            out.valid = 0;
-        end
-
         ST_DECODE_RLE, ST_DECODE_RLE2: begin
           out.valid = rle_out.valid;
           out.data = rle_out.data;
@@ -614,6 +617,13 @@ always_comb begin
           out.data = bpe_out.data;
           out.keep = bpe_out.keep;
           out.last = bpe_out.last;
+        end
+
+        default: begin
+            out.valid = 0;
+            out.data = '{default: '0};
+            out.keep = '0;
+            out.last = 0;
         end
     endcase
 end

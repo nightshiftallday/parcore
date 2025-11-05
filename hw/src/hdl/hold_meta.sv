@@ -1,26 +1,5 @@
 `timescale 1ns / 1ps
 
-module Hold #(
-  parameter type data_t
-) (
-    input logic clk,
-    input logic rst_n,
-
-    ready_valid_i.s in_data, // #(data_t)
-
-    // When to pause the metadata ready value, signaling that no more input
-    // should be taken associated with this metadata.
-    input logic pause,
-    // When to drop the metadata we're currently holding
-    input logic drop,
-
-    ready_valid_i.m meta // #(data_t)
-);
-
-// TODO:
-
-endmodule
-
 module HoldForward #(
   parameter type data_t
 ) (
@@ -36,7 +15,7 @@ module HoldForward #(
     // When to drop the metadata we're currently holding
     input logic drop,
 
-    ready_valid_i.m meta // #(data_t)
+    ready_valid_i.m data // #(data_t)
 );
 
 // Read input ready valid interface as data_t
@@ -57,8 +36,8 @@ typedef enum logic {
     ST_SENT
 } sent_t;
 
-sent_t sent = ST_UNSENT;
-state_t state = ST_IDLE;
+sent_t sent;
+state_t state;
 
 logic paused;
 
@@ -115,14 +94,14 @@ end
 always_comb begin
     case (state)
         ST_IDLE: begin
-            meta.valid = in_data.valid && in_data.ready;
+            data.valid = in_data.valid && in_data.ready;
             // As long as we can take in more metadata we can get data
             // associated with that meta, so the meta stream is ready.
-            meta.ready = in_data.ready;
-            meta.data = in_data_data;
+            data.ready = in_data.ready;
+            data.data = in_data_data;
             
             // We're not buffering any data currently, so we're ready to take
-            // in new meta.
+            // in new data.
             //
             // There's one edge case. If we need to drop the value in the same
             // cycle, the output must be ready to take the meta input.
@@ -133,16 +112,16 @@ always_comb begin
         end
 
         ST_CONF: begin
-            meta.valid = 1'b1;
-            meta.ready = ~paused;
-            meta.data = keep_meta;
+            data.valid = 1'b1;
+            data.ready = ~paused;
+            data.data = keep_meta;
 
             in_data.ready = 1'b0;
         end
 
         ST_FLUSH: begin
-            meta.valid = 1'b0;
-            meta.ready = 1'b0;
+            data.valid = 1'b0;
+            data.ready = 1'b0;
 
             in_data.ready = 1'b0;
         end
@@ -179,7 +158,7 @@ end
 
 // We can write the new metadata to the next stage when the metadata we hold
 // is valid and we haven't sent a databeat for this configuration already.
-assign out_data.valid = (meta.valid || state == ST_FLUSH) && sent == ST_UNSENT;
-assign out_data.data = meta.data;
+assign out_data.valid = (data.valid || state == ST_FLUSH) && sent == ST_UNSENT;
+assign out_data.data = data.data;
 
 endmodule

@@ -49,7 +49,7 @@ class RunDecoderTestCase(fpga_test_case.FPGATestCase):
     def test_one_rle_strip(self):
         test_case = _test_cases[0]
         self.set_stream_input(0, test_case.inputs[0])
-        for lst in test_case.outputs[:1]:
+        for lst in test_case.outputs:
             self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
 
         # Act

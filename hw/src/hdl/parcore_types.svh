@@ -16,6 +16,7 @@ typedef enum logic {
 
 typedef struct packed {
     compression_t compression;
+    data32_t num_values;
 } page_metadata_t;
 
 // Number of bits in RLE/BPE encodings
@@ -33,7 +34,7 @@ typedef struct packed {
 // Offset into the 64-byte input databeat
 // NOTE: This is intentionally one extra bit than what would be necessary to
 // allow safe indexing into double width input buffers.
-typedef logic [$clog2(AXI_DATA_BITS / 8) :0] offset_t;
+typedef logic [$clog2(AXI_DATA_BITS / 8):0] offset_t;
 
 typedef struct packed {
     bit_width_t bit_width;

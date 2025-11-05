@@ -55,9 +55,9 @@ assign out_meta.ready = 1;
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY},
-    '{compression: COMPRESSION_RAW},
-    '{compression: COMPRESSION_SNAPPY}
+    '{compression: COMPRESSION_SNAPPY, num_values: 0},
+    '{compression: COMPRESSION_RAW, num_values: 0},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (

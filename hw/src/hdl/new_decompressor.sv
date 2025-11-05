@@ -3,8 +3,9 @@
 `include "axi_macros.svh"
 
 `include "parcore_types.svh"
-import parcore::*;
-
+import parcore::page_metadata_t;
+import parcore::COMPRESSION_SNAPPY;
+import parcore::COMPRESSION_RAW;
 
 module Decompressor (
     input logic clk,
@@ -22,14 +23,14 @@ HoldForward #(page_metadata_t) hold_meta_transaction_inst (
     .clk(clk),
     .rst_n(rst_n),
 
-    .in_meta(in_meta),
-    .out_meta(out_meta),
+    .in_data(in_meta),
+    .out_data(out_meta),
     // We want to pause the current metadata when we receive the last databeat
     .pause(in.tvalid && in.tready && in.tlast),
     // We want to drop the current metadata when we send the last databeat
     .drop(out.tvalid && out.tready && out.tlast),
 
-    .meta(meta)
+    .data(meta)
 );
 
 AXI4S decompressor_in(clk);

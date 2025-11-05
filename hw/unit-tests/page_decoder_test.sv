@@ -3,8 +3,9 @@
 `include "parcore_types.svh"
 `include "lynx_macros.svh"
 
-import parcore::*;
-import libstf::*;
+import parcore::run_decoder_metadata_t;
+import libstf::data8_t;
+import libstf::data32_t;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -45,6 +46,23 @@ AXIToNData #(data8_t, 64) axi_to_ndata_inst (
     .out(in)
 );
 
+ready_valid_i #(page_metadata_t) in_meta ();
+
+page_metadata_t test_metadata[2:0];
+assign test_metadata = '{
+    '{compression: COMPRESSION_SNAPPY, num_values: 802},
+    '{compression: COMPRESSION_SNAPPY, num_values: 150},
+    '{compression: COMPRESSION_SNAPPY, num_values: 145}
+};
+
+ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .data(test_metadata),
+    .out_data(in_meta)
+);
+
 /* -- OUTPUT ------------------------------------------------------------ */
 
 integer output_databeat;
@@ -56,8 +74,8 @@ assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
-ndata_i #(data8_t, 64) out ();
-NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
+ndata_i #(data32_t, 16) out ();
+NDataToAXI #(data32_t, 16) ndata_to_axi_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -72,25 +90,26 @@ always_ff @(posedge aclk) begin
         output_databeat  <= 0;
     end else begin
         if (host_in.tvalid && host_in.tready) begin
-            $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
+            // $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
         end
 
         if (host_out.tvalid && host_out.tready) begin
-            $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
+            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              $display(">>! got tlast after %d databeats", output_databeat+1);
+              // $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end
     end
 end
 
-StripLevels #(64) strip_levels_inst (
+PageDecoder #(data32_t, 16) page_decoder_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
     .in(in),
+    .in_meta(in_meta),
     .out(out)
 );
