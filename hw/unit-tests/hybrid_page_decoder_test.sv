@@ -50,9 +50,9 @@ ready_valid_i #(page_metadata_t) in_meta ();
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 802},
-    '{compression: COMPRESSION_SNAPPY, num_values: 150},
-    '{compression: COMPRESSION_SNAPPY, num_values: 145}
+    '{compression: COMPRESSION_SNAPPY, num_values: 802, bitwidth: B32},
+    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B32},
+    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B32}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
@@ -105,7 +105,7 @@ always_ff @(posedge aclk) begin
     end
 end
 
-PageDecoder #(data32_t, 16) page_decoder_inst (
+HybridPageDecoder #(data32_t, 16) page_decoder_inst (
     .clk(aclk),
     .rst_n(aresetn),
 

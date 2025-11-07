@@ -55,9 +55,9 @@ assign out_meta.ready = 1;
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 0},
-    '{compression: COMPRESSION_RAW, num_values: 0},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0}
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32},
+    '{compression: COMPRESSION_RAW, num_values: 0, bitwidth: B32},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
@@ -81,7 +81,7 @@ always_ff @(posedge aclk) begin
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats+1", output_databeat);
+              // $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end

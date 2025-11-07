@@ -1,11 +1,15 @@
 `ifndef _PARCORE_PARCORE_TYPES_H_
 `define _PARCORE_PARCORE_TYPES_H_
 
+`include "lynx_macros.svh"
+
+
 package parcore;
 
 import libstf::data32_t;
+import libstf::bitwidth_t;
+import lynxTypes::*;
 
-parameter integer AXI_DATA_BITS = 512;
 parameter int VARINT_NUM_BYTES = 4;
 parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 8;
 
@@ -13,11 +17,6 @@ typedef enum logic {
     COMPRESSION_RAW,
     COMPRESSION_SNAPPY
 } compression_t;
-
-typedef struct packed {
-    compression_t compression;
-    data32_t num_values;
-} page_metadata_t;
 
 // Number of bits in RLE/BPE encodings
 typedef logic [3:0] bit_width_t;
@@ -46,6 +45,12 @@ typedef struct packed {
     logic [VARINT_NUM_BITS - 1:0] value;
     logic [$clog2(VARINT_NUM_BYTES) - 1:0] length;
 } varint_t;
+
+typedef struct packed {
+    compression_t compression;
+    data32_t num_values;
+    bitwidth_t bitwidth;
+} page_metadata_t;
 
 endpackage
 

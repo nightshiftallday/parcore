@@ -16,3 +16,14 @@ with open(sys.argv[1], 'rb') as f:
             # Just save it - it contains all pages for this column
             with open(sys.argv[1].replace('.parquet', f'_rg{i}_col{j}_chunk.bin'), 'wb') as out:
                 out.write(data)
+
+            dict_offset = col_meta.dictionary_page_offset
+            data_offset = col_meta.data_page_offset
+            if dict_offset is not None:
+                # Read only dictionary pages
+                size = data_offset - dict_offset
+                f.seek(dict_offset)
+                dict_data = f.read(size)
+
+                with open(sys.argv[1].replace('.parquet', f'_rg{i}_col{j}_dict.bin'), 'wb') as out:
+                    out.write(dict_data)
