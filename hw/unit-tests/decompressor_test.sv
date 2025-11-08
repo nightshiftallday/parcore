@@ -1,38 +1,33 @@
 `timescale 1ns / 1ps
 
+import libstf::data8_t;
+
 `include "parcore_types.svh"
 import parcore::*;
+import libstf::*;
+
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
 always_comb notify.tie_off_m();
-// always_comb sq_rd.tie_off_m();
-// always_comb sq_wr.tie_off_m();
-// always_comb cq_rd.tie_off_s();
-// always_comb cq_wr.tie_off_s();
-
-// always_comb axis_host_recv[1].tie_off_s();
-// always_comb axis_host_recv[2].tie_off_s();
-// always_comb axis_host_recv[3].tie_off_s();
-// always_comb axis_host_recv[4].tie_off_s();
-// always_comb axis_host_recv[5].tie_off_s();
-// always_comb axis_host_send[1].tie_off_m();
-// always_comb axis_host_send[2].tie_off_m();
-// always_comb axis_host_send[3].tie_off_m();
-// always_comb axis_host_send[4].tie_off_m();
-// always_comb axis_host_send[5].tie_off_m();
-
-/* -- USER LOGIC -------------------------------------------------------- */
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4SR #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
 assign axis_host_recv[0].tready = host_in.tready;
 assign host_in.tdata = axis_host_recv[0].tdata;
 assign host_in.tkeep = axis_host_recv[0].tkeep;
 assign host_in.tlast = axis_host_recv[0].tlast;
 assign host_in.tvalid = axis_host_recv[0].tvalid;
-assign host_in.tid = axis_host_recv[0].tid;
+
+ndata_i #(data8_t, 64) in ();
+AXIToNData #(data8_t, 64) axi_to_ndata_inst (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .in(host_in),
+    .out(in)
+);
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
@@ -44,6 +39,15 @@ assign axis_host_send[0].tkeep = host_out.tkeep;
 assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
+
+ndata_i #(data8_t, 64) out ();
+NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
+    .clk(aclk),
+    .rst_n(aresetn),
+
+    .in(out),
+    .out(host_out)
+);
 
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
@@ -88,13 +92,13 @@ always_ff @(posedge aclk) begin
     end
 end
 
-Decompressor decompressor_inst (
+Decompressor #(64) decompressor_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .in(host_in),
+    .in(in),
     .in_meta(in_meta),
 
-    .out(host_out),
+    .out(out),
     .out_meta(out_meta)
 );

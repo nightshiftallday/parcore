@@ -16,9 +16,9 @@ module PageDecoder #(
     input logic rst_n,
 
     ready_valid_i.s in_meta, // #(page_metadata_t)
-    ndata_i.s in,            // #(data8_t, NUM_BYTES)
+    AXI4S.s in,
 
-    ndata_i.m out            // #(data_t, NUM_ELEMENTS)
+    typed_ndata_i.m out      // #(NUM_BYTES)
 );
 
 endmodule

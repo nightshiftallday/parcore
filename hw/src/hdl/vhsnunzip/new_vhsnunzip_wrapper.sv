@@ -1,21 +1,25 @@
-import lynxTypes::*;
+`timescale 1ns / 1ps
 
-module new_vhsnunzip_wrapper (
+import lynxTypes::*;
+import libstf::data8_t;
+
+module VHSNunzipWrapper #(
+    parameter NUM_BYTES = AXI_DATA_BITS / 8
+) (
     input logic clk,
     input logic rst_n,
 
-    AXI4S.s in,
-    AXI4S.m out
+    ndata_i.s in, // #(data8_t, NUM_BYTES)
+    ndata_i.m out // #(data8_t, NUM_BYTES)
 );
     // Decompressor parameters
-    localparam DECOMP_DATA_BITS = 64;
+    localparam DECOMP_DATA_BYTES = 8;
+    localparam DECOMP_DATA_BITS = DECOMP_DATA_BYTES * 8;
     localparam DECOMP_IN_CNT_BITS = 3;
     localparam DECOMP_OUT_CNT_BITS = 4;
 
-    localparam AXI_CNT_BITS = $clog2(AXI_DATA_BITS/8);
-    localparam INDEX_BITS = $clog2(AXI_DATA_BITS / DECOMP_DATA_BITS);
-
-
+    localparam CNT_BITS = $clog2(NUM_BYTES);
+    localparam INDEX_BITS = $clog2(NUM_BYTES / DECOMP_DATA_BYTES);
 
     // Decompressor input ports
     logic co_valid;   
@@ -29,11 +33,11 @@ module new_vhsnunzip_wrapper (
     // Was the data in the input buffers 'in_*' already processed?
     logic in_done;
     // Number of valid bytes in 'in_data' with implicit MSB
-    logic [AXI_CNT_BITS-1:0] in_cnt;
+    logic [CNT_BITS - 1:0] in_cnt;
 
     // Buffers for AXI data
-    logic [AXI_DATA_BITS-1:0] in_data;
-    logic [AXI_DATA_BITS/8-1:0] in_keep;
+    logic [NUM_BYTES * 8 - 1:0] in_data;
+    logic [NUM_BYTES - 1:0] in_keep;
     logic in_last;
 
     // Decompressor output ports
@@ -50,14 +54,14 @@ module new_vhsnunzip_wrapper (
 
 
     // Ready to receive new input when we are done with the chunk or currently streaming the last part of it.
-    // assign in.tready = rst_n && (in_done || (in_index == {(INDEX_BITS){1'b1}} && co_ready));
+    // assign in.ready = rst_n && (in_done || (in_index == {(INDEX_BITS){1'b1}} && co_ready));
     always_comb begin
-        in.tready = 1'b0;
+        in.ready = 1'b0;
         if (rst_n) begin
             if (in_done) begin
-                in.tready = 1'b1;
+                in.ready = 1'b1;
             end else if (in_index == {(INDEX_BITS){1'b1}} && co_ready) begin
-                in.tready = 1'b1;
+                in.ready = 1'b1;
             end
         end
     end
@@ -65,12 +69,14 @@ module new_vhsnunzip_wrapper (
     // in_index and in_done
     always_ff @(posedge clk) begin
 	    if (rst_n) begin
-            if (in.tready) begin
-                if (in.tvalid) begin
+            if (in.ready) begin
+                if (in.valid) begin
                     // Read input chunk
-                    in_data <= in.tdata;
-                    in_keep <= in.tkeep;
-                    in_last <= in.tlast;
+                    for (int i = 0; i < NUM_BYTES; i++) begin
+                        in_data[i*8 +: 8] <= in.data[i];
+                    end
+                    in_keep <= in.keep;
+                    in_last <= in.last;
 
                     in_index <= 0;
                     in_done <= 1'b0;
@@ -122,15 +128,15 @@ module new_vhsnunzip_wrapper (
         co_valid = rst_n && !in_done;
     end
     
-    // We can accept new decompressed data if the buffer 'out.tdata' is not full yet
+    // We can accept new decompressed data if the buffer 'out.data' is not full yet
     // or if we are in an output handshake and the buffer will be empty next cycle.
-    // assign de_ready = rst_n && (!out.tvalid || out.tready);
+    // assign de_ready = rst_n && (!out.valid || out.ready);
     always_comb begin
         de_ready = 1'b0;
         if (rst_n) begin
-            if (!out.tvalid) begin
+            if (!out.valid) begin
                 de_ready = 1'b1;
-            end else if (out.tready) begin
+            end else if (out.ready) begin
                 de_ready = 1'b1;
             end
         end
@@ -152,18 +158,21 @@ module new_vhsnunzip_wrapper (
         end
     end
 
-    // out.tdata, out.tkeep and out.tlast
+    // out.data, out.keep and out.last
     always_ff @(posedge clk) begin
         logic [AXI_DATA_BITS/8-1:0] tmp_keep;
         if (rst_n) begin
             if (de_ready && de_valid) begin
                 // Read decompressed data
-                out.tdata[out_index*DECOMP_DATA_BITS+:DECOMP_DATA_BITS] <= de_data;
-                out.tlast <= de_last;
+                for (int i = 0; i < DECOMP_DATA_BYTES; i++) begin
+                    out.data[out_index*DECOMP_DATA_BYTES + i] <= de_data[i*8 +: 8];
+                end
+                // out.data[out_index*DECOMP_DATA_BITS+:DECOMP_DATA_BITS] <= de_data;
+                out.last <= de_last;
             end
 
-            tmp_keep = out.tkeep;
-            if (out.tready && out.tvalid) begin
+            tmp_keep = out.keep;
+            if (out.ready && out.valid) begin
                 // Reset keep signal on output handshake.
                 tmp_keep = 0;
             end
@@ -176,22 +185,22 @@ module new_vhsnunzip_wrapper (
                             : (1 << de_cnt) - 1)
                         : 0;
             end
-            out.tkeep <= tmp_keep;
+            out.keep <= tmp_keep;
         end
     end
 
-    // out.tvalid
+    // out.valid
     always_ff @(posedge clk) begin
         if (rst_n) begin
             if (de_ready && de_valid && (out_index == {INDEX_BITS{1'b1}} || de_last)) begin
                 // We are ready to transmit the next chunk after the final (for the chunk or in total) bit was read.
-                out.tvalid <= 1'b1;
-            end else if (out.tvalid && out.tready) begin
+                out.valid <= 1'b1;
+            end else if (out.valid && out.ready) begin
                 // Reset after handshake.
-                out.tvalid <= 1'b0;
+                out.valid <= 1'b0;
             end
         end else begin
-            out.tvalid <= 1'b0;
+            out.valid <= 1'b0;
         end
     end
 
