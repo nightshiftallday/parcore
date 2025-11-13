@@ -4,27 +4,19 @@
 `include "lynx_macros.svh"
 
 import parcore::run_decoder_metadata_t;
+import parcore::run_decoder_metadata_t;
 import libstf::data8_t;
 import libstf::data32_t;
+import libstf::B32;
+import libstf::B64;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
 always_comb notify.tie_off_m();
-// always_comb sq_rd.tie_off_m();
-// always_comb sq_wr.tie_off_m();
-// always_comb cq_rd.tie_off_s();
-// always_comb cq_wr.tie_off_s();
-
-// always_comb axis_host_recv[1].tie_off_s();
-// always_comb axis_host_recv[2].tie_off_s();
-// always_comb axis_host_recv[3].tie_off_s();
-// always_comb axis_host_recv[4].tie_off_s();
-// always_comb axis_host_recv[5].tie_off_s();
-// always_comb axis_host_send[1].tie_off_m();
-// always_comb axis_host_send[2].tie_off_m();
-// always_comb axis_host_send[3].tie_off_m();
-// always_comb axis_host_send[4].tie_off_m();
-// always_comb axis_host_send[5].tie_off_m();
+always_comb sq_rd.tie_off_m();
+always_comb sq_wr.tie_off_m();
+always_comb cq_rd.tie_off_s();
+always_comb cq_wr.tie_off_s();
 
 /* -- USER LOGIC -------------------------------------------------------- */
 
@@ -50,9 +42,9 @@ ready_valid_i #(page_metadata_t) in_meta ();
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 802, bitwidth: B32},
-    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B32},
-    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B32}
+    '{compression: COMPRESSION_SNAPPY, num_values: 802, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B32, page_type: PAGE_TYPE_HYBRID}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (

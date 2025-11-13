@@ -3,10 +3,10 @@
 
 `include "lynx_macros.svh"
 
-
 package parcore;
 
 import libstf::data32_t;
+import libstf::data64_t;
 import libstf::bitwidth_t;
 import lynxTypes::*;
 
@@ -46,11 +46,25 @@ typedef struct packed {
     logic [$clog2(VARINT_NUM_BYTES) - 1:0] length;
 } varint_t;
 
+typedef enum logic {
+    PAGE_TYPE_HYBRID,
+    PAGE_TYPE_DICT
+} page_type_t;
+
 typedef struct packed {
     compression_t compression;
     data32_t num_values;
     bitwidth_t bitwidth;
+    page_type_t page_type;
 } page_metadata_t;
+
+typedef data64_t rdma_vaddress_t;
+typedef data64_t rdma_alloc_size_t;
+
+typedef struct packed {
+    rdma_vaddress_t   vaddr;
+    rdma_alloc_size_t size;
+} rdma_buffer_t;
 
 endpackage
 

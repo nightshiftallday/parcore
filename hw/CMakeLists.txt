@@ -13,6 +13,7 @@ set(NUM_UNITS 1 CACHE STRING "Number of processing units")
 
 set(N_REGIONS 1)
 set(EN_STRM 1)
+set(EN_RDMA 1)
 set(N_STRM_AXI ${NUM_UNITS})
 set(FDEV_NAME u55c)
 set(DEBUG 1)

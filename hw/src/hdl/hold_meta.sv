@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
 
+// TODO: use a custom interface, as ready_valid_i uses ready as input, but
+// we're using it as output.
+
 module HoldForward #(
   parameter type data_t
 ) (

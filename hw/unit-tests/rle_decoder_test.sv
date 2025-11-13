@@ -6,21 +6,10 @@ import parcore::*;
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
 always_comb notify.tie_off_m();
-// always_comb sq_rd.tie_off_m();
-// always_comb sq_wr.tie_off_m();
-// always_comb cq_rd.tie_off_s();
-// always_comb cq_wr.tie_off_s();
-
-// always_comb axis_host_recv[1].tie_off_s();
-// always_comb axis_host_recv[2].tie_off_s();
-// always_comb axis_host_recv[3].tie_off_s();
-// always_comb axis_host_recv[4].tie_off_s();
-// always_comb axis_host_recv[5].tie_off_s();
-// always_comb axis_host_send[1].tie_off_m();
-// always_comb axis_host_send[2].tie_off_m();
-// always_comb axis_host_send[3].tie_off_m();
-// always_comb axis_host_send[4].tie_off_m();
-// always_comb axis_host_send[5].tie_off_m();
+always_comb sq_rd.tie_off_m();
+always_comb sq_wr.tie_off_m();
+always_comb cq_rd.tie_off_s();
+always_comb cq_wr.tie_off_s();
 
 /* -- USER LOGIC -------------------------------------------------------- */
 

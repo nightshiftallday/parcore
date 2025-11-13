@@ -40,6 +40,7 @@ always_comb begin
     out.valid = in_meta.valid && in.valid;
     out.last = in.last;
     for (int i = 0; i < NUM_ELEMENTS; i++) begin
+        out.data[i] = '0;
         for (int j = 0; j < in_meta_data.bit_width; j++) begin
             out.data[i][j] = in_data[i*in_meta_data.bit_width+j];
         end

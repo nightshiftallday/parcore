@@ -10,6 +10,10 @@ import libstf::*;
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
 always_comb notify.tie_off_m();
+always_comb sq_rd.tie_off_m();
+always_comb sq_wr.tie_off_m();
+always_comb cq_rd.tie_off_s();
+always_comb cq_wr.tie_off_s();
 
 /* -- INPUT ------------------------------------------------------------- */
 
@@ -59,9 +63,9 @@ assign out_meta.ready = 1;
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32},
-    '{compression: COMPRESSION_RAW, num_values: 0, bitwidth: B32},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32}
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_RAW, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (

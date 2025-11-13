@@ -3,9 +3,11 @@
 `include "parcore_types.svh"
 `include "lynx_macros.svh"
 
-import parcore::run_decoder_metadata_t;
+import parcore::*;
 import libstf::data8_t;
 import libstf::data32_t;
+import libstf::B32;
+import libstf::B64;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -14,8 +16,6 @@ always_comb sq_rd.tie_off_m();
 always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
-
-/* -- USER LOGIC -------------------------------------------------------- */
 
 /* -- INPUT ------------------------------------------------------------- */
 
@@ -35,15 +35,20 @@ AXIToNData #(data8_t, 64) axi_to_ndata_inst (
     .out(in)
 );
 
-ready_valid_i #(run_decoder_metadata_t) in_meta ();
-
-run_decoder_metadata_t test_metadata[1:0];
+ready_valid_i #(page_metadata_t) in_meta ();
+page_metadata_t test_metadata[3:0];
 assign test_metadata = '{
-    '{bit_width: 8, offset: 8, num_values: 802, bitwidth: B32},
-    '{bit_width: 4, offset: 8, num_values: 150, bitwidth: B32}
-};
+    // '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
+    // '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT},
+    // '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
+    // '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT}
 
-ReadyValidCyclicDriver #(run_decoder_metadata_t, 2) inst_meta_driver (
+    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT},
+    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT}
+};
+ReadyValidCyclicDriver #(page_metadata_t, 4) inst_meta_driver (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -62,14 +67,18 @@ assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
-ndata_i #(data32_t, 16) out ();
-NDataToAXI #(data32_t, 16) ndata_to_axi_inst (
+ndata_i #(data8_t, 64) out_u8 ();
+NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .in(out),
+    .in(out_u8),
     .out(host_out)
 );
+
+// discard typed interface
+typed_ndata_i #(64) out();
+`DATA_ASSIGN(out, out_u8);
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
@@ -78,26 +87,27 @@ always_ff @(posedge aclk) begin
         output_databeat  <= 0;
     end else begin
         if (host_in.tvalid && host_in.tready) begin
-            // $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
+            $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
         end
 
         if (host_out.tvalid && host_out.tready) begin
-            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
+            $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats", output_databeat+1);
+              $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end
     end
 end
 
-RunDecoder #(data32_t, 16) run_decoder_inst (
+PageDecoder #(64) page_decoder_inst (
     .clk(aclk),
     .rst_n(aresetn),
 
-    .in(in),
     .in_meta(in_meta),
+    .in(in),
+
     .out(out)
 );
