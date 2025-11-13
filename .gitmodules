@@ -13,3 +13,4 @@
 [submodule "libstf"]
 	path = libstf
 	url = https://github.com/lucat1/libstf.git
+  branch = typed-dictionary
