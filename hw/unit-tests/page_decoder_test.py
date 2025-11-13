@@ -34,26 +34,9 @@ _test_cases = (
         outputs=[_rle_output],
     ),
     _TestCase(
-        inputs=[_bpe_input],
-        outputs=[_bpe_output],
+        inputs=[_rle_input, _bpe_input],
+        outputs=[_rle_output, _bpe_output],
     ),
-    # _TestCase(
-    #     inputs=[custom_page_header(_rle_input, 64+59)],
-    #     outputs=[_rle_output],
-    # ),
-    # _TestCase(
-    #     inputs=[_rle_input, _bpe_input],
-    #     outputs=[_rle_output, _bpe_output],
-    # ),
-    # _TestCase(
-    #     inputs=[_rle_input, _bpe_input, read_data('mixed_data_rg0_col0_chunk_decompressed.bin')],
-    #     outputs=[_rle_output, _bpe_output,
-    #             [i-10 for i in range(10, 20) for _ in range(i)] +
-    #             list(range(128-118, 256-118)) * 2 +
-    #             [i-10 for i in range(10, 20) for _ in range(i)] +
-    #             list(range(128-118, 256-118)) * 2
-    #     ]
-    # ),
 )
 
 class PageDecoderTestCase(fpga_test_case.FPGATestCase):
@@ -61,11 +44,15 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
     debug_mode = True
     # verbose_logging = True
 
+    def _setup_test(self, test_case: _TestCase):
+        for input in test_case.inputs:
+            self.set_stream_input(0, input.dictionary)
+            self.set_stream_input(0, input.hybrid)
+        for output in test_case.outputs:
+            self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, output))
+
     def test_one_rle_page(self):
-        test_case = _test_cases[0]
-        self.set_stream_input(0, test_case.inputs[0].dictionary)
-        self.set_stream_input(0, test_case.inputs[0].hybrid)
-        self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, test_case.outputs[0]))
+        self._setup_test(_test_cases[0])
 
         # Act
         self.simulate_fpga()
@@ -74,15 +61,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
         self.assert_simulation_output()
 
     def test_one_bpe_page(self):
-        test_case = _test_cases[1]
-        self.set_stream_input(0, test_case.inputs[0].dictionary)
-        self.set_stream_input(0, test_case.inputs[0].hybrid)
-        self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, test_case.outputs[0]))
-
-        test_case = _test_cases[0]
-        self.set_stream_input(0, test_case.inputs[0].dictionary)
-        self.set_stream_input(0, test_case.inputs[0].hybrid)
-        self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, test_case.outputs[0]))
+        self._setup_test(_test_cases[1])
 
         # Act
         self.simulate_fpga()

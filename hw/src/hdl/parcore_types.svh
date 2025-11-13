@@ -7,7 +7,7 @@ package parcore;
 
 import libstf::data32_t;
 import libstf::data64_t;
-import libstf::bitwidth_t;
+import libstf::type_t;
 import lynxTypes::*;
 
 parameter int VARINT_NUM_BYTES = 4;
@@ -54,7 +54,7 @@ typedef enum logic {
 typedef struct packed {
     compression_t compression;
     data32_t num_values;
-    bitwidth_t bitwidth;
+    type_t typ;
     page_type_t page_type;
 } page_metadata_t;
 

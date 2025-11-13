@@ -7,8 +7,8 @@ import parcore::run_decoder_metadata_t;
 import parcore::run_decoder_metadata_t;
 import libstf::data8_t;
 import libstf::data32_t;
-import libstf::B32;
-import libstf::B64;
+import libstf::INT32_T;
+import libstf::INT64_T;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -42,9 +42,9 @@ ready_valid_i #(page_metadata_t) in_meta ();
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 802, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B32, page_type: PAGE_TYPE_HYBRID}
+    '{compression: COMPRESSION_SNAPPY, num_values: 802, typ: INT32_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 150, typ: INT32_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 145, typ: INT32_T, page_type: PAGE_TYPE_HYBRID}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (

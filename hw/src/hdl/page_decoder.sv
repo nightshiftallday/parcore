@@ -7,32 +7,30 @@
 import lynxTypes::AXI_DATA_BITS;
 import libstf::data8_t;
 import libstf::data32_t;
-import libstf::B64;
-import libstf::B32;
 import parcore::*;
 
 parameter type id_t = data32_t;
 parameter int NUM_BYTES_ID = $bits(id_t) / 8;
 
 module PageDecoder #(
-    parameter NUM_BYTES = AXI_DATA_BITS / 8
+    parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
 ) (
     input logic clk,
     input logic rst_n,
 
     ready_valid_i.s in_meta, // #(page_metadata_t)
-    ndata_i.s in,            // #(data8_t, NUM_BYTES)
+    ndata_i.s in,            // #(data8_t, DATABEAT_SIZE)
 
-    typed_ndata_i.m out      // #(NUM_BYTES)
+    typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
-parameter int NUM_IDS = NUM_BYTES / NUM_BYTES_ID;
+parameter int NUM_IDS = DATABEAT_SIZE / NUM_BYTES_ID;
 
 // ------ Decompressor wiring ---------------------
 ready_valid_i #(page_metadata_t) decompressor_meta ();
-ndata_i #(data8_t, NUM_BYTES) decompressor_out ();
+ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 
-Decompressor #(NUM_BYTES) decompressor_inst (
+Decompressor #(DATABEAT_SIZE) decompressor_inst (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -45,13 +43,13 @@ Decompressor #(NUM_BYTES) decompressor_inst (
 
 // ------ Hybrid decoder wiring -------------------
 ready_valid_i #(page_metadata_t) decoder_meta ();
-ndata_i #(data8_t, NUM_BYTES) decoder_in ();
+ndata_i #(data8_t, DATABEAT_SIZE) decoder_in ();
 ndata_i #(id_t, NUM_IDS) decoder_out ();
 
 HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
-    .NUM_BYTES(NUM_BYTES)
+    .NUM_BYTES(DATABEAT_SIZE)
 ) hybrid_page_decoder_inst (
     .clk(clk),
     .rst_n(rst_n),
@@ -63,11 +61,11 @@ HybridPageDecoder #(
 );
 
 // ------ Typed dictionary wiring -----------------
-typed_ndata_i #(NUM_BYTES) typed_dictionary_values ();
+typed_ndata_i #(DATABEAT_SIZE) typed_dictionary_values ();
 
 TypedDictionary #(
     .id_t(id_t),
-    .NUM_BYTES(NUM_BYTES),
+    .DATABEAT_SIZE(DATABEAT_SIZE),
     .NUM_ELEMENTS(NUM_IDS)
 ) typed_dictionary_inst (
     .clk(clk),
@@ -134,7 +132,7 @@ assign decompressor_out.ready = meta.ready && meta.valid && (
 
 // ------ Driving typed dictionary ----------------
 assign typed_dictionary_values.valid = meta.valid && meta.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
-assign typed_dictionary_values.bitwidth = meta.data.bitwidth;
+assign typed_dictionary_values.typ = meta.data.typ;
 assign typed_dictionary_values.data = decompressor_out.data;
 assign typed_dictionary_values.keep = decompressor_out.keep;
 assign typed_dictionary_values.last = decompressor_out.last;

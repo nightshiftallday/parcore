@@ -6,8 +6,7 @@
 import parcore::*;
 import libstf::data8_t;
 import libstf::data32_t;
-import libstf::B32;
-import libstf::B64;
+import libstf::INT64_T;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -38,15 +37,10 @@ AXIToNData #(data8_t, 64) axi_to_ndata_inst (
 ready_valid_i #(page_metadata_t) in_meta ();
 page_metadata_t test_metadata[3:0];
 assign test_metadata = '{
-    // '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
-    // '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT},
-    // '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
-    // '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT}
-
-    '{compression: COMPRESSION_SNAPPY, num_values: 145, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT},
-    '{compression: COMPRESSION_SNAPPY, num_values: 150, bitwidth: B64, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B64, page_type: PAGE_TYPE_DICT}
+    '{compression: COMPRESSION_SNAPPY, num_values: 150, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT},
+    '{compression: COMPRESSION_SNAPPY, num_values: 145, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT}
 };
 ReadyValidCyclicDriver #(page_metadata_t, 4) inst_meta_driver (
     .clk(aclk),

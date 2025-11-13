@@ -63,9 +63,9 @@ assign out_meta.ready = 1;
 
 page_metadata_t test_metadata[2:0];
 assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_RAW, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, bitwidth: B32, page_type: PAGE_TYPE_HYBRID}
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT32_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_RAW, num_values: 0, typ: INT32_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT32_T, page_type: PAGE_TYPE_HYBRID}
 };
 
 ReadyValidCyclicDriver #(page_metadata_t, 3) inst_meta_driver (
