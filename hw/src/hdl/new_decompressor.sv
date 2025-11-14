@@ -21,14 +21,14 @@ module Decompressor #(
     ndata_i.m out             // #(data8_t, NUM_BYTES)
 );
 
-ready_valid_i #(page_metadata_t) meta ();
+hold_data_i #(page_metadata_t) meta ();
 HoldForward #(page_metadata_t) hold_meta_transaction_inst (
     .clk(clk),
     .rst_n(rst_n),
 
     .in_data(in_meta),
     .out_data(out_meta),
-    // We want to pause the current metadata when we receive the last databeat
+    // We want to pause the current input taking when we receive the last databeat
     .pause(in.valid && in.ready && in.last),
     // We want to drop the current metadata when we send the last databeat
     .drop(out.valid && out.ready && out.last),

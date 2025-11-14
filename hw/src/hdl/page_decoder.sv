@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
 `include "axi_macros.svh"
-`include "lynx_macros.svh"
 `include "parcore_types.svh"
 
 import lynxTypes::AXI_DATA_BITS;
@@ -82,7 +81,7 @@ TypedDictionary #(
 // ------------------------------------------------
 
 // ------ Preserve+forward metadata ---------------
-ready_valid_i #(page_metadata_t) meta ();
+hold_data_i #(page_metadata_t) meta ();
 ready_valid_i #(page_metadata_t) out_meta ();
 logic drop;
 HoldForward #(page_metadata_t) hold_meta_transaction_inst (
@@ -91,7 +90,7 @@ HoldForward #(page_metadata_t) hold_meta_transaction_inst (
 
     .in_data(decompressor_meta),
     .out_data(out_meta),
-    // We want to pause the current metadata when we receive the last databeat
+    // We want to pause the current input taking when we receive the last databeat
     .pause(decompressor_out.valid && decompressor_out.ready && decompressor_out.last),
     // We want to drop the current metadata when we send the last databeat
     .drop(drop),
@@ -142,27 +141,5 @@ assign decoder_in.valid = meta.valid && meta.data.page_type == PAGE_TYPE_HYBRID 
 assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;
-
-always_ff @(posedge clk) begin
-    if(rst_n) begin 
-        // $display("------------");
-
-        if (decompressor_out.valid && decompressor_out.ready) begin
-            $display("| decompresor_out valid: %x, ready: %x, last: %x", decompressor_out.valid, decompressor_out.ready, decompressor_out.last);
-        end
-
-        if (decoder_in.valid && decoder_in.ready) begin
-            $display("| decoder_in valid: %x, ready: %x, last: %x", decoder_in.valid, decoder_in.ready, decoder_in.last);
-        end
-
-        if (typed_dictionary_values.valid && typed_dictionary_values.ready) begin
-            $display("| typed_dictionary_values valid: %x, ready: %x, last: %x", typed_dictionary_values.valid, typed_dictionary_values.ready, typed_dictionary_values.last);
-        end
-
-        if (decoder_out.valid && decoder_out.ready) begin
-            $display("| decoder_out valid: %x, ready: %x, last: %x", decoder_out.valid, decoder_out.ready, decoder_out.last);
-        end
-    end
-end
 
 endmodule

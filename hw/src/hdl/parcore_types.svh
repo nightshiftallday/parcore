@@ -66,6 +66,24 @@ typedef struct packed {
     rdma_alloc_size_t size;
 } rdma_buffer_t;
 
+typedef struct packed {
+    rdma_vaddress_t   vaddr;
+    rdma_alloc_size_t size;
+
+    logic [7 - $bits(compression_t):0] pad_1; // byte align compression
+    compression_t compression;
+    data32_t num_values;
+    logic [7 - $bits(type_t):0] pad_2;        // byte align type
+    type_t typ;
+    logic [7 - $bits(page_type):0] pad_3;     // byte align page_type
+    page_type_t page_type;
+
+    // Round up to 64 bytes (512 bits)
+    // current data size is: 8 + 8 + 1 + 4 + 1 + 1 = 23
+    // thus, we need to fill 32 - 23 = 9 bytes
+    logic [9 * 8 - 1:0] pad_4;
+} parcore_cmd_t;
+
 endpackage
 
 `endif

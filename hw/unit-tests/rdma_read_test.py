@@ -4,7 +4,7 @@ from random import randint
 class RDMATestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "rdma_read_test.sv"
     debug_mode = True
-    verbose_logging = True
+    # verbose_logging = True
 
     def __init__(self, a) -> None:
         n = 253

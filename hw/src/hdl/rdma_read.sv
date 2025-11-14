@@ -3,22 +3,20 @@
 `include "axi_macros.svh"
 `include "parcore_types.svh"
 
-import lynxTypes::*;
-
 import libstf::data8_t;
 import parcore::*;
 
 module RDMARead #(
-    parameter AXI4S_DATA_BITS = 512,
+    parameter AXI_DATA_BITS = 512,
     parameter AXI_STRM_ID = 0,
-    parameter DATABEAT_SIZE = AXI4S_DATA_BITS / 8
+    parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
 ) (
     input logic clk,
     input logic rst_n,
 
     metaIntf.m sq_rd,    // #(.STYPE(req_t))
     metaIntf.s cq_rd,    // #(.STYPE(ack_t))
-    AXI4S.s rdma_in,     // #(AXI4S_DATA_BITS)
+    AXI4S.s rdma_in,     // #(AXI_DATA_BITS)
                          // NOTE: This must be axis_rreq_recv[AXI_STRM_ID]
 
     ready_valid_i.s in,  // #(rdma_buffer_t)
@@ -105,6 +103,6 @@ assign sq_rd.valid = (state == ST_IDLE) && in.valid && in.ready;
 // Accept acks when we haven't received one for the current transaction
 assign cq_rd.ready = ~keep_ack;
 // We can take in another input buffer to read when we're not reading
-assign in.ready = state == ST_IDLE;
+assign in.ready = (state == ST_IDLE) && sq_rd.ready;
 
 endmodule

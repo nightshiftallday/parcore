@@ -1,7 +1,26 @@
 `timescale 1ns / 1ps
 
-// TODO: use a custom interface, as ready_valid_i uses ready as input, but
-// we're using it as output.
+// This is an interface to synchronize an auxiliary metadata interface with a
+// main data stream. The ready port on this interface (unintuitively) should
+// be used to govern the ready signal on the main data interface paired with
+// this.
+interface hold_data_i #(
+    parameter type data_t
+);
+    data_t data;
+    // When the data the interface is holding is valid
+    logic  valid;
+    // When we're ready to take more input on the actual interface
+    logic  ready;
+
+    modport m (
+        output data, ready, valid
+    );
+
+    modport s (
+        input  data, ready, valid
+    );
+endinterface
 
 module HoldForward #(
   parameter type data_t
@@ -18,7 +37,7 @@ module HoldForward #(
     // When to drop the metadata we're currently holding
     input logic drop,
 
-    ready_valid_i.m data // #(data_t)
+    hold_data_i.m data // #(data_t)
 );
 
 // Read input ready valid interface as data_t
