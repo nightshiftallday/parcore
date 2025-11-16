@@ -130,14 +130,14 @@ assign decompressor_out.ready = meta.ready && meta.valid && (
 );
 
 // ------ Driving typed dictionary ----------------
-assign typed_dictionary_values.valid = meta.valid && meta.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
+assign typed_dictionary_values.valid = meta.ready && meta.valid && meta.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
 assign typed_dictionary_values.typ = meta.data.typ;
 assign typed_dictionary_values.data = decompressor_out.data;
 assign typed_dictionary_values.keep = decompressor_out.keep;
 assign typed_dictionary_values.last = decompressor_out.last;
 
 // ------ Driving Hybrid decoder ------------------
-assign decoder_in.valid = meta.valid && meta.data.page_type == PAGE_TYPE_HYBRID && decompressor_out.valid;
+assign decoder_in.valid = meta.ready && meta.valid && meta.data.page_type == PAGE_TYPE_HYBRID && decompressor_out.valid;
 assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;

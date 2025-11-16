@@ -9,20 +9,21 @@ class _Data:
     num_values: int
 
     def _cmd(self, vaddr: int, len: int, page_type: int) -> bytearray:
-        b = bytearray([0] * 32)
+        b = bytearray([0] * 64)
 
-        b[41-32] = page_type.to_bytes(1, 'big')[0] # page_t
-        b[42-32] = int(2).to_bytes(1, 'big')[0] # type_t = INT64_T
+        b[-23] = page_type.to_bytes(1, 'big')[0] # page_t
+        b[-22] = int(2).to_bytes(1, 'big')[0] # type_t = INT64_T
 
         if page_type == 0: # hybrid
-            b[43-32:47-32] = self.num_values.to_bytes(4, 'little')
+            b[-21:-17] = self.num_values.to_bytes(4, 'little')
         # otherwise we can leave 0, it's ignored
 
-        b[47-32] = int(1).to_bytes(1, 'big')[0] # compression_t =  SNAPPY
+        b[-17] = int(1).to_bytes(1, 'big')[0] # compression_t =  SNAPPY
 
-        b[48-32:56-32] = len.to_bytes(8, 'little')
+        b[-16:-8] = len.to_bytes(8, 'little')
        
-        b[56-32:32] = vaddr.to_bytes(8, 'little')
+        # b[56-64:64] = vaddr.to_bytes(8, 'little')
+        b[-8:] = vaddr.to_bytes(8, 'little')
 
         return b
 

@@ -59,12 +59,15 @@ NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
 typed_ndata_i #(64) out();
 `DATA_ASSIGN(out, out_u8);
 
+ready_valid_i #(parcore_cmd_t) out_cmd ();
+assign out_cmd.ready = 1; // discard
+
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
 always_ff @(posedge clk) begin
     if(rst_n) begin 
         if (in.valid && in.ready) begin
-            $display("< in valid: %x, ready: %x, addr: %d, size: %d, compression: %d, num_values: %d, typ: %d, page_type: %d", in.valid, in.ready, in.data.vaddr, in.data.size, in.data.compression, in.data.num_values, in.data.typ, in.data.page_type);
+            $display("< in valid: %x, ready: %x, in_addr: %d, in_size: %d, compression: %d, num_values: %d, typ: %d, page_type: %d, out_vaddr: %d, out_size: %d", in.valid, in.ready, in.data.in_vaddr, in.data.in_size, in.data.compression, in.data.num_values, in.data.typ, in.data.page_type, in.data.out_vaddr, in.data.out_size);
         end
 
         if (axi_rreq_recv_0.tvalid && axi_rreq_recv_0.tready) begin
@@ -88,6 +91,7 @@ Top #(
     .cq_rd(cq_rd),
     .rdma_in(axi_rreq_recv_0),
 
-    .in(in),
+    .in_cmd(in),
+    .out_cmd(out_cmd),
     .out(out)
 );
