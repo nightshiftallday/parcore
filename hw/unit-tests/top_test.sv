@@ -59,9 +59,6 @@ NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
 typed_ndata_i #(64) out();
 `DATA_ASSIGN(out, out_u8);
 
-ready_valid_i #(parcore_cmd_t) out_cmd ();
-assign out_cmd.ready = 1; // discard
-
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
 always_ff @(posedge clk) begin
@@ -92,6 +89,5 @@ Top #(
     .rdma_in(axi_rreq_recv_0),
 
     .in_cmd(in),
-    .out_cmd(out_cmd),
     .out(out)
 );

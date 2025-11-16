@@ -21,13 +21,11 @@ module Top #(
                                 // NOTE: This must be axis_rreq_recv[AXI_STRM_ID]
 
     ready_valid_i.s in_cmd,     // #(parcore_cmd_t)
-
-    ready_valid_i.m out_cmd,
     typed_ndata_i.m out         // #(parcore_cmd_t)
 );
 
-ready_valid_i #(parcore_cmd_t) in_cmds[2:0] ();
-`READY_DUPLICATE(3, in_cmd, in_cmds)
+ready_valid_i #(parcore_cmd_t) in_cmds[1:0] ();
+`READY_DUPLICATE(2, in_cmd, in_cmds)
 
 // ------ RDMA reader wiring ------------------------------
 ready_valid_i #(rdma_buffer_t) rdma_in_buffer ();
@@ -76,9 +74,6 @@ assign in_meta.data.num_values = in_cmds[1].data.num_values;
 assign in_meta.data.typ = in_cmds[1].data.typ;
 assign in_meta.data.page_type = in_cmds[1].data.page_type;
 
-// ------ Wiring of out_cmd ------------------------------
-`READY_VALID_ASSIGN(in_cmds[2], out_cmd);
-
 endmodule
 
 module MultipleTop #(
@@ -98,16 +93,15 @@ module MultipleTop #(
                                 // NOTE: This must be axis_rreq_recv
 
     AXI4S.s in[N_READERS],      // #(AXI_WIDTH)
-    AXI4S.s out[N_READERS]      // #(AXI_WIDTH)
+
+    mem_config_i mem_config[N_READERS],
+    AXI4SR.m out[N_READERS]     // #(AXI_WIDTH)
 );
 
 data_i #(parcore_cmd_t) data_in[N_READERS] ();
 ready_valid_i #(parcore_cmd_t) top_in_cmds[N_READERS] ();
-ready_valid_i #(parcore_cmd_t) top_out_cmds[N_READERS] ();
 typed_ndata_i #(DATABEAT_SIZE) top_out[N_READERS] ();
-AXI4S #(AXI_WIDTH) top_out_axi[N_READERS] ();
-
-mem_config_i mem_config[N_READERS] ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_WIDTH)) top_out_axi[N_READERS] (.aclk(clk));
 
 for (genvar I = 0; I < N_READERS - 1; I++) begin
     AXIToData #(
@@ -137,7 +131,6 @@ for (genvar I = 0; I < N_READERS - 1; I++) begin
         .rdma_in(rdma_in[I]),
 
         .in_cmd(top_in_cmds[I]),
-        .out_cmd(top_out_cmds[I]),
         .out(top_out[I])
     );
 
@@ -150,16 +143,10 @@ for (genvar I = 0; I < N_READERS - 1; I++) begin
         .in(top_out[I]),
         .out(top_out_axi[I])
     );
-
-    // Map from parcore_cmd_t to mem_config_i
-    assign top_out_cmds[I].ready = mem_config[I].buffer_ready;
-    assign mem_config[I].buffer_valid = top_out_cmds[I].valid;
-    assign mem_config[I].buffer_data.vaddr = top_out_cmds[I].data.out_vaddr;
-    assign mem_config[I].buffer_data.size = top_out_cmds[I].data.out_size;
 end
 
 OutputWriter inst_output_writer (
-    .clk(aclk),
+    .clk(clk),
     .rst_n(rst_n),
 
     .sq_wr(sq_wr),
