@@ -47,7 +47,7 @@ AXI4S axi_host_send_0 (.aclk(clk));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data8_t, 64) out_u8 ();
-NDataToAXI #(data8_t, 64) ndata_to_axi_inst (
+NDataToAXI #(data8_t, 64) inst_ndata_to_axi (
     .clk(clk),
     .rst_n(rst_n),
 

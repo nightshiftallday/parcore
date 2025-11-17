@@ -22,7 +22,7 @@ module Decompressor #(
 );
 
 hold_data_i #(page_metadata_t) meta ();
-HoldForward #(page_metadata_t) hold_meta_transaction_inst (
+HoldForward #(page_metadata_t) inst_hold_meta_transaction (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -44,7 +44,7 @@ assign bypass_in.keep = in.keep;
 assign bypass_in.last = in.last;
 assign bypass_in.valid = meta.ready && meta.valid && meta.data.compression == COMPRESSION_RAW && in.valid;
 
-NDataSkidBuffer #(data8_t, NUM_BYTES) skid_buffer_inst (
+NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -65,7 +65,7 @@ reg decompressor_input_paused;
 reg [1:0] decompressor_reset_counter;
 
 // Snappy decompressor
-VHSNunzipWrapper #(NUM_BYTES) vhsnunzip_wrapper_inst (
+VHSNunzipWrapper #(NUM_BYTES) inst_vhsnunzip_wrapper (
     .clk(clk),
     .rst_n(rst_n && decompressor_reset_counter == 3'd0),
 

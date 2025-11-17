@@ -97,7 +97,7 @@ class TopTestCase(OutputWriterTestCase):
     # buffers are a list of (len, vaddr)
     def _setup_test(self, test_case: _TestCase) -> None:
         allocation_size = 512
-        transfer_size = 128
+        transfer_size = 512
         self.overwrite_memory_manager(allocation_size, transfer_size)
 
         offset = 0

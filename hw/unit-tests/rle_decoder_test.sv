@@ -46,7 +46,7 @@ assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
 ndata_i #(logic[31:0], 16) out ();
-NDataToAXI #(logic[31:0], 16) ndata_to_axi_inst (
+NDataToAXI #(logic[31:0], 16) inst_ndata_to_axi (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -77,7 +77,7 @@ always_ff @(posedge aclk) begin
     end
 end
 
-ExpandRLE #(32, 16) expand_rle_inst (
+ExpandRLE #(32, 16) inst_expand_rle (
     .clk(aclk),
     .rst_n(aresetn),
 

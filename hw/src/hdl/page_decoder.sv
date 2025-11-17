@@ -29,7 +29,7 @@ parameter int NUM_IDS = DATABEAT_SIZE / NUM_BYTES_ID;
 ready_valid_i #(page_metadata_t) decompressor_meta ();
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 
-Decompressor #(DATABEAT_SIZE) decompressor_inst (
+Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -49,7 +49,7 @@ HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
     .NUM_BYTES(DATABEAT_SIZE)
-) hybrid_page_decoder_inst (
+) inst_hybrid_page_decoder (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -66,7 +66,7 @@ TypedDictionary #(
     .id_t(id_t),
     .DATABEAT_SIZE(DATABEAT_SIZE),
     .NUM_ELEMENTS(NUM_IDS)
-) typed_dictionary_inst (
+) inst_typed_dictionary (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -84,7 +84,7 @@ TypedDictionary #(
 hold_data_i #(page_metadata_t) meta ();
 ready_valid_i #(page_metadata_t) out_meta ();
 logic drop;
-HoldForward #(page_metadata_t) hold_meta_transaction_inst (
+HoldForward #(page_metadata_t) inst_hold_meta_transaction (
     .clk(clk),
     .rst_n(rst_n),
 

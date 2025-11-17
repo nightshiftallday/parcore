@@ -27,7 +27,7 @@ assign host_in.tlast = axis_host_recv[0].tlast;
 assign host_in.tvalid = axis_host_recv[0].tvalid;
 
 ndata_i #(data8_t, 64) in ();
-AXIToNData #(data8_t, 64) axi_to_ndata_inst (
+AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -63,7 +63,7 @@ assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
 ndata_i #(data32_t, 16) out ();
-NDataToAXI #(data32_t, 16) ndata_to_axi_inst (
+NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -93,7 +93,7 @@ always_ff @(posedge aclk) begin
     end
 end
 
-RunDecoder #(data32_t, 16) run_decoder_inst (
+RunDecoder #(data32_t, 16) inst_run_decoder (
     .clk(aclk),
     .rst_n(aresetn),
 

@@ -98,6 +98,28 @@ module MultipleTop #(
     AXI4SR.m out[N_READERS]     // #(AXI_WIDTH)
 );
 
+metaIntf #(.STYPE(req_t))     sq_rd_strm  [N_READERS](.aclk(clk));
+metaIntf #(.STYPE(ack_t))     cq_rd_strm  [N_READERS](.aclk(clk));
+
+MetaIntfArbiter #(
+  .N_INTERFACES(N_READERS),
+  .STYPE(req_t)
+) inst_sq_rd_arbiter (
+  .clk(clk),
+  .rst_n(rst_n),
+  .intf_in(sq_rd_strm),
+  .intf_out(sq_rd)
+);
+
+CQDemultiplexer #(
+  .N_STREAMS(N_READERS)
+) inst_cq_rd_de_mux (
+  .clk(clk),
+  .rst_n(rst_n),
+  .data_in(cq_rd),
+  .data_out(cq_rd_strm)
+);
+
 data_i #(parcore_cmd_t) data_in[N_READERS] ();
 ready_valid_i #(parcore_cmd_t) top_in_cmds[N_READERS] ();
 typed_ndata_i #(DATABEAT_SIZE) top_out[N_READERS] ();
@@ -126,8 +148,8 @@ for (genvar I = 0; I < N_READERS - 1; I++) begin
         .clk(clk),
         .rst_n(rst_n),
 
-        .sq_rd(sq_rd),
-        .cq_rd(cq_rd),
+        .sq_rd(sq_rd_strm[I]),
+        .cq_rd(cq_rd_strm[I]),
         .rdma_in(rdma_in[I]),
 
         .in_cmd(top_in_cmds[I]),

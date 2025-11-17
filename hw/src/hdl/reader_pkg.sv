@@ -1,7 +1,7 @@
 package reader_pkg;
     // Reader configuration parameters
     parameter int NUM_STAGES = 3;
-    parameter int NUM_UNITS = 1;
+    parameter int NUM_UNITS = 4;
     parameter int WITH_HEADER_READER = 0;
 
     // Config parameters

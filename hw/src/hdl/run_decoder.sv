@@ -103,7 +103,7 @@ endgenerate
 valid_i #(data8_t[VARINT_NUM_BYTES - 1:0]) varint_in ();
 valid_i #(varint_t) varint_out ();
 
-VarintDecoder varint_decoder_inst (
+VarintDecoder inst_varint_decoder (
     .in(varint_in),
     .out(varint_out)
 );
@@ -119,7 +119,7 @@ assign varint_in.data = '{data[varint_offset+3], data[varint_offset+2], data[var
 bitdata_i #($bits(data_t), rle_count_t) rle_in ();
 ndata_i #(data_t, NUM_ELEMENTS) rle_out ();
 
-ExpandRLE #($bits(data_t), NUM_ELEMENTS) expand_rle_inst (
+ExpandRLE #($bits(data_t), NUM_ELEMENTS) inst_expand_rle (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -152,7 +152,7 @@ assign bpe_in_meta.data = bpe_in_meta_data;
 data_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0]) bpe_in ();
 ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
 
-ExpandBPE #(data_t, NUM_ELEMENTS) expand_bpe_inst (
+ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
     .clk(clk),
     .rst_n(rst_n),
 

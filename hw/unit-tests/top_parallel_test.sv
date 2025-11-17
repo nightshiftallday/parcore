@@ -1,8 +1,5 @@
 `timescale 1ns / 1ps
 
-/* -- Tie-off unused interfaces and signals ----------------------------- */
-always_comb axi_ctrl.tie_off_s();
-
 // -- Fix clock and reset names ----------------------------------------- */
 logic clk;
 logic rst_n;
@@ -46,7 +43,6 @@ for (genvar I = 0; I < N_RDMA_AXI; I++) begin
     `AXIS_ASSIGN(axis_rreq_recv[I], axi_rreq_recv[I]) // AXI4SR to AXI4S
 end
 
-always_comb $display("%d %d", N_STRM_AXI, N_RDMA_AXI);
 `ASSERT_ELAB(N_STRM_AXI == N_RDMA_AXI)
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
