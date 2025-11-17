@@ -5,7 +5,7 @@
 import lynxTypes::*;
 import reader_pkg::*;
 
-module decompressor #(
+module decompressor_old #(
     parameter ADDITIONAL_RESET_CYCLES = 0
 )(
     input logic clk,

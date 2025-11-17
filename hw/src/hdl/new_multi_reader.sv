@@ -10,7 +10,7 @@ module new_multi_reader (
     input logic rst_n,
 
     AXI4SC.s  in_stream,
-    AXI4SC.m out_stream,
+    AXI4SC.m out_streams
 );
     AXI4SC in_stream_ff(clk);
 

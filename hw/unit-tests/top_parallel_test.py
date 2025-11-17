@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from coyote_test import fpga_stream, constants
 from os.path import dirname, realpath, join
-from .utils.output_writer_test_case import OutputWriterTestCase
-from .utils.memory_manager import FPGAOutputMemoryManager
+from utils.output_writer_test_case import OutputWriterTestCase
+from utils.memory_manager import FPGAOutputMemoryManager
 
 MAX_NUMBER_STREAMS = constants.MAX_NUMBER_STREAMS
 TRANSFER_SIZE_BYTES_OVERWRITE = "TRANSFER_SIZE_BYTES_OVERWRITE"

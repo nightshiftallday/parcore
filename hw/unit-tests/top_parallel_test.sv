@@ -46,7 +46,7 @@ for (genvar I = 0; I < N_RDMA_AXI; I++) begin
     `AXIS_ASSIGN(axis_rreq_recv[I], axi_rreq_recv[I]) // AXI4SR to AXI4S
 end
 
-$display("%d %d", N_STRM_AXI, N_RDMA_AXI);
+always_comb $display("%d %d", N_STRM_AXI, N_RDMA_AXI);
 `ASSERT_ELAB(N_STRM_AXI == N_RDMA_AXI)
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
