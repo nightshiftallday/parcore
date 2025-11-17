@@ -77,7 +77,7 @@ typedef struct packed {
     data32_t num_values;
     logic [7 - $bits(type_t):0] pad_2;        // byte align type
     type_t typ;
-    logic [7 - $bits(page_type):0] pad_3;     // byte align page_type
+    logic [7 - $bits(page_type_t):0] pad_3;     // byte align page_type
     page_type_t page_type;
 
     vaddress_t   out_vaddr;
