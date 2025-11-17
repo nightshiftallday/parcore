@@ -12,5 +12,4 @@
 	url = https://github.com/abs-tudelft/vhsnunzip.git
 [submodule "libstf"]
 	path = libstf
-	url = https://github.com/lucat1/libstf.git
-  branch = typed-dictionary
+	url = https://github.com/fpgasystems/libstf.git
