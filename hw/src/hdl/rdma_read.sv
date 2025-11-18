@@ -24,7 +24,7 @@ module RDMARead #(
     ndata_i.m out        // #(data8_t, DATABEAT_SIZE)
 );
 
-typedef enum logic [1:0] {
+typedef enum logic {
     ST_IDLE,
     ST_READING
 } state_t;
@@ -72,10 +72,8 @@ always_ff @(posedge clk) begin
     end
 end
 
-always_comb begin
-  assign ack = (cq_rd.ready && cq_rd.valid) ? 1 : keep_ack;
-  assign last = (out.ready && out.valid && out.last) ? 1 : keep_last;
-end
+assign ack = (cq_rd.ready && cq_rd.valid) ? 1 : keep_ack;
+assign last = (out.ready && out.valid && out.last) ? 1 : keep_last;
 
 AXIToNData #(
   .data_t(data8_t),
