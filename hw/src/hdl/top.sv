@@ -125,6 +125,7 @@ ready_valid_i #(parcore_cmd_t) top_in_cmds[N_READERS] ();
 typed_ndata_i #(DATABEAT_SIZE) top_out[N_READERS] ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_WIDTH)) top_out_axi[N_READERS] (.aclk(clk));
 
+generate
 for (genvar I = 0; I < N_READERS; I++) begin
     AXIToData #(
       .data_t(parcore_cmd_t),
@@ -166,6 +167,7 @@ for (genvar I = 0; I < N_READERS; I++) begin
         .out(top_out_axi[I])
     );
 end
+endgenerate
 
 OutputWriter inst_output_writer (
     .clk(clk),

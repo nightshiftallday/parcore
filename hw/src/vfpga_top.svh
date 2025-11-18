@@ -32,14 +32,18 @@ MemConfig #(
 /* -- INPUT ------------------------------------------------------------- */
 
 AXI4S axi_host_recv[N_STRM_AXI](.aclk(clk));
+generate
 for (genvar I = 0; I < N_STRM_AXI; I++) begin
     `AXIS_ASSIGN(axis_host_recv[I], axi_host_recv[I]) // AXI4SR to AXI4S
 end
+endgenerate
 
 AXI4S axi_rreq_recv[N_STRM_AXI](.aclk(clk));
+generate
 for (genvar I = 0; I < N_RDMA_AXI; I++) begin
     `AXIS_ASSIGN(axis_rreq_recv[I], axi_rreq_recv[I]) // AXI4SR to AXI4S
 end
+endgenerate
 
 `ASSERT_ELAB(N_STRM_AXI == N_RDMA_AXI)
 

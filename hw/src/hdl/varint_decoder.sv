@@ -38,7 +38,7 @@ end
 assign out.valid = in.valid && ~read_next_byte[VARINT_NUM_BYTES - 1];
 varint_t out_data;
 assign out_data.value = value;
-assign out_data.length = $countones(read_next_byte) + 1;
+assign out_data.length = ($clog2(VARINT_NUM_BYTES))'($countones(read_next_byte) + 1);
 assign out.data = out_data;
 
 endmodule
