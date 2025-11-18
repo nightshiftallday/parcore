@@ -23,6 +23,8 @@ module RunDecoder #(
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
 );
 
+localparam int DATA_SIZE = ($bits(data_t) + 7) / 8;
+
 // ------- Input extraction ------
 data8_t[NUM_BYTES - 1:0] in_data;
 assign in_data = in.data;
@@ -114,10 +116,10 @@ assign varint_in.valid = ((keep[varint_offset+3] && keep[varint_offset+2] && kee
 assign varint_in.data = '{data[varint_offset+3], data[varint_offset+2], data[varint_offset+1], data[varint_offset]};
 
 // ------- RLE decoding
-bitdata_i #($bits(data_t), rle_count_t) rle_in ();
+tagged_i #(data_t, $bits(rle_count_t)) rle_in ();
 ndata_i #(data_t, NUM_ELEMENTS) rle_out ();
 
-ExpandRLE #($bits(data_t), NUM_ELEMENTS) inst_expand_rle (
+ExpandRLE #(data_t, NUM_ELEMENTS) inst_expand_rle (
     .clk(clk),
     .rst_n(rst_n),
 
@@ -125,11 +127,11 @@ ExpandRLE #($bits(data_t), NUM_ELEMENTS) inst_expand_rle (
     .out(rle_out)
 );
 
-assign rle_in.meta = rle_count;
-logic[$bits(data_t) / 8 - 1:0] rle_in_valid_bits;
-logic[$bits(data_t) / 8 - 1:0] rle_needs_to_buffer_bits;
+assign rle_in.tag = rle_count;
+logic[DATA_SIZE - 1:0] rle_in_valid_bits;
+logic[DATA_SIZE - 1:0] rle_needs_to_buffer_bits;
 generate
-for (genvar i = 0; i < $bits(data_t) / 8; i++) begin
+for (genvar i = 0; i < DATA_SIZE; i++) begin
     assign rle_in.data[(i + 1) * 8 - 1:i * 8] = (i < rle_width) ? data[offset+i] : '0;
     assign rle_in_valid_bits[i] = (i >= rle_width) || keep[offset+i];
     assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep_keep[offset+i]);
@@ -169,7 +171,7 @@ logic bpe_needs_more_input;
 always_comb begin
     bpe_valid_bytes = 1'b1;
     bpe_needs_more_input = 1'b0;
-    for (int i = 0; i < NUM_ELEMENTS * $bits(data_t) / 8; i++) begin
+    for (int i = 0; i < NUM_ELEMENTS * DATA_SIZE; i++) begin
         if (i < (packed_databeat_bits / 8)) begin
             bpe_valid_bytes &= keep[offset + i];
             bpe_needs_more_input |= ~keep_keep[offset + i];

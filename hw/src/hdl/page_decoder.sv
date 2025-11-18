@@ -24,7 +24,7 @@ module PageDecoder #(
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
-parameter int NUM_IDS = 16;
+parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
 ready_valid_i #(page_metadata_t) decompressor_meta ();
@@ -65,7 +65,7 @@ typed_ndata_i #(DATABEAT_SIZE) typed_dictionary_values ();
 
 TypedDictionary #(
     .id_t(id_t),
-    .NUM_IDS(NUM_IDS),
+    .NUM_ELEMENTS(NUM_IDS),
     .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_typed_dictionary (
     .clk(clk),

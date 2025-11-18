@@ -8,29 +8,29 @@ import lynxTypes::*;
 import parcore::*;
 
 module ExpandRLE #(
-    parameter NUM_BITS,
+    parameter type data_t,
     parameter NUM_ELEMENTS
 ) (
     input logic clk,
     input logic rst_n,
 
-    bitdata_i.s in, // #(NUM_BITS, rle_count_t)
-    ndata_i.m out   // #(logic[NUM_BITS - 1:0], NUM_ELEMENTS)
+    tagged_i.s in,  // #(data_t, $bits(rle_count_t))
+    ndata_i.m out   // #(data_t, NUM_ELEMENTS)
 );
 
-// Extracting data from the bitdata_i interface
-logic[NUM_BITS - 1:0] in_data;
+// Extracting data from the tagged_i interface
+data_t in_data;
 rle_count_t in_meta;
 
 assign in_data = in.data;
-assign in_meta = in.meta;
+assign in_meta = in.tag;
 
 typedef enum logic {
     ST_IDLE,
     ST_CONF
 } state_t;
 state_t state;
-logic[NUM_BITS - 1:0] keep_element;
+data_t keep_element;
 rle_count_t keep_count;
 
 always_ff @(posedge clk) begin
@@ -41,7 +41,7 @@ always_ff @(posedge clk) begin
     end else begin
         case (state)
             ST_IDLE: begin
-                if (in.valid && in.ready) begin
+                if (in.ready && in.valid) begin
                     // We will immediately output the first batch of
                     // NUM_ELEMENTS in the first cycle that we receive a valid
                     // RLE number to decode, so we want to buffer the state
@@ -56,6 +56,7 @@ always_ff @(posedge clk) begin
                         end else begin
                             keep_count <= in_meta;
                         end
+
                         state <= ST_CONF;
                     end
                 end
@@ -80,12 +81,12 @@ always_ff @(posedge clk) begin
 end
 
 // Deriving internal state from input and current buffering state
-logic[NUM_BITS - 1:0] element;
+data_t element;
 rle_count_t count;
 always_comb begin
     case (state)
         ST_IDLE: begin
-            if (in.valid && in.ready) begin
+            if (in.ready && in.valid) begin
                 element = in_data;
                 count = in_meta;
             end else begin

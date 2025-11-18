@@ -139,7 +139,7 @@ always_ff @(posedge clk) begin
 end
 
 // ------- Run decoder wiring ---------
-RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) run_decoder_inst (
+RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .clk(clk),
     .rst_n(rst_n),
 
