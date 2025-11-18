@@ -47,7 +47,7 @@ end
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-MultipleTop #(
+TopParallel #(
     .N_READERS(N_STRM_AXI),
     .DATABEAT_SIZE(64)
 ) inst_multiple_top (

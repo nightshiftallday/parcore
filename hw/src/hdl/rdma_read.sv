@@ -89,13 +89,15 @@ AXIToNData #(
 rdma_buffer_t buffer;
 assign buffer = in.data;
 
-assign sq_rd.data = 0;
-assign sq_rd.data.last = 1;
-assign sq_rd.data.dest = AXI_STRM_ID;
-assign sq_rd.data.len = buffer.size;
-assign sq_rd.data.vaddr = buffer.vaddr;
-assign sq_rd.data.strm = STRM_RDMA;
-assign sq_rd.data.opcode = LOCAL_READ;
+assign sq_rd.data = '{
+    last: 1'b1,
+    dest: AXI_STRM_ID,
+    len: buffer.size,
+    vaddr: buffer.vaddr,
+    strm: STRM_RDMA,
+    opcode: LOCAL_READ,
+    default: '0
+};
 assign sq_rd.valid = (state == ST_IDLE) && in.valid && in.ready;
 
 // Accept acks when we haven't received one for the current transaction

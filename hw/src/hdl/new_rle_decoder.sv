@@ -14,8 +14,8 @@ module ExpandRLE #(
     input logic clk,
     input logic rst_n,
 
-    bitdata_i in, // #(NUM_BITS, rle_count_t)
-    ndata_i out   // #(logic[NUM_BITS - 1:0], NUM_ELEMENTS)
+    bitdata_i.s in, // #(NUM_BITS, rle_count_t)
+    ndata_i.m out   // #(logic[NUM_BITS - 1:0], NUM_ELEMENTS)
 );
 
 // Extracting data from the bitdata_i interface

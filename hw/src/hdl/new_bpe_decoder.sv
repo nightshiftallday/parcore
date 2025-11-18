@@ -22,7 +22,7 @@ module ExpandBPE #(
     valid_i.s in_meta, // #(bpe_metadata_t)
     data_i.s in,       // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0])
 
-    ndata_i out   // #(data_t, NUM_ELEMENTS)
+    ndata_i.m out   // #(data_t, NUM_ELEMENTS)
 );
 
 // Extracting data from the data_i interface

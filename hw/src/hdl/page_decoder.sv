@@ -8,8 +8,9 @@ import libstf::data8_t;
 import libstf::data32_t;
 import parcore::*;
 
-parameter type id_t = data32_t;
-parameter int NUM_BYTES_ID = $bits(id_t) / 8;
+// We want to have 1MiB dictionaries. That would take 20 bits to index fully.
+// Since the TypedDictionary uses 32bit elements (4 bytes), we take 2 bits of (log2(4)).
+typedef logic [17:0] id_t;
 
 module PageDecoder #(
     parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
@@ -23,7 +24,7 @@ module PageDecoder #(
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
-parameter int NUM_IDS = DATABEAT_SIZE / NUM_BYTES_ID;
+parameter int NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
 ready_valid_i #(page_metadata_t) decompressor_meta ();
@@ -64,8 +65,8 @@ typed_ndata_i #(DATABEAT_SIZE) typed_dictionary_values ();
 
 TypedDictionary #(
     .id_t(id_t),
-    .DATABEAT_SIZE(DATABEAT_SIZE),
-    .NUM_ELEMENTS(NUM_IDS)
+    .NUM_IDS(NUM_IDS),
+    .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_typed_dictionary (
     .clk(clk),
     .rst_n(rst_n),

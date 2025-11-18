@@ -14,6 +14,7 @@ import lynxTypes::*;
 
 parameter int VARINT_NUM_BYTES = 4;
 parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 8;
+parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES);
 
 typedef enum logic {
     COMPRESSION_RAW,

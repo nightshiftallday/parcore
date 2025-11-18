@@ -13,7 +13,7 @@ data8_t[3:0] in_data;
 assign in_data = in.data;
 
 logic[VARINT_NUM_BITS - 1:0] value;
-logic read_next_byte[VARINT_NUM_BYTES - 1:0];
+logic[VARINT_NUM_BYTES - 1:0] read_next_byte;
 
 always_comb begin
     for (int i = 0; i < VARINT_NUM_BYTES; i++) begin
@@ -38,7 +38,7 @@ end
 assign out.valid = in.valid && ~read_next_byte[VARINT_NUM_BYTES - 1];
 varint_t out_data;
 assign out_data.value = value;
-assign out_data.length = ($clog2(VARINT_NUM_BYTES))'($countones(read_next_byte) + 1);
+assign out_data.length = VARINT_LENGTH_BITS'($countones(read_next_byte) + 1);
 assign out.data = out_data;
 
 endmodule

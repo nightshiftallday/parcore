@@ -51,7 +51,6 @@ bit_width_t keep_bit_width;
 offset_t keep_varint_offset;
 offset_t keep_offset;
 data32_t remaining_values;
-logic[VARINT_NUM_BITS - 1:0] keep_header;
 
 // ------- State declaration (decoders) -----
 rle_count_t rle_count;
@@ -85,7 +84,6 @@ bit_width_t bit_width;
 logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - 1:0] packed_databeat_bits;
 offset_t varint_offset;
 offset_t offset;
-logic [VARINT_NUM_BITS - 1:0] header;
 
 
 // ------- Combinatorial state (decoders) ---
@@ -127,7 +125,6 @@ ExpandRLE #($bits(data_t), NUM_ELEMENTS) inst_expand_rle (
     .out(rle_out)
 );
 
-assign rle_in.data = '0;
 assign rle_in.meta = rle_count;
 logic[$bits(data_t) / 8 - 1:0] rle_in_valid_bits;
 logic[$bits(data_t) / 8 - 1:0] rle_needs_to_buffer_bits;
@@ -258,8 +255,6 @@ task reset();
     keep_varint_offset <= '0;
     keep_offset <= '0;
     remaining_values <= '0;
-
-    keep_header <= '0;
 endtask
 
 task goto_decode(input data32_t remaining_values);
@@ -268,8 +263,6 @@ task goto_decode(input data32_t remaining_values);
         $fatal(1, "Called goto_decode() when varint_out.valid = %b", varint_out.valid);
     end
     `endif
-
-    keep_header <= varint_out.data.value;
 
     if (varint_out.data.value[0]) begin
         state <= ST_DECODE_BPE;
@@ -492,16 +485,6 @@ always_comb begin
         varint_offset = keep_offset + ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8;
     end else begin
         varint_offset = keep_varint_offset;
-    end
-
-    if (state <= ST_HEADER2 && varint_out.valid) begin
-        header = varint_out.data.value;
-    end else if (state >= ST_DECODE_RLE && state <= ST_DECODE_RLE2 && varint_out.valid) begin
-        // When decoding RLE, we may move forward the offset,
-        // thus the header will change
-        header = varint_out.data.value;
-    end else begin
-        header = keep_header;
     end
 
     // Mapping input data, keep and last to combinatorial values
