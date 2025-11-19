@@ -136,7 +136,7 @@ for (genvar i = 0; i < DATA_SIZE; i++) begin
     // multiple of eight, DATA_SIZE will be an over approximation of how many
     // bytes are required. For example, for $bits(data_t) = 18, DATA_SIZE = 3,
     // but we can't access indexes 23:18, only 17:16 for the last byte.
-    for (genvar b = 0; i * 8 + b < $bits(data_t); b++) begin
+    for (genvar b = 0; b < 8 && i * 8 + b < $bits(data_t); b++) begin
         assign rle_in.data[i * 8 + b] = (i < rle_width) ? data[offset+i][b] : '0;
     end
     assign rle_in_valid_bits[i] = (i >= rle_width) || keep[offset+i];
@@ -476,7 +476,7 @@ always_comb begin
     packed_databeat_bits = NUM_ELEMENTS * bit_width;
 
     // Driving varint_offset
-    if (state == ST_IDLE && in_meta.ready && in_meta.valid) begin
+    if (state == ST_IDLE && in_meta.valid) begin
         varint_offset = in_meta_data.offset;
     end else if (state == ST_DECODE_RLE && rle_in.ready && rle_in.valid) begin
         // When decoding RLE, can move forward the offset if we've configured
@@ -552,7 +552,7 @@ end
 // ------- Driving input ---------
 
 always_comb begin
-    in_meta.ready = state == ST_IDLE;
+    in_meta.ready = state == ST_IDLE && rst_n;
 
     case (state)
         ST_IDLE: begin
@@ -593,8 +593,6 @@ end
 // ------- Driving output --------
 
 always_comb begin
-    in_meta.ready = state == ST_IDLE && rst_n;
-
     case (state)
         ST_DECODE_RLE, ST_DECODE_RLE2: begin
           out.valid = rle_out.valid;

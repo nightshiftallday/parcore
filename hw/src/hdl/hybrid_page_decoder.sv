@@ -186,7 +186,7 @@ end
 always_comb begin
     // We only accept metadata input if we're ready to store it and process
     // it. Refer to the state machine code.
-    assign in_meta.ready = state == ST_CONSUME && in.valid && ~configured && rst_n;
+    in_meta.ready = state == ST_CONSUME && in.valid && ~configured && rst_n;
 
     case (state)
         ST_CONSUME: begin
