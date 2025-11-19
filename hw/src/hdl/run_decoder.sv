@@ -132,7 +132,13 @@ logic[DATA_SIZE - 1:0] rle_in_valid_bits;
 logic[DATA_SIZE - 1:0] rle_needs_to_buffer_bits;
 generate
 for (genvar i = 0; i < DATA_SIZE; i++) begin
-    assign rle_in.data[(i + 1) * 8 - 1:i * 8] = (i < rle_width) ? data[offset+i] : '0;
+    // We need to copy bit-by-bit here as for value sizes that are not
+    // multiple of eight, DATA_SIZE will be an over approximation of how many
+    // bytes are required. For example, for $bits(data_t) = 18, DATA_SIZE = 3,
+    // but we can't access indexes 23:18, only 17:16 for the last byte.
+    for (genvar b = 0; i * 8 + b < $bits(data_t); b++) begin
+        assign rle_in.data[i * 8 + b] = (i < rle_width) ? data[offset+i][b] : '0;
+    end
     assign rle_in_valid_bits[i] = (i >= rle_width) || keep[offset+i];
     assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep_keep[offset+i]);
 end
