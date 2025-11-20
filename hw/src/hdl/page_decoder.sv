@@ -31,7 +31,6 @@ parameter NUM_IDS = 16;
 // ------ Decompressor wiring ---------------------
 ready_valid_i #(page_metadata_t) decompressor_meta ();
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
-
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
     .rst_n(reset_synced),
@@ -47,7 +46,6 @@ Decompressor #(DATABEAT_SIZE) inst_decompressor (
 ready_valid_i #(page_metadata_t) decoder_meta ();
 ndata_i #(data8_t, DATABEAT_SIZE) decoder_in ();
 ndata_i #(id_t, NUM_IDS) decoder_out ();
-
 HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -62,9 +60,17 @@ HybridPageDecoder #(
     .out(decoder_out)
 );
 
+ndata_i #(id_t, NUM_IDS) typed_dictionary_ids ();
+NDataSkidBuffer #(id_t, NUM_IDS) inst_skid_buffer_decoder (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(decoder_out),
+    .out(typed_dictionary_ids)
+);
+
 // ------ Typed dictionary wiring -----------------
 typed_ndata_i #(DATABEAT_SIZE) typed_dictionary_values ();
-
 TypedDictionary #(
     .id_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -74,7 +80,7 @@ TypedDictionary #(
     .rst_n(reset_synced),
 
     .in_values(typed_dictionary_values),
-    .in_ids(decoder_out),
+    .in_ids(typed_dictionary_ids),
 
     .out(out)
 );
