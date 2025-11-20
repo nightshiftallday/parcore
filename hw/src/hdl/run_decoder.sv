@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-`include "axi_macros.svh"
+`include "libstf_macros.svh"
 `include "lynx_macros.svh"
 `include "parcore_types.svh"
 
@@ -22,6 +22,8 @@ module RunDecoder #(
 
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
 );
+
+`RESET_RESYNC // Reset pipelining
 
 localparam int DATA_SIZE = ($bits(data_t) + 7) / 8;
 
@@ -121,7 +123,7 @@ ndata_i #(data_t, NUM_ELEMENTS) rle_out ();
 
 ExpandRLE #(data_t, NUM_ELEMENTS) inst_expand_rle (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(rle_in),
     .out(rle_out)
@@ -159,7 +161,7 @@ ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
 
 ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_meta(bpe_in_meta),
     .in(bpe_in),
@@ -348,7 +350,7 @@ task finish_bpe();
 endtask
 
 always_ff @(posedge clk) begin
-    if (rst_n == 1'b0) begin
+    if (reset_synced == 1'b0) begin
         reset();
     end else begin
         // $display("in state: %d, in.ready: %d, in.valid: %d, out.ready: %d, out.valid: %d, offset: %d", state, in.ready, in.valid, out.ready, out.valid, offset);
@@ -552,7 +554,7 @@ end
 // ------- Driving input ---------
 
 always_comb begin
-    in_meta.ready = state == ST_IDLE && rst_n;
+    in_meta.ready = state == ST_IDLE && reset_synced;
 
     case (state)
         ST_IDLE: begin

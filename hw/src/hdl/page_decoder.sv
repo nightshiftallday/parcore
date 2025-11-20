@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-`include "axi_macros.svh"
+`include "libstf_macros.svh"
 `include "parcore_types.svh"
 
 import lynxTypes::AXI_DATA_BITS;
@@ -24,6 +24,8 @@ module PageDecoder #(
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
+`RESET_RESYNC // Reset pipelining
+
 parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
@@ -32,7 +34,7 @@ ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_meta(in_meta),
     .in(in),
@@ -52,7 +54,7 @@ HybridPageDecoder #(
     .NUM_BYTES(DATABEAT_SIZE)
 ) inst_hybrid_page_decoder (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_meta(decoder_meta),
     .in(decoder_in),
@@ -69,7 +71,7 @@ TypedDictionary #(
     .DATABEAT_SIZE(DATABEAT_SIZE)
 ) inst_typed_dictionary (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_values(typed_dictionary_values),
     .in_ids(decoder_out),
@@ -87,7 +89,7 @@ ready_valid_i #(page_metadata_t) out_meta ();
 logic drop;
 HoldForward #(page_metadata_t) inst_hold_meta_transaction (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_data(decompressor_meta),
     .out_data(out_meta),

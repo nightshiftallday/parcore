@@ -1,9 +1,11 @@
 `timescale 1ns / 1ps
 
+`include "libstf_macros.svh"
+`include "parcore_types.svh"
+
 import lynxTypes::*;
 import libstf::data8_t;
 
-`include "parcore_types.svh"
 import parcore::page_metadata_t;
 import parcore::COMPRESSION_SNAPPY;
 import parcore::COMPRESSION_RAW;
@@ -21,10 +23,12 @@ module Decompressor #(
     ndata_i.m out             // #(data8_t, NUM_BYTES)
 );
 
+`RESET_RESYNC // Reset pipelining
+
 hold_data_i #(page_metadata_t) meta ();
 HoldForward #(page_metadata_t) inst_hold_meta_transaction (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in_data(in_meta),
     .out_data(out_meta),
@@ -44,9 +48,9 @@ assign bypass_in.keep = in.keep;
 assign bypass_in.last = in.last;
 assign bypass_in.valid = meta.ready && meta.valid && meta.data.compression == COMPRESSION_RAW && in.valid;
 
-NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer (
+NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_bypass (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(bypass_in),
     .out(bypass_out)
@@ -54,7 +58,7 @@ NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer (
 
 // ------ Decompressor wiring -------------
 
-ndata_i #(data8_t, NUM_BYTES) decompressor_in (), decompressor_out ();
+ndata_i #(data8_t, NUM_BYTES) decompressor_in (), decompressor_out_inner (), decompressor_out ();
 assign decompressor_in.data = in.data;
 assign decompressor_in.keep = in.keep;
 assign decompressor_in.last = in.last;
@@ -67,20 +71,20 @@ reg [1:0] decompressor_reset_counter;
 // Snappy decompressor
 VHSNunzipWrapper #(NUM_BYTES) inst_vhsnunzip_wrapper (
     .clk(clk),
-    .rst_n(rst_n && decompressor_reset_counter == 3'd0),
+    .rst_n(reset_synced && decompressor_reset_counter == 3'd0),
 
     .in(decompressor_in),
-    .out(decompressor_out)
+    .out(decompressor_out_inner)
 );
 
 always_ff @(posedge clk) begin
-    if (!rst_n) begin
+    if (reset_synced == 1'b0) begin
         decompressor_input_paused <= 1'b0;
         decompressor_reset_counter <= 0;
     end else begin
         if (decompressor_in.ready && decompressor_in.valid && decompressor_in.last) begin
             decompressor_input_paused <= 1'b1;
-        end else if (decompressor_input_paused && decompressor_out.ready && decompressor_out.valid && decompressor_out.last) begin
+        end else if (decompressor_input_paused && decompressor_out_inner.ready && decompressor_out_inner.valid && decompressor_out_inner.last) begin
             decompressor_reset_counter <= 2'd2;
         end else if (decompressor_input_paused && decompressor_reset_counter > 0) begin
             if (decompressor_reset_counter == 2'd1) begin
@@ -90,6 +94,14 @@ always_ff @(posedge clk) begin
         end
     end
 end
+
+NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_vhsnunzip (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(decompressor_out_inner),
+    .out(decompressor_out)
+);
 
 // ------ Readying input --------------
 

@@ -116,7 +116,7 @@ end
 always_comb begin
     case (state)
         ST_IDLE: begin
-            data.valid = in_data.valid && in_data.ready;
+            data.valid = rst_n && in_data.valid;
             // As long as we can take in more metadata we can get data
             // associated with that meta, so the meta stream is ready.
             data.ready = in_data.ready;
@@ -130,7 +130,7 @@ always_comb begin
             // So either:
             // 1. We're not dropping.
             // 2. We're dropping and the output is ready.
-            in_data.ready = ~drop || (drop && out_data.ready);
+            in_data.ready = rst_n && (~drop || (drop && out_data.ready));
         end
 
         ST_CONF: begin

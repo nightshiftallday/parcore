@@ -68,7 +68,7 @@ _test_cases = (
     _TestCase(elements=[randint(0, 128) for _ in range(55)], bit_width=7),
 )
 
-class RLEDecoderTestCase(fpga_test_case.FPGATestCase):
+class BPEDecoderTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "bpe_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
@@ -76,6 +76,28 @@ class RLEDecoderTestCase(fpga_test_case.FPGATestCase):
     def test_one_bpe_decoding(self):
         self.set_stream_input(0, _test_cases[0].input)
         self.set_expected_output(0, _test_cases[0].output)
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_two_bpe_decoding(self):
+        for test_case in _test_cases[:2]:
+            self.set_stream_input(0, test_case.input)
+            self.set_expected_output(0, test_case.output)
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_three_bpe_decoding(self):
+        for test_case in _test_cases[:3]:
+            self.set_stream_input(0, test_case.input)
+            self.set_expected_output(0, test_case.output)
 
         # Act
         self.simulate_fpga()

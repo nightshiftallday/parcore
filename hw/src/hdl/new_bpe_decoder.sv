@@ -22,7 +22,7 @@ module ExpandBPE #(
     valid_i.s in_meta, // #(bpe_metadata_t)
     data_i.s in,       // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0])
 
-    ndata_i.m out   // #(data_t, NUM_ELEMENTS)
+    ndata_i.m out      // #(data_t, NUM_ELEMENTS)
 );
 
 // Extracting data from the data_i interface
@@ -40,9 +40,8 @@ always_comb begin
     out.valid = in_meta.valid && in.valid;
     out.last = in.last;
     for (int i = 0; i < NUM_ELEMENTS; i++) begin
-        out.data[i] = '0;
-        for (int j = 0; j < in_meta_data.bit_width; j++) begin
-            out.data[i][j] = in_data[i*in_meta_data.bit_width+j];
+        for (int j = 0; j < $bits(data_t); j++) begin
+            out.data[i][j] = j < in_meta_data.bit_width ?  in_data[i*in_meta_data.bit_width+j] : 0;
         end
         out.keep[i] = i < in_meta_data.count;
     end

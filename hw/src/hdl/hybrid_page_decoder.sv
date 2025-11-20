@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-`include "axi_macros.svh"
+`include "libstf_macros.svh"
 `include "lynx_macros.svh"
 `include "parcore_types.svh"
 
@@ -28,6 +28,8 @@ module HybridPageDecoder #(
 
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
 );
+
+`RESET_RESYNC // Reset pipelining
 
 localparam int NUM_BYTES_OFFSET = 4;
 
@@ -71,7 +73,7 @@ task reset();
 endtask
 
 always_ff @(posedge clk) begin
-    if (rst_n == 1'b0) begin
+    if (reset_synced == 1'b0) begin
         reset();
     end else begin
         case (state)
@@ -141,7 +143,7 @@ end
 // ------- Run decoder wiring ---------
 RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(run_decoder_in),
     .in_meta(run_decoder_in_meta),
@@ -165,7 +167,7 @@ end
 
 DataNormalizer #(data_t, NUM_ELEMENTS) data_normalizer_inst (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(normalizer_in),
     .out(out)
@@ -186,7 +188,7 @@ end
 always_comb begin
     // We only accept metadata input if we're ready to store it and process
     // it. Refer to the state machine code.
-    in_meta.ready = state == ST_CONSUME && in.valid && ~configured && rst_n;
+    in_meta.ready = state == ST_CONSUME && in.valid && ~configured && reset_synced;
 
     case (state)
         ST_CONSUME: begin
