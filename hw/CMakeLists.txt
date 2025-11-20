@@ -29,7 +29,7 @@ configure_file(
 validation_checks_hw()
 
 load_apps (
-    VFPGA_C0_0 "src"
+    VFPGA_C0_0 "src ../libstf/src"
 )
 
 create_hw()
