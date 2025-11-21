@@ -39,7 +39,7 @@ assign in_meta_data = in_meta.data;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
-ndata_i #(data_t, NUM_ELEMENTS) run_decoder_out ();
+ndata_i #(data_t, NUM_ELEMENTS) run_decoder_out_inner (), run_decoder_out ();
 
 run_decoder_metadata_t run_decoder_in_meta_data;
 ready_valid_i #(run_decoder_metadata_t) run_decoder_in_meta ();
@@ -118,9 +118,6 @@ always_ff @(posedge clk) begin
                 end
 
                 if(normalizer_in.valid && normalizer_in.ready) begin
-                    // $display("normalizer took in: %x %b, remaining %d values", normalizer_in.keep, normalizer_in.last, num_values);
-                    // $display("num_values: %d, normalizer_in_num_values: %d", num_values, normalizer_in_num_values);
-
                     // NOTE: it is safe to tamper with num_values here, which is
                     // used in the otuput for run_decoder_in_meta, as we're
                     // assuming that the transaction with the run decoder has
@@ -148,6 +145,14 @@ RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .in(run_decoder_in),
     .in_meta(run_decoder_in_meta),
 
+    .out(run_decoder_out_inner)
+);
+
+NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer_decoder (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(run_decoder_out_inner),
     .out(run_decoder_out)
 );
 

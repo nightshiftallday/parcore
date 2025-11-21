@@ -114,40 +114,47 @@ end
 
 // Output meta interface should reflect internal state
 always_comb begin
-    case (state)
-        ST_IDLE: begin
-            data.valid = rst_n && in_data.valid;
-            // As long as we can take in more metadata we can get data
-            // associated with that meta, so the meta stream is ready.
-            data.ready = in_data.ready;
-            data.data = in_data_data;
-            
-            // We're not buffering any data currently, so we're ready to take
-            // in new data.
-            //
-            // There's one edge case. If we need to drop the value in the same
-            // cycle, the output must be ready to take the meta input.
-            // So either:
-            // 1. We're not dropping.
-            // 2. We're dropping and the output is ready.
-            in_data.ready = rst_n && (~drop || (drop && out_data.ready));
-        end
+    data.data = 'x;
+    data.valid = 1'b0;
+    data.ready = 1'b0;
+    in_data.ready = 1'b0;
 
-        ST_CONF: begin
-            data.valid = 1'b1;
-            data.ready = ~paused;
-            data.data = keep_meta;
+    if (rst_n) begin
+        case (state)
+            ST_IDLE: begin
+                data.valid = in_data.valid;
+                // As long as we can take in more metadata we can get data
+                // associated with that meta, so the meta stream is ready.
+                data.ready = in_data.ready;
+                data.data = in_data_data;
+                
+                // We're not buffering any data currently, so we're ready to take
+                // in new data.
+                //
+                // There's one edge case. If we need to drop the value in the same
+                // cycle, the output must be ready to take the meta input.
+                // So either:
+                // 1. We're not dropping.
+                // 2. We're dropping and the output is ready.
+                in_data.ready = ~drop || (drop && out_data.ready);
+            end
 
-            in_data.ready = 1'b0;
-        end
+            ST_CONF: begin
+                data.valid = 1'b1;
+                data.ready = ~paused;
+                data.data = keep_meta;
 
-        ST_FLUSH: begin
-            data.valid = 1'b0;
-            data.ready = 1'b0;
+                in_data.ready = 1'b0;
+            end
 
-            in_data.ready = 1'b0;
-        end
-    endcase
+            ST_FLUSH: begin
+                data.valid = 1'b0;
+                data.ready = 1'b0;
+
+                in_data.ready = 1'b0;
+            end
+        endcase
+    end
 end
 
 // Propagating metadata forward, only one databeat

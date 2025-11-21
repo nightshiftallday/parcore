@@ -21,25 +21,25 @@ always_comb axis_host_send[3].tie_off_m();
 always_comb axis_host_recv[2].tie_off_s();
 always_comb axis_host_recv[3].tie_off_s();
 
-always_comb axis_rreq_recv[0].tie_off_s();
-always_comb axis_rreq_recv[1].tie_off_s();
-always_comb axis_rreq_recv[2].tie_off_s();
-always_comb axis_rreq_recv[3].tie_off_s();
-
-always_comb axis_rreq_send[0].tie_off_m();
-always_comb axis_rreq_send[1].tie_off_m();
-always_comb axis_rreq_send[2].tie_off_m();
-always_comb axis_rreq_send[3].tie_off_m();
-
-always_comb axis_rrsp_recv[0].tie_off_s();
-always_comb axis_rrsp_recv[1].tie_off_s();
-always_comb axis_rrsp_recv[2].tie_off_s();
-always_comb axis_rrsp_recv[3].tie_off_s();
-
-always_comb axis_rrsp_send[0].tie_off_m();
-always_comb axis_rrsp_send[1].tie_off_m();
-always_comb axis_rrsp_send[2].tie_off_m();
-always_comb axis_rrsp_send[3].tie_off_m();
+// always_comb axis_rreq_recv[0].tie_off_s();
+// always_comb axis_rreq_recv[1].tie_off_s();
+// always_comb axis_rreq_recv[2].tie_off_s();
+// always_comb axis_rreq_recv[3].tie_off_s();
+//
+// always_comb axis_rreq_send[0].tie_off_m();
+// always_comb axis_rreq_send[1].tie_off_m();
+// always_comb axis_rreq_send[2].tie_off_m();
+// always_comb axis_rreq_send[3].tie_off_m();
+//
+// always_comb axis_rrsp_recv[0].tie_off_s();
+// always_comb axis_rrsp_recv[1].tie_off_s();
+// always_comb axis_rrsp_recv[2].tie_off_s();
+// always_comb axis_rrsp_recv[3].tie_off_s();
+//
+// always_comb axis_rrsp_send[0].tie_off_m();
+// always_comb axis_rrsp_send[1].tie_off_m();
+// always_comb axis_rrsp_send[2].tie_off_m();
+// always_comb axis_rrsp_send[3].tie_off_m();
 
 // -- Fix clock and reset names ----------------------------------------- */
 logic clk;

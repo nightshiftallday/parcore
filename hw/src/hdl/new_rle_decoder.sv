@@ -84,6 +84,9 @@ end
 data_t element;
 rle_count_t count;
 always_comb begin
+    // We need to provide default values to prevent latch inference
+    element = '0;
+
     case (state)
         ST_IDLE: begin
             if (in.ready && in.valid) begin
