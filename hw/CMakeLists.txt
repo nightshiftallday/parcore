@@ -20,13 +20,6 @@ set(N_STRM_AXI ${NUM_UNITS})
 set(FDEV_NAME u55c)
 set(DEBUG 1)
 
-# Generate reader_pkg.sv from template
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/reader_pkg_tmplt.sv
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/hdl/reader_pkg.sv
-    @ONLY
-)
-
 validation_checks_hw()
 
 load_apps (
