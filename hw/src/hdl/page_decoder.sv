@@ -29,7 +29,7 @@ module PageDecoder #(
 parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
-ready_valid_i #(page_metadata_t) decompressor_meta ();
+ready_valid_i #(page_metadata_t) decompressor_meta_inner (), decompressor_meta ();
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
@@ -38,8 +38,16 @@ Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .in_meta(in_meta),
     .in(in),
 
-    .out_meta(decompressor_meta),
+    .out_meta(decompressor_meta_inner),
     .out(decompressor_out)
+);
+
+SkidBuffer #(page_metadata_t) inst_skid_buffer_meta (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(decompressor_meta_inner),
+    .out(decompressor_meta)
 );
 
 // ------ Hybrid decoder wiring -------------------

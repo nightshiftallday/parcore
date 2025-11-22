@@ -16,9 +16,6 @@ module ExpandBPE #(
     parameter type data_t,
     parameter NUM_ELEMENTS
 ) (
-    input logic clk,
-    input logic rst_n,
-
     valid_i.s in_meta, // #(bpe_metadata_t)
     data_i.s in,       // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0])
 

@@ -159,9 +159,6 @@ data_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0]) bpe_in ();
 ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
 
 ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
-    .clk(clk),
-    .rst_n(reset_synced),
-
     .in_meta(bpe_in_meta),
     .in(bpe_in),
     .out(bpe_out)
