@@ -221,4 +221,21 @@ always_comb begin
     run_decoder_in_meta_data.num_values = num_values;
 end
 
+ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
+    .clk(clk),
+    .probe0(reset_resync),
+
+    .probe1(in_meta.ready),
+    .probe2(in_meta.valid),
+    .probe3(in_meta.data),
+
+    .probe4(in.ready),
+    .probe5(in.valid),
+    .probe6(in.last),
+
+    .probe7(out.ready),
+    .probe8(out.valid),
+    .probe9(out.last)
+);
+
 endmodule

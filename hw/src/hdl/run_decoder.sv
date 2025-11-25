@@ -441,9 +441,13 @@ end
 // ------- Combinatorial assignments --
 
 always_comb begin
-    if (reset_synced) begin
-        packed_databeat_bits = NUM_ELEMENTS * bit_width;
+    varint_offset = 'x;
+    keep = 'x;
+    data = 'x;
+    last_received = 'x;
 
+    packed_databeat_bits = NUM_ELEMENTS * bit_width;
+    if (reset_synced) begin
         // Driving varint_offset
         if (state == ST_IDLE && in_meta.valid) begin
             varint_offset = in_meta_data.offset;
@@ -588,5 +592,30 @@ always_comb begin
         end
     endcase
 end
+
+ila_run_decoder inst_ila_run_decoder (
+    .clk(clk),
+    .probe0(reset_resync),
+
+    .probe1(in_meta.ready),
+    .probe2(in_meta.valid),
+    .probe3(in_meta.data),
+
+    .probe4(in.ready),
+    .probe5(in.valid),
+    .probe6(in.last),
+
+    .probe7(out.ready),
+    .probe8(out.valid),
+    .probe9(out.keep),
+    .probe10(out.data),
+    .probe11(out.last),
+
+    .probe12(state),
+    .probe13(offset),
+    .probe14(varint_offset),
+    .probe15(varint_out.valid),
+    .probe16(varint_out.data)
+);
 
 endmodule

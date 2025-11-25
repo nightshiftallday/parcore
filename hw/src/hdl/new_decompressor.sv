@@ -120,4 +120,25 @@ assign out.last  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_ou
 assign decompressor_out.ready = meta.data.compression == COMPRESSION_SNAPPY && out.ready;
 assign bypass_out.ready = meta.data.compression == COMPRESSION_RAW && out.ready;
 
+ila_decompressor inst_ila_decompressor (
+    .clk(clk),
+    .probe0(reset_resync),
+
+    .probe1(in_meta.ready),
+    .probe2(in_meta.valid),
+    .probe3(in_meta.data),
+
+    .probe4(in.ready),
+    .probe5(in.valid),
+    .probe6(in.last),
+
+    .probe7(out_meta.ready),
+    .probe8(out_meta.valid),
+    .probe9(out_meta.data),
+
+    .probe10(out.ready),
+    .probe11(out.valid),
+    .probe12(out.last)
+);
+
 endmodule

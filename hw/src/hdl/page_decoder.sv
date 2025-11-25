@@ -162,4 +162,21 @@ assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;
 
+ila_page_decoder inst_ila_page_decoder (
+    .clk(clk),
+    .probe0(reset_resync),
+
+    .probe1(in_meta.ready),
+    .probe2(in_meta.valid),
+
+    .probe3(in.ready),
+    .probe4(in.valid),
+    .probe5(in.last),
+
+    .probe6(out.ready),
+    .probe7(out.valid),
+    .probe8(out.last),
+    .probe9(out.typ)
+);
+
 endmodule
