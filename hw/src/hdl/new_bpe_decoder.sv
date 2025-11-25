@@ -29,19 +29,18 @@ bpe_metadata_t in_meta_data;
 assign in_data = in.data;
 assign in_meta_data = in_meta.data;
 
-// ready chaining
-assign in.ready = in_meta.valid && out.ready;
+assign in.ready = in_meta.valid && out.ready; // ready chaining
 
 // Driving output based on the current intrenal state
-always_comb begin
-    out.valid = in_meta.valid && in.valid;
-    out.last = in.last;
-    for (int i = 0; i < NUM_ELEMENTS; i++) begin
-        for (int j = 0; j < $bits(data_t); j++) begin
-            out.data[i][j] = j < in_meta_data.bit_width ?  in_data[i*in_meta_data.bit_width+j] : 0;
-        end
-        out.keep[i] = i < in_meta_data.count;
+assign out.valid = in_meta.valid && in.valid;
+assign out.last = in.last;
+generate
+for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
+    for (genvar J = 0; J < $bits(data_t); J++) begin
+        assign out.data[I][J] = J < in_meta_data.bit_width ?  in_data[I*in_meta_data.bit_width+J] : 0;
     end
+    assign out.keep[I] = I < in_meta_data.count;
 end
+endgenerate
 
 endmodule

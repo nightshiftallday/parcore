@@ -25,54 +25,48 @@ rle_count_t in_meta;
 assign in_data = in.data;
 assign in_meta = in.tag;
 
+// State machine state and logic
 typedef enum logic {
     ST_IDLE,
     ST_CONF
 } state_t;
+data_t element;
+rle_count_t count;
 state_t state;
-data_t keep_element;
-rle_count_t keep_count;
+
+task reset();
+    state <= ST_IDLE;
+    element <= 'x;
+    count <= 'x;
+endtask
 
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
-        state <= ST_IDLE;
-        keep_element <= 0;
-        keep_count <= 0;
+        reset();
     end else begin
         case (state)
             ST_IDLE: begin
-                if (in.ready && in.valid) begin
-                    // We will immediately output the first batch of
-                    // NUM_ELEMENTS in the first cycle that we receive a valid
-                    // RLE number to decode, so we want to buffer the state
-                    // only if we need to put out more elements than we can do
-                    // in a cycle.
-                    if (~(out.ready && out.valid && out.last)) begin
-                        keep_element <= in_data;
-                        // If we have sent a databeat out but it was not last,
-                        // decrement the count value.
-                        if (out.ready && out.valid) begin
-                            keep_count <= in_meta - NUM_ELEMENTS;
-                        end else begin
-                            keep_count <= in_meta;
-                        end
-
-                        state <= ST_CONF;
-                    end
+                if (in.valid) begin
+                    element <= in_data;
+                    count <= in_meta;
+                    state <= ST_CONF;
                 end
             end
 
             ST_CONF: begin
                 if (out.valid && out.ready) begin
                   if (out.last) begin
-                      // This is the last batch for this RLE decoding, so
-                      // reset to idle state.
-                      state <= ST_IDLE;
-                      keep_element <= 0;
-                      keep_count <= 0;
+                      // If there's no more input to take, go back to idle,
+                      // otherwise remain on CONF but update the configuration
+                      if (in.valid) begin
+                          element <= in_data;
+                          count <= in_meta;
+                      end else begin
+                          reset();
+                      end
                   end else begin
-                      // If ~out.last, then count (=keep_count) > NUM_ELEMENTS
-                      keep_count <= keep_count - NUM_ELEMENTS;
+                      // If ~out.last, then count > NUM_ELEMENTS
+                      count <= count - NUM_ELEMENTS;
                   end
                 end
             end
@@ -80,40 +74,29 @@ always_ff @(posedge clk) begin
     end
 end
 
-// Deriving internal state from input and current buffering state
-data_t element;
-rle_count_t count;
-always_comb begin
-    // We need to provide default values to prevent latch inference
-    element = '0;
-
-    case (state)
-        ST_IDLE: begin
-            if (in.ready && in.valid) begin
-                element = in_data;
-                count = in_meta;
-            end else begin
-                count = 0;
-            end
-        end
-
-        ST_CONF: begin
-            element = keep_element;
-            count = keep_count;
-        end
-    endcase
-
-    in.ready = state == ST_IDLE && rst_n;
-end
+assign in.ready = rst_n && (state == ST_IDLE || (state == ST_CONF && out.ready && out.valid && out.last));
+// always_comb begin
+//     // We need to provide default values to prevent latch inference
+//     in.ready = 0;
+//
+//     if (rst_n == 1'b1) begin
+//         case (state)
+//             ST_IDLE: in.ready = 1;
+//             // If it's the last databeat, and we're flushing it out, we can
+//             // take more input to keep the decoder running in this state.
+//             ST_CONF: in.ready = out.last && out.valid && out.ready;
+//         endcase
+//     end
+// end
 
 // Driving output based on the current intrenal state
-always_comb begin
-    out.valid = count > 0;
-    out.last = count <= NUM_ELEMENTS;
-    for (int i = 0; i < NUM_ELEMENTS; i++) begin
-        out.data[i] = element;
-        out.keep[i] = i < count;
-    end
+assign out.valid = count > 0;
+assign out.last = count <= NUM_ELEMENTS;
+generate
+for (genvar i = 0; i < NUM_ELEMENTS; i++) begin
+    assign out.data[i] = element;
+    assign nout.keep[i] = i < count;
 end
+endgenerate
 
 endmodule

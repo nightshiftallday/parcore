@@ -94,9 +94,6 @@ always_ff @(posedge aclk) begin
 end
 
 ExpandBPE #(data32_t, 16) inst_expand_rle (
-    .clk(aclk),
-    .rst_n(aresetn),
-
     .in(in),
     .in_meta(in_meta),
     .out(out)

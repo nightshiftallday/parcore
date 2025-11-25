@@ -72,16 +72,16 @@ always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
         output_databeat  <= 0;
     end else begin
-        // if (in.valid && in.ready) begin
-        //     $display("< in valid: %x, ready: %x", in.valid, in.ready);
-        // end
+        if (in.valid && in.ready) begin
+            $display("< in valid: %x, ready: %x", in.valid, in.ready);
+        end
 
         if (host_out.tvalid && host_out.tready) begin
-            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
+            $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats", output_databeat+1);
+              $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end
