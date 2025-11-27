@@ -86,11 +86,13 @@ logic last_received;
 // n bits for bit_width_t, + log2(NUM_ELEMENTS) bits
 // as this value is the result of bit_width * NUM_ELEMENTS;
 logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - 1:0] packed_databeat_bits;
+assign packed_databeat_bits = NUM_ELEMENTS * bit_width;
 offset_t varint_offset;
 
 
 // ------- Combinatorial state (decoders) ---
 logic [3:0] rle_width;
+assign rle_width = (bit_width + 7) >> 3;
 
 // This is a bit-level view of the data
 logic [NUM_BYTES * 8 * 2 - 1:0] bpe_data;
@@ -116,6 +118,23 @@ VarintDecoder inst_varint_decoder (
 assign varint_in.valid = ((keep[varint_offset+3] && keep[varint_offset+2] && keep[varint_offset+1]) || last_received) && keep[varint_offset];
 assign varint_in.data = '{data[varint_offset+3], data[varint_offset+2], data[varint_offset+1], data[varint_offset]};
 
+// Combinatorial shift values from the varint value used to compute rle_count
+// and bpe_count.
+logic varint_encoding;
+assign varint_encoding = varint_out.data.value[0];
+typedef enum logic {
+    ENCODING_RLE = 0,
+    ENCODING_BPE = 1
+} varint_encoding_t;
+rle_count_t varint_no_encoding;
+assign varint_no_encoding = varint_out.data.value >> 1;
+bpe_count_t varint_no_encoding_bytes;
+assign varint_no_encoding_bytes = varint_no_encoding  << 3;
+
+// This value always points at the first byte after the varint
+offset_t run_data_offset;
+assign run_data_offset = varint_offset + varint_out.data.length;
+
 // ------- RLE decoding
 tagged_i #(data_t, $bits(rle_count_t)) rle_in ();
 ndata_i #(data_t, NUM_ELEMENTS) rle_out ();
@@ -128,7 +147,10 @@ ExpandRLE #(data_t, NUM_ELEMENTS) inst_expand_rle (
     .out(rle_out)
 );
 
-assign rle_in.tag = rle_count;
+offset_t rle_offset;
+assign rle_offset = state == ST_DECODE_RLE2 ? run_data_offset : offset;
+
+assign rle_in.tag = state == ST_DECODE_RLE2 ? varint_no_encoding : rle_count;
 logic[DATA_SIZE - 1:0] rle_in_valid_bits;
 logic[DATA_SIZE - 1:0] rle_needs_to_buffer_bits;
 generate
@@ -138,13 +160,15 @@ for (genvar i = 0; i < DATA_SIZE; i++) begin
     // bytes are required. For example, for $bits(data_t) = 18, DATA_SIZE = 3,
     // but we can't access indexes 23:18, only 17:16 for the last byte.
     for (genvar b = 0; b < 8 && i * 8 + b < $bits(data_t); b++) begin
-        assign rle_in.data[i * 8 + b] = (i < rle_width) ? data[offset+i][b] : '0;
+        assign rle_in.data[i * 8 + b] = (i < rle_width) ? data[rle_offset+i][b] : '0;
     end
-    assign rle_in_valid_bits[i] = (i >= rle_width) || keep[offset+i];
-    assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep_keep[offset+i]);
+    assign rle_in_valid_bits[i] = (i >= rle_width) || keep[rle_offset+i];
+    assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep_keep[rle_offset+i]);
 end
 endgenerate
-assign rle_in.valid = state == ST_DECODE_RLE && &rle_in_valid_bits;
+assign rle_in.valid = &rle_in_valid_bits && (state == ST_DECODE_RLE || (state == ST_DECODE_RLE2 && varint_encoding == ENCODING_RLE));
+assign rle_out.ready = state == ST_DECODE_RLE2 && out.ready;
+logic rle_needs_more_input;
 assign rle_needs_more_input = |rle_needs_to_buffer_bits;
 
 // ------- BPE decoding
@@ -164,33 +188,32 @@ ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
     .out(bpe_out)
 );
 
-assign bpe_in.data = bpe_data[offset * 8 + bpe_offset +: $bits(data_t) * NUM_ELEMENTS];
-
 // the BPE decoder doesn't look at the keep signal.
 // assign bpe_in.keep = keep[offset +: $bits(data_t) * NUM_ELEMENTS];
-logic bpe_valid_bytes;
-logic bpe_needs_more_input;
-always_comb begin
-    bpe_valid_bytes = 1'b1;
-    bpe_needs_more_input = 1'b0;
-    for (int i = 0; i < NUM_ELEMENTS * DATA_SIZE; i++) begin
-        if (i < (packed_databeat_bits / 8)) begin
-            bpe_valid_bytes &= keep[offset + i];
-            bpe_needs_more_input |= ~keep_keep[offset + i];
-        end
+assign bpe_in.data = bpe_data[offset * 8 + bpe_offset +: $bits(data_t) * NUM_ELEMENTS];
+logic[NUM_ELEMENTS * DATA_SIZE - 1:0] bpe_valid_bytes;
+logic[NUM_ELEMENTS * DATA_SIZE - 1:0] bpe_needs_to_buffer_bytes;
+generate
+    for (genvar i = 0; i < NUM_ELEMENTS * DATA_SIZE; i++) begin
+        assign bpe_valid_bytes[i] = (i < (packed_databeat_bits / 8)) ? keep[offset + i] : 1;
+        assign bpe_needs_to_buffer_bytes[i] = (i < (packed_databeat_bits / 8)) ? ~keep_keep[offset + i] : 0;
     end
-    bpe_needs_more_input &= ~keep_last_received;
-end
-assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || last_received);
+endgenerate
+assign bpe_in.valid = state == ST_DECODE_BPE && (&(bpe_valid_bytes) || last_received);
+assign bpe_out.ready = state == ST_DECODE_BPE && out.ready;
 assign bpe_in.last = bpe_count <= NUM_ELEMENTS;
+logic bpe_needs_more_input;
+// We want to take more input if some of the keep_keep bytes are not high, and
+// only if we haven't already consumed the last databeat.
+assign bpe_needs_more_input = |bpe_needs_to_buffer_bytes && ~keep_last_received;
 
 // ------- State machine ---------
 
 task store_input(input data8_t[NUM_BYTES - 1:0] data,
                  input logic[NUM_BYTES - 1:0] keep,
                  input logic last,
-                 input logic second_half);
-    if (~second_half) begin
+                 input logic first_half);
+    if (first_half) begin
         keep_data[NUM_BYTES - 1:0] <= data;
         keep_keep[NUM_BYTES - 1:0] <= keep;
     end else begin
@@ -230,19 +253,6 @@ task reset();
     remaining_values <= '0;
 endtask
 
-// This value always points at the first byte after the varint
-offset_t run_data_offset;
-assign run_data_offset = varint_offset + varint_out.data.length;
-
-// Combinatorial shift values from the varint value used to compute rle_count
-// and bpe_count.
-logic varint_encoding;
-assign varint_encoding = varint_out.data.value[0];
-rle_count_t varint_no_encoding;
-assign varint_no_encoding = varint_out.data.value >> 1;
-bpe_count_t varint_no_encoding_bytes;
-assign varint_no_encoding_bytes = varint_no_encoding  << 3;
-
 task goto_decode(input data32_t remaining_values);
     `ifndef SYNTHESIS
     if (~varint_out.valid) begin
@@ -251,7 +261,7 @@ task goto_decode(input data32_t remaining_values);
     `endif
 
     update_offset(run_data_offset);
-    if (varint_encoding) begin
+    if (varint_encoding == ENCODING_BPE) begin
         state <= ST_DECODE_BPE;
 
         // Compute BPE properties
@@ -265,10 +275,15 @@ task goto_decode(input data32_t remaining_values);
             bpe_extra <= 0;
         end
     end else begin
-        state <= ST_DECODE_RLE;
-       
         // Compute RLE properties
         rle_count <= varint_no_encoding;
+
+        if (rle_in.ready && rle_in.valid) begin
+            state <= ST_DECODE_RLE2;
+        end else begin
+            state <= ST_DECODE_RLE;
+            keep_varint_offset <= varint_offset;
+        end
     end
 endtask
 
@@ -288,7 +303,7 @@ task finish_rle();
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
         state <= ST_HEADER2;
-        keep_varint_offset <= varint_offset;
+        keep_varint_offset = varint_offset;
     end
 endtask
 
@@ -334,6 +349,10 @@ always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
         reset();
     end else begin
+        if (in.ready && in.valid) begin
+            store_input(in_data, in_keep, in.last, state == ST_IDLE || state == ST_HEADER);
+        end
+
         case (state)
             ST_IDLE: begin
                 if (in_meta.ready && in_meta.valid) begin
@@ -342,10 +361,6 @@ always_ff @(posedge clk) begin
                     keep_varint_offset <= in_meta_data.offset;
                     remaining_values <= in_meta_data.num_values;
                     
-                    if (in.ready && in.valid) begin
-                        store_input(in_data, in_keep, in.last, 0);
-                    end
-
                     // NOTE: we must make sure this input we're on
                     // is valid, otherwise we cannot consider the varint value
                     // valid either.
@@ -370,10 +385,6 @@ always_ff @(posedge clk) begin
             // received the input. Receiving one databeat may or may not be
             // enough.
             ST_HEADER: begin
-                if (in.ready && in.valid) begin
-                    store_input(in_data, in_keep, in.last, 0);
-                end
-
                 if (varint_out.valid) begin
                     // If we receive input and the varint decoding is done,
                     // we can directly move to the decoder stages.
@@ -389,45 +400,31 @@ always_ff @(posedge clk) begin
             // Here we have received the configuration and one input databeat,
             // but we weren't able to decode the header varint with just that.
             ST_HEADER2: begin
-                if (in.ready && in.valid) begin
-                    store_input(in_data, in_keep, in.last, 1);
-                end
-
                 if (varint_out.valid) begin
                     goto_decode(remaining_values);
                 end
             end
 
             ST_DECODE_RLE: begin
-                if (in.ready && in.valid) begin
-                    store_input(in_data, in_keep, in.last, 1);
-                end
-
-                if (rle_out.ready && rle_out.valid && rle_out.last) begin
-                    finish_rle();
-                end else if (rle_in.ready && rle_in.valid) begin
-                    // If it's not the last databeat for this decoding, move
-                    // on to the ST_DEOCDE_RLE2 state where we wait for that to
-                    // happen.
+                if (rle_in.ready && rle_in.valid) begin
+                    // If the RLE input has been taken by the decoder, move on
+                    // and wait for the decoder to be done. In the next state,
+                    // we can potentially perform pipelining for consecutive
+                    // RLE decodings.
                     state <= ST_DECODE_RLE2;
-                    keep_varint_offset <= varint_offset;
                 end
             end
 
             // In this state we wait for the RLE decoder to be done.
             ST_DECODE_RLE2: begin
-                if (rle_out.ready && rle_out.valid && rle_out.last) begin
-                  finish_rle();
-                end
+                if (out.ready && rle_out.valid && rle_out.last) begin
+                    finish_rle();
+                end 
             end
 
             ST_DECODE_BPE: begin
-                if (in.ready && in.valid) begin
-                    store_input(in_data, in_keep, in.last, 1);
-                end
-
-                if (bpe_out.ready && bpe_out.valid) begin
-                    if (bpe_out.last) begin
+                if (out.ready && bpe_out.valid) begin
+                    if (out.last) begin
                         finish_bpe();
                     end else begin
                         advance_bpe();
@@ -441,92 +438,76 @@ end
 // ------- Combinatorial assignments --
 
 always_comb begin
-    varint_offset = 'x;
-    keep = 'x;
-    data = 'x;
-    last_received = 'x;
+    // Driving varint_offset
+    if (state == ST_IDLE && in_meta.valid) begin
+        varint_offset = in_meta_data.offset;
+    end else if (state == ST_DECODE_RLE2) begin
+        // When decoding RLE, can move forward the offset if we've configured
+        // the RLE expander, so we can achieve full throughput for consecutive
+        // RLE runs.
+        varint_offset = offset + rle_width;
+    end else if (state == ST_DECODE_BPE) begin
+        // When decoding BPE, can move forward the offset so we can achieve
+        // full throughput for consecutive runs.
 
-    packed_databeat_bits = NUM_ELEMENTS * bit_width;
-    if (reset_synced) begin
-        // Driving varint_offset
-        if (state == ST_IDLE && in_meta.valid) begin
-            varint_offset = in_meta_data.offset;
-        end else if (state == ST_DECODE_RLE && rle_in.ready && rle_in.valid) begin
-            // When decoding RLE, can move forward the offset if we've configured
-            // the RLE expander, so we can achieve full throughput for consecutive
-            // RLE runs.
-            varint_offset = offset + rle_width;
-        end else if (state == ST_DECODE_BPE && bpe_out.ready && bpe_out.valid && bpe_out.last) begin
-            // When decoding BPE, can move forward the offset if we're done flushing
-            // the last BPE databeat, so we can achieve full throughput for
-            // consecutive runs.
+        // The increment on a final BPE databeat width is given by:
+        //     ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8
+        varint_offset = offset + ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8;
+    end else begin
+        varint_offset = keep_varint_offset;
+    end
 
-            // The increment on a final BPE databeat width is given by:
-            //     ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8
-            varint_offset = offset + ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8;
-        end else begin
-            varint_offset = keep_varint_offset;
+    // Mapping input data, keep and last to combinatorial values
+    case (state)
+        ST_IDLE, ST_HEADER: begin
+            if (in.ready && in.valid) begin
+                data[NUM_BYTES - 1:0] = in_data;
+                keep[NUM_BYTES - 1:0] = in_keep;
+                data[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
+                keep[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
+                last_received = in.last;
+            end else begin
+                data = '0;
+                keep = '0;
+                last_received = 0;
+            end
         end
 
-        // Mapping input data, keep and last to combinatorial values
-        case (state)
-            ST_IDLE, ST_HEADER: begin
-                if (in.ready && in.valid) begin
-                    data[NUM_BYTES - 1:0] = in_data;
-                    keep[NUM_BYTES - 1:0] = in_keep;
-                    data[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
-                    keep[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
-                    last_received = in.last;
-                end else begin
-                    data = '0;
-                    keep = '0;
-                    last_received = 0;
-                end
+        // ST_HEADER2: begin
+        //     data[NUM_BYTES - 1:0] = keep_data[NUM_BYTES - 1:0];
+        //     keep[NUM_BYTES - 1:0] = keep_keep[NUM_BYTES - 1:0];
+        //
+        //     if (in.ready && in.valid) begin
+        //         data[NUM_BYTES * 2 - 1:NUM_BYTES] = in_data;
+        //         keep[NUM_BYTES * 2 - 1:NUM_BYTES] = in_keep;
+        //         last_received = in.last;
+        //     end else begin
+        //         data[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
+        //         keep[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
+        //         last_received = keep_last_received;
+        //     end
+        // end
+
+        default: begin
+            data[NUM_BYTES - 1:0] = keep_data[NUM_BYTES - 1:0];
+            keep[NUM_BYTES - 1:0] = keep_keep[NUM_BYTES - 1:0];
+
+            if (in.valid && !keep_last_received) begin
+                data[NUM_BYTES * 2 - 1:NUM_BYTES] = in_data;
+                keep[NUM_BYTES * 2 - 1:NUM_BYTES] = in_keep;
+                last_received = in.last;
+            end else begin
+                data[NUM_BYTES * 2 - 1:NUM_BYTES] = keep_data[NUM_BYTES * 2 - 1:NUM_BYTES];
+                keep[NUM_BYTES * 2 - 1:NUM_BYTES] = keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES];
+                last_received = keep_last_received;
             end
-
-            ST_HEADER2: begin
-                data[NUM_BYTES - 1:0] = keep_data[NUM_BYTES - 1:0];
-                keep[NUM_BYTES - 1:0] = keep_keep[NUM_BYTES - 1:0];
-
-                if (in.ready && in.valid) begin
-                    data[NUM_BYTES * 2 - 1:NUM_BYTES] = in_data;
-                    keep[NUM_BYTES * 2 - 1:NUM_BYTES] = in_keep;
-                    last_received = in.last;
-                end else begin
-                    data[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
-                    keep[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
-                    last_received = keep_last_received;
-                end
-            end
-
-            ST_DECODE_RLE, ST_DECODE_BPE: begin
-                data[NUM_BYTES - 1:0] = keep_data;
-                keep[NUM_BYTES - 1:0] = keep_keep;
-
-                if (in.ready && in.valid) begin
-                    data[NUM_BYTES * 2 - 1:NUM_BYTES] = in_data;
-                    keep[NUM_BYTES * 2 - 1:NUM_BYTES] = in_keep;
-                    last_received = in.last;
-                end else begin
-                    data[NUM_BYTES * 2 - 1:NUM_BYTES] = keep_data[NUM_BYTES * 2 - 1:NUM_BYTES];
-                    keep[NUM_BYTES * 2 - 1:NUM_BYTES] = keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES];
-                    last_received = keep_last_received;
-                end
-            end
-
-            default begin
-              data = keep_data;
-              keep = keep_keep;
-              last_received = keep_last_received;
-            end
-        endcase
-    end
+        end
+    endcase
 end
 
 // ------- Driving input ---------
-
+assign in_meta.ready = state == ST_IDLE;
 always_comb begin
-    in_meta.ready = state == ST_IDLE && reset_synced;
     // We need to provide default values to prevent latch inference
     in.ready = 0;
 
@@ -540,15 +521,8 @@ always_comb begin
         end
 
         ST_DECODE_RLE: begin
-            // We need to read more input to provide enough data to the RLE
-            // expander.
+        // ST_DECODE_RLE, ST_DECODE_RLE2: begin
             in.ready = rle_needs_more_input;
-        end
-
-        ST_DECODE_RLE2: begin
-            // We are waiting for the RLE decoder to complete, which doesn't
-            // need any input once instantiated.
-            in.ready = 0;
         end
 
         ST_DECODE_BPE: begin
@@ -557,20 +531,16 @@ always_comb begin
     endcase
 end
 
-// ------- Driving decoders state ---------
-
-always_comb begin
-    rle_width = (bit_width + 7) >> 3;
-    rle_out.ready = state >= ST_DECODE_RLE && state <= ST_DECODE_RLE2 && out.ready;
-
-    bpe_out.ready = state == ST_DECODE_BPE && out.ready;
-end
-
 // ------- Driving output --------
 
 always_comb begin
+    out.valid = 0;
+    out.data = '{default: 'x};
+    out.keep = '0;
+    out.last = 0;
+
     case (state)
-        ST_DECODE_RLE, ST_DECODE_RLE2: begin
+        ST_DECODE_RLE2: begin
           out.valid = rle_out.valid;
           out.data = rle_out.data;
           out.keep = rle_out.keep;
@@ -583,19 +553,13 @@ always_comb begin
           out.keep = bpe_out.keep;
           out.last = bpe_out.last;
         end
-
-        default: begin
-            out.valid = 0;
-            out.data = '{default: 'x};
-            out.keep = '0;
-            out.last = 0;
-        end
     endcase
 end
 
+`ifdef SYNTHESIS
 ila_run_decoder inst_ila_run_decoder (
     .clk(clk),
-    .probe0(reset_resync),
+    .probe0(reset_synced),
 
     .probe1(in_meta.ready),
     .probe2(in_meta.valid),
@@ -617,5 +581,6 @@ ila_run_decoder inst_ila_run_decoder (
     .probe15(varint_out.valid),
     .probe16(varint_out.data)
 );
+`endif
 
 endmodule

@@ -162,6 +162,7 @@ assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;
 
+`ifdef SYNTHESIS
 ila_page_decoder inst_ila_page_decoder (
     .clk(clk),
     .probe0(reset_resync),
@@ -178,5 +179,6 @@ ila_page_decoder inst_ila_page_decoder (
     .probe8(out.last),
     .probe9(out.typ)
 );
+`endif
 
 endmodule

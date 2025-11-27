@@ -117,9 +117,10 @@ assign out.data  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_ou
 assign out.keep  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.keep  : bypass_out.keep;
 assign out.last  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.last  : bypass_out.last;
 
-assign decompressor_out.ready = meta.data.compression == COMPRESSION_SNAPPY && out.ready;
-assign bypass_out.ready = meta.data.compression == COMPRESSION_RAW && out.ready;
+assign decompressor_out.ready = meta.valid && meta.data.compression == COMPRESSION_SNAPPY && out.ready;
+assign bypass_out.ready = meta.valid && meta.data.compression == COMPRESSION_RAW && out.ready;
 
+`ifdef SYNTHESIS
 ila_decompressor inst_ila_decompressor (
     .clk(clk),
     .probe0(reset_resync),
@@ -140,5 +141,6 @@ ila_decompressor inst_ila_decompressor (
     .probe11(out.valid),
     .probe12(out.last)
 );
+`endif
 
 endmodule

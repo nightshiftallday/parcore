@@ -37,13 +37,14 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 
 ready_valid_i #(run_decoder_metadata_t) in_meta ();
 
-run_decoder_metadata_t test_metadata[1:0];
+run_decoder_metadata_t test_metadata[2:0];
 assign test_metadata = '{
     '{bit_width: 8, offset: 8, num_values: 802},
-    '{bit_width: 4, offset: 8, num_values: 150}
+    '{bit_width: 4, offset: 8, num_values: 150},
+    '{bit_width: 4, offset: 8, num_values: 145}
 };
 
-ReadyValidCyclicDriver #(run_decoder_metadata_t, 2) inst_meta_driver (
+ReadyValidCyclicDriver #(run_decoder_metadata_t, 3) inst_meta_driver (
     .clk(aclk),
     .rst_n(aresetn),
 
@@ -77,16 +78,16 @@ always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
         output_databeat  <= 0;
     end else begin
-        if (host_in.tvalid && host_in.tready) begin
-            $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
-        end
+        // if (host_in.tvalid && host_in.tready) begin
+        //     $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
+        // end
 
         if (host_out.tvalid && host_out.tready) begin
-            $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
+            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
             output_databeat <= output_databeat + 1;
 
             if (host_out.tlast) begin
-              $display(">>! got tlast after %d databeats", output_databeat+1);
+              // $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
             end
         end

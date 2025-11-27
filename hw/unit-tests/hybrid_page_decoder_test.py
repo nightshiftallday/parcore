@@ -28,6 +28,9 @@ class _TestCase:
 _rle_input = read_data('rle_data_rg0_col0_chunk_decompressed.bin')
 _rle_output =  [i-10 for i in range(10, 20) for _ in range(i)]
 
+# Ensure the `custom_page_header` function is correct
+assert custom_page_header(_rle_input, 13) == custom_page_header(custom_page_header(_rle_input, 75), 13)
+
 _bpe_input = read_data('bpe_data_rg0_col0_chunk_decompressed.bin')
 _bpe_output = list(range(10-10, 20-10)) * 15
 
@@ -37,7 +40,7 @@ _test_cases = (
         outputs=[_rle_output],
     ),
     _TestCase(
-        inputs=[custom_page_header(_rle_input, 75)],
+        inputs=[custom_page_header(_rle_input, 64+15)],
         outputs=[_rle_output],
     ),
     _TestCase(

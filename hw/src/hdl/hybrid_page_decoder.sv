@@ -45,99 +45,6 @@ run_decoder_metadata_t run_decoder_in_meta_data;
 ready_valid_i #(run_decoder_metadata_t) run_decoder_in_meta ();
 assign run_decoder_in_meta.data = run_decoder_in_meta_data;
 
-// ------- Normalizer wiring ------
-ndata_i #(data_t, NUM_ELEMENTS) normalizer_in ();
-
-// ------- Combinatorial state ---
-offset_t offset;
-// This is on purpose 1 bit wider to account for the case where keep is 0xf..f
-logic [$clog2(NUM_ELEMENTS):0] normalizer_in_num_values;
-
-// ------- State machine ---------
-typedef enum logic {
-    ST_CONSUME,
-    ST_PIPE
-} state_t;
-state_t state;
-
-logic configured;
-offset_t keep_offset;
-bit_width_t bit_width;
-data32_t num_values;
-
-task reset();
-    state <= ST_CONSUME;
-    configured <= 0;
-    keep_offset <= 0;
-    bit_width <= 0;
-endtask
-
-always_ff @(posedge clk) begin
-    if (reset_synced == 1'b0) begin
-        reset();
-    end else begin
-        case (state)
-            ST_CONSUME: begin
-                if (in.valid) begin
-                    // $display("in consume, valid: %d, ready: %d, configured: %d, offset: %d, bit_width: %d", in.valid, in.ready, configured, offset, bit_width);
-
-                    if (~configured) begin
-                        // If we can peek at the input databeat, as well as read the
-                        // metadata, then we can configure the module and wait for the
-                        // offset to fall within the desired range. Then, we can start
-                        // piping input to the run decoder
-                        if (in_meta.ready && in_meta.valid) begin
-                            num_values <= in_meta_data.num_values;
-
-                            if (in.ready) begin
-                                keep_offset <= offset - NUM_BYTES;
-                            end else begin
-                                keep_offset <= offset;
-                            end
-
-                            configured <= 1;
-                        end
-                    end else begin
-                        if (offset <= NUM_BYTES-1) begin
-                            // edge case where offset is such that the last byte
-                            // is the bit width, so we should consume this input
-                            // and move to ST_PIPE
-                            bit_width <= in.data[offset];
-                            keep_offset <= (offset + 1) % NUM_BYTES;
-                            state <= ST_PIPE;
-                        end else begin
-                            keep_offset <= offset - NUM_BYTES;
-                        end
-                    end
-                end
-            end
-
-            ST_PIPE: begin
-                if (run_decoder_in_meta.valid && run_decoder_in_meta.ready) begin
-                    configured <= 0;
-                end
-
-                if(normalizer_in.valid && normalizer_in.ready) begin
-                    // NOTE: it is safe to tamper with num_values here, which is
-                    // used in the otuput for run_decoder_in_meta, as we're
-                    // assuming that the transaction with the run decoder has
-                    // already happened (or is happening in this cycle) when we
-                    // start receiving output.
-                    if (num_values >= normalizer_in_num_values) begin
-                        num_values <= num_values - normalizer_in_num_values;
-                      end
-                end
-
-                if (out.valid && out.ready && out.last) begin
-                    // This is the last databeat for this page, we can reset
-                    reset();
-                end
-            end
-        endcase
-    end
-end
-
-// ------- Run decoder wiring ---------
 RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .clk(clk),
     .rst_n(reset_synced),
@@ -156,19 +63,11 @@ NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer_decoder (
     .out(run_decoder_out)
 );
 
-// ------- Mapping run decoder output to normalizer ---------
-
-always_comb begin
-    normalizer_in_num_values = $countones(run_decoder_out.keep);
-
-    run_decoder_out.ready = normalizer_in.ready;
-    normalizer_in.valid = run_decoder_out.valid;
-    normalizer_in.data = run_decoder_out.data;
-    normalizer_in.keep = run_decoder_out.keep;
-    normalizer_in.last = run_decoder_out.last && num_values <= normalizer_in_num_values;
-end
-
-// ------- Normalizer wiring ---------
+// ------- Normalizer wiring ------
+ndata_i #(data_t, NUM_ELEMENTS) normalizer_in ();
+// This is on purpose 1 bit wider to account for the case where keep is 0xf..f
+logic [$clog2(NUM_ELEMENTS):0] normalizer_in_num_values;
+assign normalizer_in_num_values = $countones(run_decoder_out.keep);
 
 DataNormalizer #(data_t, NUM_ELEMENTS) data_normalizer_inst (
     .clk(clk),
@@ -178,49 +77,128 @@ DataNormalizer #(data_t, NUM_ELEMENTS) data_normalizer_inst (
     .out(out)
 );
 
-// ------- Driving combinatorial state ---
+// ------- State machine ---------
+typedef enum logic [1:0] {
+    ST_IDLE,
+    ST_WAIT,
+    ST_CONSUME,
+    ST_PIPE
+} state_t;
+state_t state;
 
-always_comb begin
-    if (state == ST_CONSUME && in.valid && ~configured) begin
-        offset = in.data[NUM_BYTES_OFFSET - 1:0] + NUM_BYTES_OFFSET;
+offset_t offset, bit_width_offset;
+bit_width_t bit_width;
+assign bit_width = in.data[bit_width_offset];
+data32_t num_values;
+logic should_send_meta;
+
+offset_t actual_offset, next_offset;
+assign actual_offset = NUM_BYTES_OFFSET + in.data[NUM_BYTES_OFFSET - 1:0];
+assign next_offset = offset - NUM_BYTES;
+
+task reset();
+    state <= ST_IDLE;
+    offset <= 0;
+    bit_width_offset <= 0;
+    should_send_meta <= 0;
+endtask
+
+task process_first_databeat();
+    if (actual_offset >= NUM_BYTES - 1) begin
+      offset <= actual_offset;
+      state <= ST_CONSUME;
     end else begin
-        offset = keep_offset;
+      configure(actual_offset);
+    end
+endtask
+
+task configure(offset_t offst);
+    offset <= offst + 1;
+    bit_width_offset <= offst;
+    should_send_meta <= 1;
+    state <= ST_PIPE;
+endtask
+
+always_ff @(posedge clk) begin
+    if (reset_synced == 1'b0) begin
+        reset();
+    end else begin
+        case (state)
+            ST_IDLE: begin
+                if (in_meta.valid) begin
+                    num_values <= in_meta_data.num_values;
+
+                    if (in.valid) begin
+                        process_first_databeat();
+                    end else begin
+                        state <= ST_WAIT;
+                    end
+                end
+            end
+
+            ST_WAIT: begin
+                if (in.valid) begin
+                    process_first_databeat();
+                end
+            end
+
+            ST_CONSUME: begin
+                if (in.valid) begin
+                    if (next_offset <= NUM_BYTES - 1) begin
+                        configure(next_offset);
+                    end else begin
+                        offset <= next_offset;
+                    end
+                end
+            end
+
+            ST_PIPE: begin
+                if (run_decoder_in_meta.valid && run_decoder_in_meta.ready) begin
+                    should_send_meta <= 0;
+                end
+
+                if(normalizer_in.valid && normalizer_in.ready) begin
+                    // NOTE: it is safe to tamper with num_values here, which is
+                    // used in the otuput for run_decoder_in_meta, as we're
+                    // assuming that the transaction with the run decoder has
+                    // already happened (or is happening in this cycle) when we
+                    // start receiving output.
+                    if (num_values >= normalizer_in_num_values) begin
+                        num_values <= num_values - normalizer_in_num_values;
+                    end
+                end
+
+                if (out.valid && out.ready && out.last) begin
+                    // This is the last databeat for this page, we can reset
+                    reset();
+                end
+            end
+        endcase
     end
 end
 
 // ------- Driving input ---------
+assign in_meta.ready = state == ST_IDLE;
+assign in.ready = state == ST_CONSUME || (state == ST_PIPE && run_decoder_in.ready);
 
-always_comb begin
-    // We only accept metadata input if we're ready to store it and process
-    // it. Refer to the state machine code.
-    in_meta.ready = state == ST_CONSUME && in.valid && ~configured && reset_synced;
+assign run_decoder_in.valid = state == ST_PIPE && in.valid;
+assign run_decoder_in.data = in.data;
+assign run_decoder_in.keep = in.keep;
+assign run_decoder_in.last = in.last;
 
-    case (state)
-        ST_CONSUME: begin
-            if (~configured) begin
-                in.ready = in_meta.valid && offset >= NUM_BYTES-1;
-            end else begin
-                in.ready = offset >= NUM_BYTES-1;
-            end
-            run_decoder_in.valid = 0;
-        end
+assign run_decoder_in_meta.valid = state == ST_PIPE && should_send_meta && in.valid;
+assign run_decoder_in_meta_data.bit_width = bit_width;
+assign run_decoder_in_meta_data.offset = offset;
+assign run_decoder_in_meta_data.num_values = num_values;
 
-        ST_PIPE: begin
-            in.ready = run_decoder_in.ready;
-            run_decoder_in.valid = in.valid;
-        end
-    endcase
+// ------- Mapping run decoder output to normalizer ---------
+assign run_decoder_out.ready = normalizer_in.ready;
+assign normalizer_in.valid = run_decoder_out.valid;
+assign normalizer_in.data = run_decoder_out.data;
+assign normalizer_in.keep = run_decoder_out.keep;
+assign normalizer_in.last = run_decoder_out.last && num_values <= normalizer_in_num_values;
 
-    run_decoder_in.data = in.data;
-    run_decoder_in.keep = in.keep;
-    run_decoder_in.last = in.last;
-
-    run_decoder_in_meta.valid = state == ST_PIPE && configured;
-    run_decoder_in_meta_data.bit_width = bit_width;
-    run_decoder_in_meta_data.offset = offset;
-    run_decoder_in_meta_data.num_values = num_values;
-end
-
+`ifdef SYNTHESIS
 ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
     .clk(clk),
     .probe0(reset_resync),
@@ -237,5 +215,6 @@ ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
     .probe8(out.valid),
     .probe9(out.last)
 );
+`endif
 
 endmodule

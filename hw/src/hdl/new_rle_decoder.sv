@@ -37,7 +37,7 @@ state_t state;
 task reset();
     state <= ST_IDLE;
     element <= 'x;
-    count <= 'x;
+    count <= '0;
 endtask
 
 always_ff @(posedge clk) begin
@@ -74,20 +74,7 @@ always_ff @(posedge clk) begin
     end
 end
 
-assign in.ready = rst_n && (state == ST_IDLE || (state == ST_CONF && out.ready && out.valid && out.last));
-// always_comb begin
-//     // We need to provide default values to prevent latch inference
-//     in.ready = 0;
-//
-//     if (rst_n == 1'b1) begin
-//         case (state)
-//             ST_IDLE: in.ready = 1;
-//             // If it's the last databeat, and we're flushing it out, we can
-//             // take more input to keep the decoder running in this state.
-//             ST_CONF: in.ready = out.last && out.valid && out.ready;
-//         endcase
-//     end
-// end
+assign in.ready = state == ST_IDLE || (state == ST_CONF && out.ready && out.valid && out.last);
 
 // Driving output based on the current intrenal state
 assign out.valid = count > 0;
@@ -95,7 +82,7 @@ assign out.last = count <= NUM_ELEMENTS;
 generate
 for (genvar i = 0; i < NUM_ELEMENTS; i++) begin
     assign out.data[i] = element;
-    assign nout.keep[i] = i < count;
+    assign out.keep[i] = i < count;
 end
 endgenerate
 

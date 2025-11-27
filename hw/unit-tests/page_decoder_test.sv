@@ -35,14 +35,16 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 );
 
 ready_valid_i #(page_metadata_t) in_meta ();
-page_metadata_t test_metadata[3:0];
+page_metadata_t test_metadata[5:0];
 assign test_metadata = '{
+    '{compression: COMPRESSION_SNAPPY, num_values: 802, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
+    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT},
     '{compression: COMPRESSION_SNAPPY, num_values: 150, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
     '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT},
     '{compression: COMPRESSION_SNAPPY, num_values: 145, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
     '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT}
 };
-ReadyValidCyclicDriver #(page_metadata_t, 4) inst_meta_driver (
+ReadyValidCyclicDriver #(page_metadata_t, 6) inst_meta_driver (
     .clk(aclk),
     .rst_n(aresetn),
 
