@@ -28,30 +28,6 @@ logic rst_n;
 assign clk   = aclk;
 assign rst_n = aresetn;
 
-// -- Configuration --------------------------------------------------------------------------------
-config_i configs[1]();
-GlobalConfig #(
-    .NUM_CONFIGS(1),
-    .ADDR_SPACE_BOUNDS({0, 2 * N_STRM_AXI})
-) inst_config (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .axi_ctrl(axi_ctrl),
-    .configs(configs)
-);
-
-mem_config_i mem_config[N_STRM_AXI]();
-MemConfig #(
-    .NUM_STREAMS(N_STRM_AXI)
-) inst_mem_config (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .conf(configs[0]),
-    .out(mem_config)
-);
-
 /* -- INPUT ------------------------------------------------------------- */
 
 AXI4S axi_host_recv_0 (.aclk(clk));

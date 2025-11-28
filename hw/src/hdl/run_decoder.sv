@@ -114,8 +114,10 @@ VarintDecoder inst_varint_decoder (
 // - up to 4 valid bytes
 // - at least 1 valid byte if we've received last. We assume the input is
 // correct.
-assign varint_in.valid = ((keep[varint_offset+3] && keep[varint_offset+2] && keep[varint_offset+1]) || last_received) && keep[varint_offset];
-assign varint_in.data = '{data[varint_offset+3], data[varint_offset+2], data[varint_offset+1], data[varint_offset]};
+assign varint_in.valid = ((keep_keep[varint_offset+3] && keep_keep[varint_offset+2] && keep_keep[varint_offset+1]) || keep_last_received) && keep_keep[varint_offset];
+assign varint_in.data = '{keep_data[varint_offset+3], keep_data[varint_offset+2], keep_data[varint_offset+1], keep_data[varint_offset]};
+// assign varint_in.valid = ((keep[varint_offset+3] && keep[varint_offset+2] && keep[varint_offset+1]) || last_received) && keep[varint_offset];
+// assign varint_in.data = '{data[varint_offset+3], data[varint_offset+2], data[varint_offset+1], data[varint_offset]};
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -168,7 +170,7 @@ endgenerate
 assign rle_in.valid = &rle_in_valid_bits && (state == ST_DECODE_RLE || (state == ST_DECODE_RLE2 && varint_out.valid && varint_encoding == ENCODING_RLE));
 assign rle_out.ready = state == ST_DECODE_RLE2 && out.ready;
 logic rle_needs_more_input;
-assign rle_needs_more_input = |rle_needs_to_buffer_bits;
+assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~keep_last_received;
 
 // ------- BPE decoding
 bpe_metadata_t bpe_in_meta_data;
@@ -360,21 +362,9 @@ always_ff @(posedge clk) begin
                     keep_varint_offset <= in_meta_data.offset;
                     remaining_values <= in_meta_data.num_values;
                     
-                    // NOTE: we must make sure this input we're on
-                    // is valid, otherwise we cannot consider the varint value
-                    // valid either.
-                    if (in.valid && varint_out.valid) begin
-                        // We received the meta, input and managed to parse
-                        // the varint aleady. Move to decoding immediately.
-                        goto_decode(in_meta_data.num_values);
-                    end else if (in.ready && in.valid) begin
-                        // If we're already to read the input, but
-                        // ~varint_out.valid, it means that we don't have
-                        // enough bytes to decode the varint header.
+                    if (in.valid) begin
                         state <= ST_HEADER2;
                     end else begin
-                        // We haven't received any input whatsoever.
-                        // Move in a dedicated state for awaiting that.
                         state <= ST_HEADER;
                     end
                 end
@@ -388,7 +378,7 @@ always_ff @(posedge clk) begin
                     // If we receive input and the varint decoding is done,
                     // we can directly move to the decoder stages.
                     goto_decode(remaining_values);
-                end else if (in.ready && in.valid) begin
+                end else if (in.valid) begin
                     // Otherwise if we receive input but the decoding is not
                     // done, it means we need even more input to finish
                     // decoding.
@@ -451,9 +441,8 @@ always_comb begin
             in.ready = in_meta.valid;
         end
 
-        ST_HEADER, ST_HEADER2: begin
-            in.ready = 1;
-        end
+        ST_HEADER, ST_HEADER2:
+            in.ready = ~varint_in.valid;
 
         // TODO: consider if we should also have potentially in.ready high on
         // ST_DECODE_RLE2
@@ -468,11 +457,6 @@ always_comb begin
     // Driving varint_offset
     varint_offset = keep_varint_offset;
     case (state)
-        ST_IDLE: begin
-            if (in_meta.valid) begin
-                varint_offset = in_meta_data.offset;
-            end
-        end
         ST_DECODE_RLE2:
             varint_offset = offset + rle_width;
         ST_DECODE_BPE:
