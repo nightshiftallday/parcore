@@ -63,17 +63,17 @@ typed_ndata_i #(64) out();
 
 always_ff @(posedge clk) begin
     if(rst_n) begin 
-        if (in.valid && in.ready) begin
-            $display("< in valid: %x, ready: %x, in_addr: %d, in_size: %d, compression: %d, num_values: %d, typ: %d, page_type: %d, out_vaddr: %d, out_size: %d", in.valid, in.ready, in.data.in_vaddr, in.data.in_size, in.data.compression, in.data.num_values, in.data.typ, in.data.page_type, in.data.out_vaddr, in.data.out_size);
-        end
-
-        if (axi_rreq_recv_0.tvalid && axi_rreq_recv_0.tready) begin
-            $display("< rdma_in valid: %x, ready: %x, last: %x", axi_rreq_recv_0.tvalid, axi_rreq_recv_0.tready, axi_rreq_recv_0.tlast);
-        end
-
-        if (out.valid && out.ready) begin
-            $display("> out valid: %x, ready: %x, last: %x, keep: %x", out.valid, out.ready, out.last, out.keep);
-        end
+        // if (in.valid && in.ready) begin
+        //     $display("< in valid: %x, ready: %x, in_addr: %d, in_size: %d, compression: %d, num_values: %d, typ: %d, page_type: %d, out_vaddr: %d, out_size: %d", in.valid, in.ready, in.data.in_vaddr, in.data.in_size, in.data.compression, in.data.num_values, in.data.typ, in.data.page_type, in.data.out_vaddr, in.data.out_size);
+        // end
+        //
+        // if (axi_rreq_recv_0.tvalid && axi_rreq_recv_0.tready) begin
+        //     $display("< rdma_in valid: %x, ready: %x, last: %x", axi_rreq_recv_0.tvalid, axi_rreq_recv_0.tready, axi_rreq_recv_0.tlast);
+        // end
+        //
+        // if (out.valid && out.ready) begin
+        //     $display("> out valid: %x, ready: %x, last: %x, keep: %x", out.valid, out.ready, out.last, out.keep);
+        // end
     end
 end
 

@@ -15,11 +15,11 @@ always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
 always_comb axis_host_send[1].tie_off_m();
-always_comb axis_host_send[2].tie_off_m();
-always_comb axis_host_send[3].tie_off_m();
+// always_comb axis_host_send[2].tie_off_m();
+// always_comb axis_host_send[3].tie_off_m();
 
-always_comb axis_host_recv[2].tie_off_s();
-always_comb axis_host_recv[3].tie_off_s();
+// always_comb axis_host_recv[2].tie_off_s();
+// always_comb axis_host_recv[3].tie_off_s();
 
 // -- Fix clock and reset names ----------------------------------------- */
 logic clk;

@@ -16,10 +16,10 @@ module ExpandBPE #(
     parameter type data_t,
     parameter NUM_ELEMENTS
 ) (
-    valid_i.s in_meta, // #(bpe_metadata_t)
-    data_i.s in,       // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0])
+    valid_i.s in_meta,  // #(bpe_metadata_t)
+    ready_valid_i.s in, // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0])
 
-    ndata_i.m out      // #(data_t, NUM_ELEMENTS)
+    ndata_i.m out       // #(data_t, NUM_ELEMENTS)
 );
 
 // Extracting data from the data_i interface
@@ -33,7 +33,7 @@ assign in.ready = in_meta.valid && out.ready; // ready chaining
 
 // Driving output based on the current intrenal state
 assign out.valid = in_meta.valid && in.valid;
-assign out.last = in.last;
+assign out.last = in_meta_data.count <= NUM_ELEMENTS;
 generate
 for (genvar I = 0; I < NUM_ELEMENTS; I++) begin
     for (genvar J = 0; J < $bits(data_t); J++) begin
