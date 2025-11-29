@@ -53,7 +53,6 @@ logic[NUM_BYTES * 2 - 1:0] keep_keep;
 logic keep_last_received;
 bit_width_t bit_width;
 offset_t offset;
-offset_t keep_varint_offset;
 data32_t remaining_values;
 
 
@@ -73,7 +72,8 @@ bpe_count_t bpe_count;
 offset_t bpe_extra;
 // bpe_offset is the number of offset bits to add on top of the byte offset
 // global to the decoder.
-logic[$clog2(NUM_ELEMENTS) * $bits(bit_width_t) - 1:0] bpe_offset;
+typedef logic[$clog2(NUM_ELEMENTS) * $bits(bit_width_t) - 1:0] bpe_offset_t;
+bpe_offset_t bpe_offset;
 
 // ------- Combinatorial state ---
 // This is used to keep state regarding the actions to take on the current
@@ -95,8 +95,6 @@ offset_t varint_offset;
 logic [NUM_BYTES * 8 * 2 - 1:0] bpe_data;
 generate
 for (genvar i = 0; i < NUM_BYTES * 2; i++) begin
-    // TODO: used to be data[] but creates a loop because bpe validity is used
-    // to decide if we should take in more data in this cycle.
     assign bpe_data[(i+1) * 8 - 1:i * 8] = data[i];
 end
 endgenerate
@@ -250,10 +248,15 @@ task reset();
 
     bit_width <= '0;
     rle_width <= '0;
-    keep_varint_offset <= '0;
+    varint_offset <= '0;
     offset <= '0;
     remaining_values <= '0;
 endtask
+
+bpe_count_t next_bpe_count;
+assign next_bpe_count = (remaining_values < varint_no_encoding_bytes) ? remaining_values : varint_no_encoding_bytes;
+offset_t next_bpe_extra;
+assign next_bpe_extra = (remaining_values < varint_no_encoding_bytes) ? varint_no_encoding_bytes - remaining_values : 0;
 
 task goto_decode(input data32_t remaining_values);
     `ifndef SYNTHESIS
@@ -268,22 +271,18 @@ task goto_decode(input data32_t remaining_values);
 
         // Compute BPE properties
         bpe_offset <= 0;
-        if (remaining_values < varint_no_encoding_bytes) begin
-            bpe_count <= remaining_values;
-            bpe_extra <= varint_no_encoding_bytes - remaining_values;
-        end else begin
-            bpe_count <= varint_no_encoding_bytes;
-            bpe_extra <= 0;
-        end
+        bpe_count <= next_bpe_count;
+        bpe_extra <= next_bpe_extra;
+
+        goto_decode_bpe(run_data_offset, 0, next_bpe_count, next_bpe_extra);
     end else begin
         // Compute RLE properties
         rle_count <= varint_no_encoding;
 
         if (rle_in.ready && rle_in.valid) begin
-            state <= ST_DECODE_RLE2;
+            goto_decode_rle2(run_data_offset);
         end else begin
-            state <= ST_DECODE_RLE;
-            keep_varint_offset <= varint_offset;
+            goto_decode_rle();
         end
     end
 endtask
@@ -304,7 +303,7 @@ task finish_rle();
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
         state <= ST_HEADER2;
-        keep_varint_offset = varint_offset;
+        varint_offset <= varint_offset;
     end
 endtask
 
@@ -341,8 +340,22 @@ task finish_bpe();
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
         state <= ST_HEADER2;
-        keep_varint_offset <= varint_offset;
+        varint_offset <= varint_offset;
     end
+endtask
+
+task goto_decode_rle();
+    state <= ST_DECODE_RLE;
+endtask
+
+task goto_decode_rle2(offset_t offst);
+    state <= ST_DECODE_RLE2;
+    varint_offset <= offst + rle_width;
+endtask
+
+task goto_decode_bpe(offset_t offst, bpe_offset_t bpe_offst, bpe_count_t bpe_cnt, offset_t bpe_xtra);
+    state <= ST_DECODE_BPE;
+    varint_offset <= offst + ((bpe_cnt + bpe_xtra) * bit_width + bpe_offst) / 8;;
 endtask
 
 always_ff @(posedge clk) begin
@@ -359,7 +372,7 @@ always_ff @(posedge clk) begin
                     bit_width <= in_meta_data.bit_width;
                     rle_width <= (in_meta_data.bit_width + 7) >> 3;
                     offset <= in_meta_data.offset;
-                    keep_varint_offset <= in_meta_data.offset;
+                    varint_offset <= in_meta_data.offset;
                     remaining_values <= in_meta_data.num_values;
                     
                     if (in.valid) begin
@@ -400,7 +413,7 @@ always_ff @(posedge clk) begin
                     // and wait for the decoder to be done. In the next state,
                     // we can potentially perform pipelining for consecutive
                     // RLE decodings.
-                    state <= ST_DECODE_RLE2;
+                    goto_decode_rle2(offset);
                 end
             end
 
@@ -454,15 +467,6 @@ end
 
 // ------- Combinatorial assignments --
 always_comb begin
-    // Driving varint_offset
-    varint_offset = keep_varint_offset;
-    case (state)
-        ST_DECODE_RLE2:
-            varint_offset = offset + rle_width;
-        ST_DECODE_BPE:
-            varint_offset = offset + ((bpe_count + bpe_extra) * bit_width + bpe_offset) / 8;
-    endcase
-
     // Mapping input data, keep and last to combinatorial values
     case (state)
         ST_IDLE, ST_HEADER: begin
