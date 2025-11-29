@@ -1,6 +1,6 @@
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_hybrid_page_decoder
 set_property -dict [list \
-    CONFIG.C_NUM_OF_PROBES {10} \
+    CONFIG.C_NUM_OF_PROBES {15} \
     CONFIG.C_EN_STRG_QUAL {1} \
     CONFIG.C_PROBE0_WIDTH {1} \
     CONFIG.C_PROBE1_WIDTH {1} \
@@ -12,6 +12,11 @@ set_property -dict [list \
     CONFIG.C_PROBE7_WIDTH {1} \
     CONFIG.C_PROBE8_WIDTH {1} \
     CONFIG.C_PROBE9_WIDTH {1} \
+    CONFIG.C_PROBE10_WIDTH {2} \
+    CONFIG.C_PROBE11_WIDTH {8} \
+    CONFIG.C_PROBE12_WIDTH {8} \
+    CONFIG.C_PROBE13_WIDTH {8} \
+    CONFIG.C_PROBE14_WIDTH {128} \
 ] [get_ips ila_hybrid_page_decoder]
 
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_run_decoder
@@ -34,5 +39,5 @@ set_property -dict [list \
     CONFIG.C_PROBE13_WIDTH {7} \
     CONFIG.C_PROBE14_WIDTH {7} \
     CONFIG.C_PROBE15_WIDTH {1} \
-    CONFIG.C_PROBE16_WIDTH {32} \
+    CONFIG.C_PROBE16_WIDTH {28} \
 ] [get_ips ila_run_decoder]

@@ -14,26 +14,22 @@ assign in_data = in.data;
 
 logic[VARINT_NUM_BITS - 1:0] value;
 logic[VARINT_NUM_BYTES - 1:0] read_next_byte;
+ 
+generate
+    assign read_next_byte[0] = in_data[0][7];
+    // The value out of the first byte should always be taken.
+    assign value[6:0] = ({VARINT_NUM_BITS{1'b0}} | in_data[0][6:0]);
 
-always_comb begin
-    for (int i = 0; i < VARINT_NUM_BYTES; i++) begin
-        read_next_byte[i] = in_data[i][7];
-        if (i > 0) begin
-            read_next_byte[i] &= read_next_byte[i-1];
-        end
+    for (genvar I = 1; I < VARINT_NUM_BYTES; I++) begin
+        assign read_next_byte[I] = in_data[I][7] && read_next_byte[I-1];
     end
 
-    value = '0;
-    for (int i = 0; i < VARINT_NUM_BYTES; i++) begin
-        // We only take this byte if:
-        // - we're considering the first byte. That is always valid
-        // - we're considering the i-th byte and the (i-1)-th byte had the MSB
-        // to 1.
-        if (i <= 0 || read_next_byte[i-1]) begin
-            value |= ({VARINT_NUM_BITS{1'b0}} | in_data[i][6:0]) << (i * 7);
-        end
+    for (genvar I = 1; I < VARINT_NUM_BYTES; I++) begin
+        // We only take this byte if we're considering the i-th byte and the
+        // (i-1)-th byte had the MSB to 1.
+        assign value[(I+1) * 7 - 1:I * 7] = read_next_byte[I-1] ? in_data[I][6:0] : '0;
     end
-end
+endgenerate
 
 assign out.valid = in.valid && ~read_next_byte[VARINT_NUM_BYTES - 1];
 varint_t out_data;

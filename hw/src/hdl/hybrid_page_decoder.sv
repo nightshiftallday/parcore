@@ -213,7 +213,13 @@ ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
 
     .probe7(out.ready),
     .probe8(out.valid),
-    .probe9(out.last)
+    .probe9(out.last),
+    
+    .probe10(state),
+    .probe11(offset),
+    .probe12(actual_offset),
+    .probe13(bit_width_offset),
+    .probe14(in.data[15:0])
 );
 `endif
 
