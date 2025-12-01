@@ -219,7 +219,14 @@ ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
     .probe11(offset),
     .probe12(actual_offset),
     .probe13(bit_width_offset),
-    .probe14(in.data[15:0])
+    .probe14(in.data[0]),
+    .probe15(in.data[1]),
+    .probe16(in.data[2]),
+    .probe17(in.data[3]),
+    .probe18(in.data[NUM_BYTES - 1]),
+    .probe19(in.data[NUM_BYTES - 2]),
+    .probe20(in.data[NUM_BYTES - 3]),
+    .probe21(in.data[NUM_BYTES - 4])
 );
 `endif
 

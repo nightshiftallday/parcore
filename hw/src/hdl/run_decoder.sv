@@ -556,14 +556,13 @@ ila_run_decoder inst_ila_run_decoder (
     .probe7(out.ready),
     .probe8(out.valid),
     .probe9(out.keep),
-    .probe10(out.data),
-    .probe11(out.last),
+    .probe10(out.last),
 
-    .probe12(state),
-    .probe13(offset),
-    .probe14(varint_offset),
-    .probe15(varint_out.valid),
-    .probe16(varint_out.data)
+    .probe11(state),
+    .probe12(offset),
+    .probe13(varint_offset),
+    .probe14(varint_out.valid),
+    .probe15(varint_out.data)
 );
 `endif
 
