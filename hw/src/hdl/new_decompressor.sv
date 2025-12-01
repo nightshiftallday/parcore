@@ -120,33 +120,33 @@ assign out.last  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_ou
 assign decompressor_out.ready = meta.valid && meta.data.compression == COMPRESSION_SNAPPY && out.ready;
 assign bypass_out.ready = meta.valid && meta.data.compression == COMPRESSION_RAW && out.ready;
 
-`ifdef SYNTHESIS
-ila_decompressor inst_ila_decompressor (
-    .clk(clk),
-    .probe0(reset_resync),
-
-    .probe1(meta.ready),
-    .probe2(meta.valid),
-    .probe3(meta.data),
-
-    .probe4(in.ready),
-    .probe5(in.valid),
-    .probe6(in.last),
-
-    .probe7(out.ready),
-    .probe8(out.valid),
-    .probe9(out.last),
-
-    .probe10(out.data[0]),
-    .probe11(out.data[1]),
-    .probe12(out.data[2]),
-    .probe13(out.data[3]),
-
-    .probe14(out.data[NUM_BYTES - 1]),
-    .probe15(out.data[NUM_BYTES - 2]),
-    .probe16(out.data[NUM_BYTES - 3]),
-    .probe17(out.data[NUM_BYTES - 4])
-);
-`endif
+// `ifdef SYNTHESIS
+// ila_decompressor inst_ila_decompressor (
+//     .clk(clk),
+//     .probe0(reset_resync),
+//
+//     .probe1(meta.ready),
+//     .probe2(meta.valid),
+//     .probe3(meta.data),
+//
+//     .probe4(in.ready),
+//     .probe5(in.valid),
+//     .probe6(in.last),
+//
+//     .probe7(out.ready),
+//     .probe8(out.valid),
+//     .probe9(out.last),
+//
+//     .probe10(out.data[0]),
+//     .probe11(out.data[1]),
+//     .probe12(out.data[2]),
+//     .probe13(out.data[3]),
+//
+//     .probe14(out.data[NUM_BYTES - 1]),
+//     .probe15(out.data[NUM_BYTES - 2]),
+//     .probe16(out.data[NUM_BYTES - 3]),
+//     .probe17(out.data[NUM_BYTES - 4])
+// );
+// `endif
 
 endmodule

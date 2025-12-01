@@ -98,7 +98,8 @@ TypedDictionary #(
 // ------------------------------------------------
 
 // ------ Preserve+forward metadata ---------------
-valid_i #(page_metadata_t) meta ();
+type_t typ;
+valid_i #(page_type_t) meta ();
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
@@ -107,7 +108,8 @@ always_ff @(posedge clk) begin
     end else begin
         if (decompressor_meta.ready && decompressor_meta.valid) begin
             meta.valid <= 1;
-            meta.data <= decompressor_meta.data;
+            meta.data <= decompressor_meta.data.page_type;
+            typ <= decompressor_meta.data.typ;
 
             if (decompressor_meta.data.page_type == PAGE_TYPE_HYBRID) begin
                 // If the page we're handling now is hybrid, we need to
@@ -118,7 +120,7 @@ always_ff @(posedge clk) begin
         end
 
         if (meta.valid) begin
-            case (meta.data.page_type)
+            case (meta.data)
                 PAGE_TYPE_HYBRID: begin
                     if (decoder_meta.valid && decoder_meta.ready) begin
                         decoder_meta.valid <= 0;
@@ -145,19 +147,19 @@ assign decompressor_meta.ready = ~meta.valid && ~decoder_meta.valid;
 // parent component, it's not meant as a handshaking signal along with valid.
 // Valid signifies that the meta signal is valid and its data can be read.
 assign decompressor_out.ready = meta.valid && (
-    (meta.data.page_type == PAGE_TYPE_HYBRID && decoder_in.ready)
- || (meta.data.page_type == PAGE_TYPE_DICT && typed_dictionary_values.ready)
+    (meta.data == PAGE_TYPE_HYBRID && decoder_in.ready)
+ || (meta.data == PAGE_TYPE_DICT && typed_dictionary_values.ready)
 );
 
 // ------ Driving typed dictionary ----------------
-assign typed_dictionary_values.valid = meta.valid && meta.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
-assign typed_dictionary_values.typ = meta.data.typ;
+assign typed_dictionary_values.valid = meta.valid && meta.data == PAGE_TYPE_DICT && decompressor_out.valid;
+assign typed_dictionary_values.typ = typ;
 assign typed_dictionary_values.data = decompressor_out.data;
 assign typed_dictionary_values.keep = decompressor_out.keep;
 assign typed_dictionary_values.last = decompressor_out.last;
 
 // ------ Driving Hybrid decoder ------------------
-assign decoder_in.valid = meta.valid && meta.data.page_type == PAGE_TYPE_HYBRID && decompressor_out.valid;
+assign decoder_in.valid = meta.valid && meta.data == PAGE_TYPE_HYBRID && decompressor_out.valid;
 assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;

@@ -106,7 +106,6 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
                 self.set_stream_input(1, data)
 
             cmd = input.cmd(0)
-            print(f'using cmd: {cmd}')
             self.set_stream_input(0, cmd)
             offset += len(data)
 

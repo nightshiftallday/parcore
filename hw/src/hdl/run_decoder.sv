@@ -61,15 +61,6 @@ logic [3:0] rle_width;
 rle_count_t rle_count;
 
 bpe_count_t bpe_count;
-// The value in bpe_count is computed by << 3 the value in the header
-// (ignoring the LSB). This means that it'll be a multiple of 8.
-// For runs where the number of values encoded in BPE is not a multiple of 8,
-// the bpe_count is lower-bounded by the total number of values in the page,
-// which is found in in_meta_data.num_values.
-//
-// If that's the case, we still need to keep track of how many extra values
-// have been bit-packed since we need to skip those bytes.
-offset_t bpe_extra;
 // bpe_offset is the number of offset bits to add on top of the byte offset
 // global to the decoder.
 typedef logic[$clog2(NUM_ELEMENTS) * $bits(bit_width_t) - 1:0] bpe_offset_t;
@@ -255,6 +246,14 @@ endtask
 
 bpe_count_t next_bpe_count;
 assign next_bpe_count = (remaining_values < varint_no_encoding_bytes) ? remaining_values : varint_no_encoding_bytes;
+// The value in bpe_count is computed by << 3 the value in the header
+// (ignoring the LSB). This means that it'll be a multiple of 8.
+// For runs where the number of values encoded in BPE is not a multiple of 8,
+// the bpe_count is lower-bounded by the total number of values in the page,
+// which is found in in_meta_data.num_values.
+//
+// If that's the case, we still need to keep track of how many extra values
+// have been bit-packed since we need to skip those bytes.
 offset_t next_bpe_extra;
 assign next_bpe_extra = (remaining_values < varint_no_encoding_bytes) ? varint_no_encoding_bytes - remaining_values : 0;
 
@@ -272,7 +271,6 @@ task goto_decode(input data32_t remaining_values);
         // Compute BPE properties
         bpe_offset <= 0;
         bpe_count <= next_bpe_count;
-        bpe_extra <= next_bpe_extra;
 
         goto_decode_bpe(run_data_offset, 0, next_bpe_count, next_bpe_extra);
     end else begin
@@ -540,30 +538,30 @@ always_comb begin
     endcase
 end
 
-`ifdef SYNTHESIS
-ila_run_decoder inst_ila_run_decoder (
-    .clk(clk),
-    .probe0(reset_synced),
-
-    .probe1(in_meta.ready),
-    .probe2(in_meta.valid),
-    .probe3(in_meta.data),
-
-    .probe4(in.ready),
-    .probe5(in.valid),
-    .probe6(in.last),
-
-    .probe7(out.ready),
-    .probe8(out.valid),
-    .probe9(out.keep),
-    .probe10(out.last),
-
-    .probe11(state),
-    .probe12(offset),
-    .probe13(varint_offset),
-    .probe14(varint_out.valid),
-    .probe15(varint_out.data)
-);
-`endif
+// `ifdef SYNTHESIS
+// ila_run_decoder inst_ila_run_decoder (
+//     .clk(clk),
+//     .probe0(reset_synced),
+//
+//     .probe1(in_meta.ready),
+//     .probe2(in_meta.valid),
+//     .probe3(in_meta.data),
+//
+//     .probe4(in.ready),
+//     .probe5(in.valid),
+//     .probe6(in.last),
+//
+//     .probe7(out.ready),
+//     .probe8(out.valid),
+//     .probe9(out.keep),
+//     .probe10(out.last),
+//
+//     .probe11(state),
+//     .probe12(offset),
+//     .probe13(varint_offset),
+//     .probe14(varint_out.valid),
+//     .probe15(varint_out.data)
+// );
+// `endif
 
 endmodule
