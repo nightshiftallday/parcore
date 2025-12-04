@@ -106,6 +106,8 @@ VarintDecoder inst_varint_decoder (
 // correct.
 // assign varint_in.valid = ((keep_keep[varint_offset+3] && keep_keep[varint_offset+2] && keep_keep[varint_offset+1]) || keep_last_received) && keep_keep[varint_offset];
 // assign varint_in.data = '{keep_data[varint_offset+3], keep_data[varint_offset+2], keep_data[varint_offset+1], keep_data[varint_offset]};
+assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (keep_data[varint_offset +: 4] == varint_in.data))
+else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b, got 0b%b", state, varint_offset, offset, keep_data[varint_offset +: 4], varint_in.data);
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -197,6 +199,9 @@ logic bpe_needs_more_input;
 assign bpe_needs_more_input = |bpe_needs_to_buffer_bytes && ~keep_last_received;
 
 // ------- State machine ---------
+function offset_t trim_offset(offset_t offset);
+    trim_offset = offset >= NUM_BYTES ? offset - NUM_BYTES : offset;
+endfunction
 
 task store_input(input data8_t[NUM_BYTES - 1:0] data,
                  input logic[NUM_BYTES - 1:0] keep,
@@ -213,21 +218,18 @@ task store_input(input data8_t[NUM_BYTES - 1:0] data,
     keep_last_received <= last;
 endtask
 
-task update_offset(input offset_t new_offset);
+task update_offset(input offset_t next_offset);
     // If the new offset is beyond the midpoint of the keep_data buffer, which
     // holds two databeats, then we rewrite the offset and move the second
     // half of the buffer into the first, zeroing the second.
-    if (new_offset >= NUM_BYTES) begin
+    if (next_offset >= NUM_BYTES) begin
         keep_data[NUM_BYTES - 1:0] <= data[NUM_BYTES * 2 - 1:NUM_BYTES];
         keep_keep[NUM_BYTES - 1:0] <= keep[NUM_BYTES * 2 - 1:NUM_BYTES];
 
         keep_data[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '{default: 'x};
         keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '0;
-
-        offset <= new_offset - NUM_BYTES;
-    end else begin
-        offset <= new_offset;
     end
+    offset <= trim_offset(next_offset);
 endtask
 
 task reset();
@@ -258,6 +260,8 @@ offset_t next_bpe_extra;
 assign next_bpe_extra = (remaining_values < varint_no_encoding_bytes) ? varint_no_encoding_bytes - remaining_values : 0;
 
 task goto_decode(input data32_t remaining_values);
+    offset_t next_offset;
+    next_offset = trim_offset(run_data_offset);
     `ifndef SYNTHESIS
     if (~varint_out.valid) begin
         $fatal(1, "Called goto_decode() when varint_out.valid = %b", varint_out.valid);
@@ -273,7 +277,7 @@ task goto_decode(input data32_t remaining_values);
         bpe_count <= next_bpe_count;
         bpe_extra <= next_bpe_extra;
 
-        goto_decode_bpe(run_data_offset, next_bpe_count, next_bpe_extra);
+        goto_decode_bpe(run_data_offset, next_bpe_count, next_bpe_extra, 0);
     end else begin
         // Compute RLE properties
         rle_count <= varint_no_encoding;
@@ -305,29 +309,27 @@ task finish_rle();
     end
 endtask
 
-logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset;
-assign next_bpe_offset = bpe_offset + packed_databeat_bits;
+logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
+assign next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
 
 task advance_bpe();
     bpe_count_t next_bpe_count;
-    data32_t new_varint_offset;
+    bpe_offset_t next_bpe_offset;
+    offset_t next_offset;
     `ifndef SYNTHESIS
     if (bpe_count <= NUM_ELEMENTS) begin
         $fatal(1, "Called advance_bpe() on the last databeat for BPE input: %d, %d", bpe_count, NUM_ELEMENTS);
     end
     `endif
     next_bpe_count = bpe_count - NUM_ELEMENTS;
+    next_bpe_offset = next_bpe_offset_bits % 8;
+    next_offset = offset + (next_bpe_offset_bits / 8);
 
     bpe_count <= next_bpe_count;
-    bpe_offset <= next_bpe_offset % 8;
+    bpe_offset <= next_bpe_offset;
     remaining_values <= remaining_values - NUM_ELEMENTS;
-    update_offset(offset + (next_bpe_offset / 8));
-
-    new_varint_offset = (offset + (next_bpe_offset / 8)) + ((next_bpe_count + bpe_extra) * bit_width + (next_bpe_offset % 8)) / 8;
-    if (new_varint_offset < NUM_BYTES * 2) begin
-        varint_in.data <= data[new_varint_offset];
-        varint_in.valid <= &keep[new_varint_offset];
-    end
+    update_offset(next_offset);
+    update_varint_offset_bpe(next_offset, next_bpe_count, bpe_extra, next_bpe_offset);
 endtask
 
 data32_t next_remaining_values_bpe;
@@ -355,22 +357,39 @@ task goto_decode_rle();
 endtask
 
 task goto_decode_rle2(offset_t offst);
+    offset_t next_varint_offset;
+    next_varint_offset = offst + rle_width;
+
     state <= ST_DECODE_RLE2;
-    varint_in.data <= data[offst + rle_width];
-    varint_in.valid <= &keep[offst + rle_width];
-    varint_offset <= offst + rle_width;
+    varint_offset <= next_varint_offset;
+    update_varint_input(next_varint_offset);
 endtask
 
-task goto_decode_bpe(offset_t offst, bpe_count_t bpe_cnt, offset_t bpe_xtra);
-    data32_t new_varint_offset;
-    new_varint_offset = offst + ((bpe_cnt + bpe_xtra) * bit_width / 8);
-
+task goto_decode_bpe(offset_t offst, bpe_count_t bpe_cnt, offset_t bpe_xtra, bpe_offset_t bpe_offst);
     state <= ST_DECODE_BPE;
-    if (new_varint_offset < NUM_BYTES * 2) begin
-        varint_in.data <= data[new_varint_offset];
-        varint_in.valid <= &keep[new_varint_offset];
+    update_varint_offset_bpe(offst, bpe_cnt, bpe_xtra, bpe_offst);
+endtask
+
+task update_varint_offset_bpe(offset_t offst, bpe_count_t bpe_cnt, offset_t bpe_xtra, bpe_offset_t bpe_offst);
+    data32_t next_varint_offset;
+    offset_t short_offset;
+    next_varint_offset = offst + (((bpe_cnt + bpe_xtra) * bit_width + bpe_offst) / 8);
+    short_offset = next_varint_offset;
+
+    // BPE could contain so many values that the offset would go beyond two
+    // databeats, in that case, we don't update the varint input to avoid
+    // invalid valid signals computed with the trimmed offset (short_offset).
+    varint_offset <= trim_offset(short_offset);
+    if (next_varint_offset < NUM_BYTES * 2) begin
+        update_varint_input(short_offset);
+    end else begin
+        varint_in.valid <= 0;
     end
-        varint_offset <= new_varint_offset;
+endtask
+
+task update_varint_input(offset_t offst);
+    varint_in.data <= data[offst +: 4];
+    varint_in.valid <= keep[offst] && (last_received || (&keep[(offst + 1) +: 3]));
 endtask
 
 always_ff @(posedge clk) begin
@@ -392,8 +411,7 @@ always_ff @(posedge clk) begin
                     
                     if (in.valid) begin
                         state <= ST_HEADER2;
-                        varint_in.data <= data[in_meta_data.offset];
-                        varint_in.valid <= &keep[in_meta_data.offset];
+                        update_varint_input(in_meta_data.offset);
                     end else begin
                         state <= ST_HEADER;
                     end
@@ -404,16 +422,12 @@ always_ff @(posedge clk) begin
             // received the input. Receiving one databeat may or may not be
             // enough.
             ST_HEADER: begin
-                varint_in.data <= data[varint_offset];
-                varint_in.valid <= &keep[varint_offset];
-                if (varint_out.valid) begin
-                    // If we receive input and the varint decoding is done,
-                    // we can directly move to the decoder stages.
-                    goto_decode(remaining_values);
-                end else if (in.valid) begin
-                    // Otherwise if we receive input but the decoding is not
-                    // done, it means we need even more input to finish
-                    // decoding.
+                if (in.valid) begin
+                    update_varint_input(varint_offset);
+                    // If we receive input, the varint decoding is not yet done
+                    // as it takes one cycle. Move to the next state so that
+                    // we can optionally take even more input if needed for
+                    // the varint decoding.
                     state <= ST_HEADER2;
                 end
             end
@@ -421,8 +435,10 @@ always_ff @(posedge clk) begin
             // Here we have received the configuration and one input databeat,
             // but we weren't able to decode the header varint with just that.
             ST_HEADER2: begin
-                varint_in.data <= data[varint_offset];
-                varint_in.valid <= &keep[varint_offset];
+                if (in.valid) begin
+                    update_varint_input(varint_offset);
+                end
+
                 if (varint_out.valid) begin
                     goto_decode(remaining_values);
                 end
@@ -494,11 +510,11 @@ always_comb begin
             if (in.valid) begin
                 data[NUM_BYTES - 1:0] = in_data;
                 keep[NUM_BYTES - 1:0] = in_keep;
-                data[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
+                data[NUM_BYTES * 2 - 1:NUM_BYTES] = 'x;
                 keep[NUM_BYTES * 2 - 1:NUM_BYTES] = '0;
                 last_received = in.last;
             end else begin
-                data = '0;
+                data = 'x;
                 keep = '0;
                 last_received = 0;
             end
