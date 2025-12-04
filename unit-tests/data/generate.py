@@ -22,3 +22,6 @@ mixed_data = {'col0':
              }
 print(mixed_data)
 pq.write_table(pa.table(mixed_data), 'mixed_data.parquet', data_page_version="1.0")
+
+big_bpe_data = {'col0': list(range(10, 100)) * 5}
+pq.write_table(pa.table(big_bpe_data), 'big_bpe_data.parquet', data_page_version="1.0")

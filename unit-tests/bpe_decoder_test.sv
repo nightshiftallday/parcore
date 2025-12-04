@@ -24,21 +24,18 @@ assign host_in.tkeep = axis_host_recv[0].tkeep;
 assign host_in.tlast = axis_host_recv[0].tlast;
 assign host_in.tvalid = axis_host_recv[0].tvalid;
 
-data_i #(logic [$bits(data32_t) * 16 - 1:0]) in ();
-assign host_in.tready = in.ready;
-assign in.data  = host_in.tdata;
-assign in.keep  = host_in.tkeep;
-assign in.last  = host_in.tlast;
-assign in.valid = host_in.tvalid;
+localparam int BITS = $bits(data32_t) * 16;
 
-valid_i #(bpe_metadata_t) in_meta ();
+tagged_i #(logic [BITS - 1:0], $bits(bpe_metadata_t)) in ();
+assign host_in.tready = in.ready;
+assign in.valid = host_in.tvalid;
+assign in.data  = host_in.tdata;
+
 bpe_count_t count = 55;
-logic valid;
-bpe_metadata_t in_meta_data;
-assign in_meta.valid = valid;
-assign in_meta.data = in_meta_data;
-assign in_meta_data.bit_width = 7;
-assign in_meta_data.count = count;
+bpe_metadata_t in_tag;
+assign in_tag.bit_width = 7;
+assign in_tag.count = count;
+assign in.tag = in_tag;
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
@@ -66,15 +63,14 @@ NDataToAXI #(logic[31:0], 16) inst_ndata_to_axi (
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin 
         output_databeat  <= 0;
-        valid <= 1;
     end else begin
         if (host_in.tvalid && host_in.tready) begin
-            // $display("< in valid: %x, ready: %x, last: %x, count: %d", host_in.tvalid, host_in.tready, host_in.tlast, in_meta_data.count);
+            // $display("< in valid: %x, ready: %x, last: %x, count: %d", host_in.tvalid, host_in.tready, host_in.tlast, in_tag.count);
 
             if (count > 16) begin
                 count <= count - 16;
             end else begin
-                valid <= 0;
+                count <= 55;
             end
         end
 
@@ -85,16 +81,15 @@ always_ff @(posedge aclk) begin
             if (host_out.tlast) begin
               // $display(">>! got tlast after %d databeats", output_databeat+1);
               output_databeat <= 0;
-
-              count <= 55;
-              valid <= 1;
             end
         end
     end
 end
 
 ExpandBPE #(data32_t, 16) inst_expand_rle (
+    .clk(aclk),
+    .rst_n(aresetn),
+
     .in(in),
-    .in_meta(in_meta),
     .out(out)
 );

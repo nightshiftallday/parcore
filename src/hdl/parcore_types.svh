@@ -22,7 +22,9 @@ typedef enum logic {
 } compression_t;
 
 // Number of bits in RLE/BPE encodings
-typedef logic [3:0] bit_width_t;
+// NOTE: This does not allow bit-width of 63!!
+// This is a limitation of the design.
+typedef logic [5:0] bit_width_t; 
 
 typedef data32_t rle_count_t;
 

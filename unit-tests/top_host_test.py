@@ -62,6 +62,9 @@ _mixed_output = ([i**8 for i in range(10, 20) for _ in range(i)] +
                 list(range(128, 256)) * 2)
 _mixed_input = read_data('mixed_data_rg0_col0', len(_mixed_output))
 
+_big_bpe_output = list(range(10, 100)) * 5
+_big_bpe_input = read_data('big_bpe_data_rg0_col0', len(_big_bpe_output))
+
 _test_cases = (
     _TestCase(
         inputs=[_rle_input],
@@ -76,9 +79,13 @@ _test_cases = (
         outputs=[_mixed_output],
     ),
     _TestCase(
-        inputs=[_rle_input, _bpe_input, _mixed_input],
-        outputs=[_rle_output, _bpe_output, _mixed_output],
+        inputs=[_big_bpe_input],
+        outputs=[_big_bpe_output],
     ),
+    _TestCase(
+        inputs=[_rle_input, _bpe_input, _mixed_input, _big_bpe_input],
+        outputs=[_rle_output, _bpe_output, _mixed_output, _big_bpe_output],
+    )
 )
 
 class TopHostTestCase(fpga_test_case.FPGATestCase):
@@ -143,9 +150,19 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
         # Assert
         self.assert_simulation_output()
 
-    def test_all_pages(self):
+    def test_one_big_bpe_pages(self):
         # Arrange
         self._setup_test(_test_cases[3])
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_all_pages(self):
+        # Arrange
+        self._setup_test(_test_cases[4])
 
         # Act
         self.simulate_fpga()

@@ -78,7 +78,6 @@ logic last_received;
 // n bits for bit_width_t, + log2(NUM_ELEMENTS) bits
 // as this value is the result of bit_width * NUM_ELEMENTS;
 logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - 1:0] packed_databeat_bits;
-assign packed_databeat_bits = NUM_ELEMENTS * bit_width;
 offset_t varint_offset;
 
 
@@ -92,6 +91,11 @@ end
 endgenerate
 
 // ------- Header varint decoding
+
+// To have some valid varint input, we must either have:
+// - up to 4 valid bytes
+// - at least 1 valid byte if we've received last. We assume the input is
+// correct.
 valid_i #(data8_t[VARINT_NUM_BYTES - 1:0]) varint_in ();
 valid_i #(varint_t) varint_out ();
 
@@ -100,12 +104,6 @@ VarintDecoder inst_varint_decoder (
     .out(varint_out)
 );
 
-// We must either have:
-// - up to 4 valid bytes
-// - at least 1 valid byte if we've received last. We assume the input is
-// correct.
-// assign varint_in.valid = ((keep_keep[varint_offset+3] && keep_keep[varint_offset+2] && keep_keep[varint_offset+1]) || keep_last_received) && keep_keep[varint_offset];
-// assign varint_in.data = '{keep_data[varint_offset+3], keep_data[varint_offset+2], keep_data[varint_offset+1], keep_data[varint_offset]};
 assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (keep_data[varint_offset +: 4] == varint_in.data))
 else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b, got 0b%b", state, varint_offset, offset, keep_data[varint_offset +: 4], varint_in.data);
 
@@ -163,18 +161,17 @@ logic rle_needs_more_input;
 assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~keep_last_received;
 
 // ------- BPE decoding
-bpe_metadata_t bpe_in_meta_data;
-valid_i #(bpe_metadata_t) bpe_in_meta ();
-assign bpe_in_meta_data.bit_width = bit_width;
-assign bpe_in_meta_data.count = bpe_count;
-assign bpe_in_meta.valid = state == ST_DECODE_BPE;
-assign bpe_in_meta.data = bpe_in_meta_data;
+bpe_metadata_t bpe_in_tag;
+assign bpe_in_tag.bit_width = bit_width;
+assign bpe_in_tag.count = bpe_count;
 
-ready_valid_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0]) bpe_in ();
+tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_metadata_t)) bpe_in ();
 ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
 
 ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
-    .in_meta(bpe_in_meta),
+    .clk(clk),
+    .rst_n(rst_n),
+
     .in(bpe_in),
     .out(bpe_out)
 );
@@ -183,6 +180,7 @@ ExpandBPE #(data_t, NUM_ELEMENTS) inst_expand_bpe (
 // assign bpe_in.keep = keep[offset +: $bits(data_t) * NUM_ELEMENTS];
 // assign bpe_in.last = bpe_count <= NUM_ELEMENTS;
 assign bpe_in.data = bpe_data[offset * 8 + bpe_offset +: $bits(data_t) * NUM_ELEMENTS];
+assign bpe_in.tag = bpe_in_tag;
 logic[NUM_ELEMENTS * DATA_SIZE - 1:0] bpe_valid_bytes;
 logic[NUM_ELEMENTS * DATA_SIZE - 1:0] bpe_needs_to_buffer_bytes;
 generate
@@ -191,7 +189,7 @@ generate
         assign bpe_needs_to_buffer_bytes[i] = (i < (packed_databeat_bits / 8)) ? ~keep_keep[offset + i] : 0;
     end
 endgenerate
-assign bpe_in.valid = state == ST_DECODE_BPE && (&(bpe_valid_bytes) || last_received);
+assign bpe_in.valid = state == ST_DECODE_BPE && (&(bpe_valid_bytes) || last_received) && bpe_count > 0;
 assign bpe_out.ready = state == ST_DECODE_BPE && out.ready;
 logic bpe_needs_more_input;
 // We want to take more input if some of the keep_keep bytes are not high, and
@@ -239,6 +237,7 @@ task reset();
     keep_last_received <= '0;
 
     bit_width <= '0;
+    packed_databeat_bits <= '0;
     rle_width <= '0;
     varint_offset <= '0;
     varint_in.valid <= 0;
@@ -316,18 +315,14 @@ task advance_bpe();
     bpe_count_t next_bpe_count;
     bpe_offset_t next_bpe_offset;
     offset_t next_offset;
-    `ifndef SYNTHESIS
-    if (bpe_count <= NUM_ELEMENTS) begin
-        $fatal(1, "Called advance_bpe() on the last databeat for BPE input: %d, %d", bpe_count, NUM_ELEMENTS);
-    end
-    `endif
-    next_bpe_count = bpe_count - NUM_ELEMENTS;
+
+    next_bpe_count = bpe_count >= NUM_ELEMENTS ? bpe_count - NUM_ELEMENTS : 0;
     next_bpe_offset = next_bpe_offset_bits % 8;
     next_offset = offset + (next_bpe_offset_bits / 8);
 
     bpe_count <= next_bpe_count;
     bpe_offset <= next_bpe_offset;
-    remaining_values <= remaining_values - NUM_ELEMENTS;
+    remaining_values <= remaining_values >= NUM_ELEMENTS ? remaining_values - NUM_ELEMENTS : 0;
     update_offset(next_offset);
     update_varint_offset_bpe(next_offset, next_bpe_count, bpe_extra, next_bpe_offset);
 endtask
@@ -371,9 +366,9 @@ task goto_decode_bpe(offset_t offst, bpe_count_t bpe_cnt, offset_t bpe_xtra, bpe
 endtask
 
 task update_varint_offset_bpe(offset_t offst, bpe_count_t bpe_cnt, offset_t bpe_xtra, bpe_offset_t bpe_offst);
-    data32_t next_varint_offset;
+    logic [20:0] next_varint_offset; // Allow up to 1Mi values encoded sequentially with BPE
     offset_t short_offset;
-    next_varint_offset = offst + (((bpe_cnt + bpe_xtra) * bit_width + bpe_offst) / 8);
+    next_varint_offset = offst + ((((bpe_cnt + bpe_xtra) * bit_width) + bpe_offst) / 8);
     short_offset = next_varint_offset;
 
     // BPE could contain so many values that the offset would go beyond two
@@ -404,6 +399,7 @@ always_ff @(posedge clk) begin
             ST_IDLE: begin
                 if (in_meta.ready && in_meta.valid) begin
                     bit_width <= in_meta_data.bit_width;
+                    packed_databeat_bits <= NUM_ELEMENTS * in_meta_data.bit_width;
                     rle_width <= (in_meta_data.bit_width + 7) >> 3;
                     offset <= in_meta_data.offset;
                     varint_offset <= in_meta_data.offset;
@@ -462,12 +458,10 @@ always_ff @(posedge clk) begin
             end
 
             ST_DECODE_BPE: begin
-                if (out.ready && bpe_out.valid) begin
-                    if (bpe_out.last) begin
-                        finish_bpe();
-                    end else begin
-                        advance_bpe();
-                    end
+                if (out.ready && bpe_out.valid && bpe_out.last) begin
+                    finish_bpe();
+                end else if (bpe_in.ready && bpe_in.valid) begin
+                    advance_bpe();
                 end
             end
         endcase
@@ -516,7 +510,7 @@ always_comb begin
             end else begin
                 data = 'x;
                 keep = '0;
-                last_received = 0;
+                last_received = keep_last_received;
             end
         end
 
