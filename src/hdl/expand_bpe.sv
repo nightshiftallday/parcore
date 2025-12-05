@@ -22,17 +22,26 @@ module ExpandBPE #(
     ndata_i.m out  // #(data_t, NUM_ELEMENTS)
 );
 
+tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_metadata_t)) in_inner ();
 ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
+
+TaggedSkidBuffer #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_metadata_t)) inst_in_skid_buffer (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(in),
+    .out(in_inner)
+);
 
 // Computing the next output combinatorially based on the current input.
 ExpandBPECombinatorial #(data_t, NUM_ELEMENTS) inst_expand_bpe_combinatorial (
-    .in(in),
+    .in(in_inner),
     .out(out_inner)
 );
 
 // If the current input is valid this is then asynchronously assigned to the
 // actual out to break the critical path.
-NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (
+NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_out_skid_buffer (
     .clk(clk),
     .rst_n(rst_n),
 
