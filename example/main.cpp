@@ -42,18 +42,24 @@ void diff(std::vector<uint8_t> &a, std::vector<uint8_t> &b,
           parcore::Type data_type) {
   auto l = parcore::data_size(data_type);
   size_t len = std::min(a.size(), b.size());
+  bool match = true;
   for (size_t i = 0; i < len / l; ++i) {
     auto a_val = hex_t(a.begin() + i * l, a.begin() + (i + 1) * l);
     auto b_val = hex_t(b.begin() + i * l, b.begin() + (i + 1) * l);
     if (a_val != b_val) {
       std::cout << "\t\tinvalid value at " << i << ": got " << a_val
                 << ", expected " << b_val << std::endl;
+      match = false;
     }
   }
   if (a.size() != b.size()) {
     std::cout << "\t\tlength mismatch: got " << a.size() << " bytes, expected "
               << b.size() << " bytes" << std::endl;
+    match = false;
   }
+
+  if (match)
+    std::cout << "\t\tresult is correct!" << std::endl;
 }
 
 void send_page(std::shared_ptr<coyote::cThread> coyote_thread,
@@ -121,7 +127,7 @@ void send_page(std::shared_ptr<coyote::cThread> coyote_thread,
   auto ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::high_resolution_clock::now() - start)
                 .count();
-  std::cout << "\t\tcompleted! took " << ms << "us, " << iters << " iterations"
+  std::cout << "\t\tcompleted! took " << ms << "ns, " << iters << " iterations"
             << std::endl;
 
   if (coyote_thread != nullptr && page.num_values > 0) {
@@ -164,7 +170,7 @@ void process(std::shared_ptr<coyote::cThread> coyote_thread,
     auto ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                   std::chrono::high_resolution_clock::now() - start)
                   .count();
-    std::cout << "\t\tcompleted! took " << ms << "us, " << iters
+    std::cout << "\t\tcompleted! took " << ms << "ns, " << iters
               << " iterations" << std::endl;
   }
 
@@ -174,6 +180,7 @@ void process(std::shared_ptr<coyote::cThread> coyote_thread,
 int main(int argc, char *argv[]) {
   std::string parquet_file;
   bool dry_run;
+  int limit;
 
   boost::program_options::options_description runtime_options(
       "Parcore example");
@@ -181,7 +188,9 @@ int main(int argc, char *argv[]) {
       "file,f", boost::program_options::value<std::string>(&parquet_file),
       "Path to the parquet file to parse")(
       "dry-run,d", boost::program_options::bool_switch(&dry_run),
-      "Don't send data to the FPGA, just print the that that *would* be sent.");
+      "Don't send data to the FPGA, just print the that that *would* be sent.")(
+      "limit,l", boost::program_options::value<int>(&limit),
+      "Limit how many columns to process out of the file");
   boost::program_options::variables_map command_line_arguments;
   boost::program_options::store(
       boost::program_options::parse_command_line(argc, argv, runtime_options),
@@ -222,6 +231,10 @@ int main(int argc, char *argv[]) {
     }
 
     ++i;
+    if (i >= limit) {
+      std::cout << "reached limit " << limit << std::endl;
+      break;
+    }
   }
 
   return EXIT_SUCCESS;

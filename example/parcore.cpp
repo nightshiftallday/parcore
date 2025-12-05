@@ -4,7 +4,7 @@
 #include <arrow/chunked_array.h>
 #include <arrow/io/file.h>
 #include <arrow/util/compression.h>
-#include <memory>
+#include <iostream>
 #include <parquet/arrow/reader.h>
 #include <parquet/column_page.h>
 #include <parquet/column_reader.h>
@@ -106,15 +106,17 @@ std::vector<Column> read_parquet_pages(const std::string &filepath) {
           column.dictionary = std::move(p);
         } else if (page->type() == parquet::PageType::DATA_PAGE) {
           auto pagev1 = std::static_pointer_cast<parquet::DataPageV1>(page);
-          p.num_values = pagev1->num_values();
-          auto slice = chunked_array->Slice(offset, p.num_values);
-          for (const auto &chunk : slice->chunks()) {
-            auto buffer = chunk->data()->buffers[1];
-            p.values.insert(p.values.end(), buffer->data(),
-                            buffer->data() + buffer->size());
+          if (pagev1->encoding() == parquet::Encoding::RLE_DICTIONARY) {
+            p.num_values = pagev1->num_values();
+            auto slice = chunked_array->Slice(offset, p.num_values);
+            for (const auto &chunk : slice->chunks()) {
+              auto buffer = chunk->data()->buffers[1];
+              p.values.insert(p.values.end(), buffer->data(),
+                              buffer->data() + buffer->size());
+            }
+            offset += p.num_values;
+            column.pages.push_back(std::move(p));
           }
-          offset += p.num_values;
-          column.pages.push_back(std::move(p));
         } else if (page->type() == parquet::PageType::DATA_PAGE_V2) {
           throw std::runtime_error("Page v2 pages are not supported");
         }
