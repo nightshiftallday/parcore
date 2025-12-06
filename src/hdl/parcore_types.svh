@@ -52,8 +52,8 @@ typedef struct packed {
 } varint_t;
 
 typedef enum logic {
-    PAGE_TYPE_HYBRID,
-    PAGE_TYPE_DICT
+    PAGE_TYPE_HYBRID = 0,
+    PAGE_TYPE_DICT = 1
 } page_type_t;
 
 typedef struct packed {

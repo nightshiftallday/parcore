@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from coyote_test import fpga_test_case, fpga_stream
 from os.path import dirname, realpath, join
+import pickle
 
 @dataclass
 class _Data:
@@ -35,13 +36,14 @@ class _Data:
     def data(self) -> list[bytearray]:
         return [self.dictionary, self.hybrid]
 
+def read_bytes(filename: str) -> bytearray:
+    dir = dirname(realpath(__file__))
+    with open(join(dir, 'data', filename), 'rb') as f:
+        return bytearray(f.read())
+
 def read_data(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_compressed.bin', filename + '_chunk_compressed.bin']
-    data: list[bytearray] = []
-    for filename in files:
-        dir = dirname(realpath(__file__))
-        with open(join(dir, 'data', filename), 'rb') as f:
-            data.append(bytearray(f.read()))
+    data = [read_bytes(file) for file in files]
 
     return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values)
 
@@ -65,6 +67,11 @@ _mixed_input = read_data('mixed_data_rg0_col0', len(_mixed_output))
 _big_bpe_output = list(range(10, 100)) * 5
 _big_bpe_input = read_data('big_bpe_data_rg0_col0', len(_big_bpe_output))
 
+# NOTE: This test output is trimmed significantly (should be about 1M values)
+# because the simulation doesn't run for long enough to produce all values
+_huge_output = pickle.loads(read_bytes('huge_rg0_col0_result.pkl'))[:896]
+_huge_input = read_data('huge_rg0_col0', len(_big_bpe_output))
+
 _test_cases = (
     _TestCase(
         inputs=[_rle_input],
@@ -85,6 +92,10 @@ _test_cases = (
     _TestCase(
         inputs=[_rle_input, _bpe_input, _mixed_input, _big_bpe_input],
         outputs=[_rle_output, _bpe_output, _mixed_output, _big_bpe_output],
+    ),
+    _TestCase(
+        inputs=[_huge_input],
+        outputs=[_huge_output],
     )
 )
 
@@ -163,6 +174,16 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     def test_all_pages(self):
         # Arrange
         self._setup_test(_test_cases[4])
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_one_huge_page(self):
+        # Arrange
+        self._setup_test(_test_cases[5])
 
         # Act
         self.simulate_fpga()
