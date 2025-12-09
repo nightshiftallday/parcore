@@ -15,6 +15,11 @@ import lynxTypes::*;
 parameter int VARINT_NUM_BYTES = 4;
 parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 7;
 parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES);
+parameter int BPE_MASK_SIZE = 18;
+
+// We want to have 1MiB dictionaries. That would take 20 bits to index fully.
+// Since the TypedDictionary uses 32bit elements (4 bytes), we take 2 bits of (log2(4)).
+typedef logic [BPE_MASK_SIZE - 1:0] id_t;
 
 typedef enum logic {
     COMPRESSION_RAW = 0,
@@ -32,6 +37,7 @@ typedef data32_t bpe_count_t;
 
 typedef struct packed {
   bit_width_t bit_width;
+  logic [BPE_MASK_SIZE - 1:0] mask;
   bpe_count_t count;
 } bpe_metadata_t;
 

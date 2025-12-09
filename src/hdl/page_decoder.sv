@@ -8,10 +8,6 @@ import libstf::data8_t;
 import libstf::data32_t;
 import parcore::*;
 
-// We want to have 1MiB dictionaries. That would take 20 bits to index fully.
-// Since the TypedDictionary uses 32bit elements (4 bytes), we take 2 bits of (log2(4)).
-typedef logic [17:0] id_t;
-
 module PageDecoder #(
     parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
 ) (
@@ -111,12 +107,10 @@ always_ff @(posedge clk) begin
             meta.data <= decompressor_meta.data.page_type;
             typ <= decompressor_meta.data.typ;
 
-            if (decompressor_meta.data.page_type == PAGE_TYPE_HYBRID) begin
-                // If the page we're handling now is hybrid, we need to
-                // forward the metadata to the HybridDecoder
-                decoder_meta.valid <= 1;
-                decoder_meta.data <= decompressor_meta.data;
-            end
+            // If the page we're handling now is hybrid, we need to
+            // forward the metadata to the HybridDecoder
+            decoder_meta.valid = decompressor_meta.data.page_type == PAGE_TYPE_HYBRID;
+            decoder_meta.data <= decompressor_meta.data;
         end
 
         if (meta.valid) begin
