@@ -23,7 +23,7 @@ popd
 
 # Synthesize
 ./webhook.sh "started"
-pushd build_synth
+pushd $SYNTH_DIR
 echo "RUNNING SYNTHESIS"
 make bitgen 2>&1 | tee synth.out
 EXIT_CODE=$?

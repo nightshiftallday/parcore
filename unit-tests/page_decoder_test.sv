@@ -18,7 +18,7 @@ always_comb cq_wr.tie_off_s();
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk), .aresetn(aresetn));
 assign axis_host_recv[0].tready = host_in.tready;
 assign host_in.tdata = axis_host_recv[0].tdata;
 assign host_in.tkeep = axis_host_recv[0].tkeep;
@@ -55,7 +55,7 @@ ReadyValidCyclicDriver #(page_metadata_t, 6) inst_meta_driver (
 /* -- OUTPUT ------------------------------------------------------------ */
 
 integer output_databeat;
-AXI4S #(.AXI4S_DATA_BITS(512)) host_out (.aclk(aclk));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_out (.aclk(aclk), .aresetn(aresetn));
 assign host_out.tready = axis_host_send[0].tready;
 assign axis_host_send[0].tdata = host_out.tdata;
 assign axis_host_send[0].tkeep = host_out.tkeep;

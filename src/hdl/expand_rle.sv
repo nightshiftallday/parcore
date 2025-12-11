@@ -18,6 +18,37 @@ module ExpandRLE #(
     ndata_i.m out   // #(data_t, NUM_ELEMENTS)
 );
 
+tagged_i #(data_t, $bits(rle_count_t)) in_inner ();
+
+TaggedSkidBuffer #(data_t, $bits(rle_count_t)) inst_in_skid_buffer (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(in),
+    .out(in_inner)
+);
+
+ExpandRLEInternal #(data_t, NUM_ELEMENTS) inst_expand_rle (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(in_inner),
+    .out(out)
+);
+
+endmodule
+
+module ExpandRLEInternal #(
+    parameter type data_t,
+    parameter NUM_ELEMENTS
+) (
+    input logic clk,
+    input logic rst_n,
+
+    tagged_i.s in,  // #(data_t, $bits(rle_count_t))
+    ndata_i.m out   // #(data_t, NUM_ELEMENTS)
+);
+
 // Extracting data from the tagged_i interface
 data_t in_data;
 rle_count_t in_meta;

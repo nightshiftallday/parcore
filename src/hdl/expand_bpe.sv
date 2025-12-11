@@ -35,7 +35,8 @@ endinterface
 
 module ExpandBPE #(
     parameter type data_t,
-    parameter NUM_ELEMENTS
+    parameter NUM_ELEMENTS,
+    parameter MAX_IN_TRANSIT = 8
 ) (
     input logic clk,
     input logic rst_n,
@@ -59,12 +60,31 @@ tagged_i #(input_t, $bits(bpe_metadata_t)) in_inner ();
 ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
 bpe_stage_i #(input_t, bpe_metadata_t, data_t, NUM_ELEMENTS) middle[N_STAGES:0] ();
 
-TaggedSkidBuffer #(input_t, $bits(bpe_metadata_t)) inst_in_skid_buffer (
-    .clk(clk),
-    .rst_n(rst_n),
+// TaggedSkidBuffer #(input_t, $bits(bpe_metadata_t)) inst_in_skid_buffer (
+//     .clk(clk),
+//     .rst_n(rst_n),
+//
+//     .in(in),
+//     .out(in_inner)
+// );
 
-    .in(in),
-    .out(in_inner)
+// some stages of buffering are required for full throughput in RunDecoder
+FIFO #(
+    .DEPTH(MAX_IN_TRANSIT),
+    .WIDTH($bits(input_t) + $bits(bpe_metadata_t) + 1 + 1)
+) inst_output_fifo (
+    .i_clk(clk),
+    .i_rst_n(rst_n),
+
+    .i_data({in.data, in.tag, in.keep, in.last}),
+    .i_valid(in.valid),
+    .i_ready(in.ready),
+
+    .o_data({in_inner.data, in_inner.tag, in_inner.keep, in_inner.last}),
+    .o_valid(in_inner.valid),
+    .o_ready(in_inner.ready),
+
+    .o_filling_level()
 );
 
 assign in_inner.ready = middle[0].ready;

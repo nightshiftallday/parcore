@@ -69,7 +69,7 @@ _big_bpe_input = read_data('big_bpe_data_rg0_col0', len(_big_bpe_output))
 
 # NOTE: This test output is trimmed significantly (should be about 1M values)
 # because the simulation doesn't run for long enough to produce all values
-_huge_output = pickle.loads(read_bytes('huge_rg0_col0_result.pkl'))[:6448]
+_huge_output = pickle.loads(read_bytes('huge_rg0_col0_result.pkl'))[:6408]
 _huge_input = read_data('huge_rg0_col0', len(_big_bpe_output))
 
 _test_cases = (

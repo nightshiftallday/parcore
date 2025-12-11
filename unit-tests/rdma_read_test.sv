@@ -19,10 +19,10 @@ assign rst_n = aresetn;
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S axi_host_recv_0 (.aclk(clk));
+AXI4S axi_host_recv_0 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
-AXI4S axi_rreq_recv_0 (.aclk(clk));
+AXI4S axi_rreq_recv_0 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axis_rreq_recv[0], axi_rreq_recv_0)
 
 data_i #(rdma_buffer_t) data_in ();
@@ -43,7 +43,7 @@ assign in.data = data_in.data;
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-AXI4S axi_host_send_0 (.aclk(clk));
+AXI4S axi_host_send_0 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data8_t, 64) out ();
