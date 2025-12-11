@@ -199,7 +199,7 @@ ExpandBPE #(
     .MAX_IN_TRANSIT(MAX_IN_TRANSIT)
 ) inst_expand_bpe (
     .clk(clk),
-    .rst_n(rst_n),
+    .rst_n(reset_synced),
 
     .in(bpe_in),
     .out(bpe_out)
@@ -529,7 +529,7 @@ FIFO #(
     .WIDTH($bits(output_t))
 ) inst_output_fifo (
     .i_clk(clk),
-    .i_rst_n(rst_n),
+    .i_rst_n(reset_synced),
 
     .i_data(next_out.data),
     .i_valid(next_out.valid),

@@ -12,6 +12,48 @@ module VHSNUnzipWrapper #(
     ndata_i.s in, // #(data8_t, NUM_BYTES)
     ndata_i.m out // #(data8_t, NUM_BYTES)
 );
+
+// Decompressor input paused and reset logic
+reg decompressor_input_paused;
+reg [1:0] decompressor_reset_counter;
+
+VHSNUnzipWrapperInternal #(NUM_BYTES) inst_vhsnunzip_wrapper_internal (
+    .clk(clk),
+    .rst_n(rst_n && decompressor_reset_counter == 3'd0),
+
+    .in(in),
+    .out(out)
+);
+
+always_ff @(posedge clk) begin
+    if (rst_n == 1'b0) begin
+        decompressor_input_paused <= 1'b0;
+        decompressor_reset_counter <= 0;
+    end else begin
+        if (in.ready && in.valid && in.last) begin
+            decompressor_input_paused <= 1'b1;
+        end else if (decompressor_input_paused && out.ready && out.valid && out.last) begin
+            decompressor_reset_counter <= 2'd2;
+        end else if (decompressor_input_paused && decompressor_reset_counter > 0) begin
+            if (decompressor_reset_counter == 2'd1) begin
+                decompressor_input_paused <= 1'b0;
+            end
+            decompressor_reset_counter <= decompressor_reset_counter - 1;
+        end
+    end
+end
+
+endmodule
+
+module VHSNUnzipWrapperInternal #(
+    parameter NUM_BYTES = AXI_DATA_BITS / 8
+) (
+    input logic clk,
+    input logic rst_n,
+
+    ndata_i.s in, // #(data8_t, NUM_BYTES)
+    ndata_i.m out // #(data8_t, NUM_BYTES)
+);
     // Decompressor parameters
     localparam DECOMP_DATA_BYTES = 8;
     localparam DECOMP_DATA_BITS = DECOMP_DATA_BYTES * 8;

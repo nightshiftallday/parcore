@@ -7,6 +7,7 @@ import lynxTypes::*;
 import libstf::data8_t;
 
 import parcore::page_metadata_t;
+import parcore::compression_t;
 import parcore::COMPRESSION_SNAPPY;
 import parcore::COMPRESSION_RAW;
 
@@ -27,146 +28,124 @@ localparam int MAX_IN_TRANSIT = 8;
 
 `RESET_RESYNC // Reset pipelining
 
-// FIFO #(
-//     .DEPTH(MAX_IN_TRANSIT),
-//     .WIDTH($bits(page_metadata_t))
-// ) inst_mask_fifo (
-//     .i_clk(clk),
-//     .i_rst_n(rst_n),
-//
-//     .i_data(in_meta.data),
-//     .i_valid(in_meta.valid),
-//     .i_ready(in_meta.ready),
-//
-//     .o_data(meta.data),
-//     .o_valid(meta.valid),
-//     .o_ready(meta.ready),
-//
-//     .o_filling_level()
-// );
+ready_valid_i #(page_metadata_t) meta ();
 
-hold_data_i #(page_metadata_t) meta ();
-HoldForward #(page_metadata_t) inst_hold_meta_transaction (
-    .clk(clk),
-    .rst_n(reset_synced),
+FIFO #(
+    .DEPTH(2),
+    .WIDTH($bits(page_metadata_t))
+) inst_mask_fifo (
+    .i_clk(clk),
+    .i_rst_n(reset_synced),
 
-    .in_data(in_meta),
-    .out_data(out_meta),
-    // We want to pause the current input taking when we receive the last databeat
-    .pause(in.valid && in.ready && in.last),
-    // We want to drop the current metadata when we send the last databeat
-    .drop(out.valid && out.ready && out.last),
+    .i_data(in_meta.data),
+    .i_valid(in_meta.valid),
+    .i_ready(in_meta.ready),
 
-    .data(meta)
+    .o_data(meta.data),
+    .o_valid(meta.valid),
+    .o_ready(meta.ready),
+
+    .o_filling_level()
 );
 
-// ------ Bypass wiring -------------
+typedef enum logic {
+    ST_FORWARD,
+    ST_DONE
+} state_t;
+state_t state;
 
-ndata_i #(data8_t, NUM_BYTES) bypass_in (), bypass_out ();
-assign bypass_in.data = in.data;
-assign bypass_in.keep = in.keep;
-assign bypass_in.last = in.last;
-assign bypass_in.valid = meta.ready && meta.valid && meta.data.compression == COMPRESSION_RAW && in.valid;
+assign out_meta.data = meta.data;
+assign out_meta.valid = state == ST_FORWARD && meta.valid;
+
+always_ff @(posedge clk) begin
+    if (reset_synced == 1'b0) begin
+        state <= ST_FORWARD;
+    end else begin
+        case (state)
+            ST_FORWARD: begin
+                if (meta.valid && out_meta.ready) begin
+                    state <= ST_DONE;
+                end
+            end
+
+            ST_DONE: begin
+                if (meta.valid && meta.ready) begin
+                    state <= ST_FORWARD;
+                end
+            end
+        endcase
+    end
+end
+
+ndata_i #(data8_t, NUM_BYTES) ins[1:0] ();
+ndata_i #(data8_t, NUM_BYTES) outs[1:0] ();
+
+// ------ Bypass wiring -------------
 
 NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_bypass (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(bypass_in),
-    .out(bypass_out)
+    .in(ins[1]),
+    .out(outs[1])
 );
 
 // ------ Decompressor wiring -------------
 
-ndata_i #(data8_t, NUM_BYTES) decompressor_in (), decompressor_out_inner (), decompressor_out ();
-assign decompressor_in.data = in.data;
-assign decompressor_in.keep = in.keep;
-assign decompressor_in.last = in.last;
-assign decompressor_in.valid = meta.ready && meta.valid && meta.data.compression == COMPRESSION_SNAPPY && in.valid;
-
-// Decompressor input paused and reset logic
-reg decompressor_input_paused;
-reg [1:0] decompressor_reset_counter;
-
-// Snappy decompressor
+ndata_i #(data8_t, NUM_BYTES) decompressor_inner ();
 VHSNUnzipWrapper #(NUM_BYTES) inst_vhsnunzip_wrapper (
     .clk(clk),
-    .rst_n(reset_synced && decompressor_reset_counter == 3'd0),
+    .rst_n(reset_synced),
 
-    .in(decompressor_in),
-    .out(decompressor_out_inner)
+    .in(ins[0]),
+    .out(decompressor_inner)
 );
-
-always_ff @(posedge clk) begin
-    if (reset_synced == 1'b0) begin
-        decompressor_input_paused <= 1'b0;
-        decompressor_reset_counter <= 0;
-    end else begin
-        if (decompressor_in.ready && decompressor_in.valid && decompressor_in.last) begin
-            decompressor_input_paused <= 1'b1;
-        end else if (decompressor_input_paused && decompressor_out_inner.ready && decompressor_out_inner.valid && decompressor_out_inner.last) begin
-            decompressor_reset_counter <= 2'd2;
-        end else if (decompressor_input_paused && decompressor_reset_counter > 0) begin
-            if (decompressor_reset_counter == 2'd1) begin
-                decompressor_input_paused <= 1'b0;
-            end
-            decompressor_reset_counter <= decompressor_reset_counter - 1;
-        end
-    end
-end
-
 NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_vhsnunzip (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(decompressor_out_inner),
-    .out(decompressor_out)
+    .in(decompressor_inner),
+    .out(outs[0])
 );
 
-// ------ Readying input --------------
+// ------ (De)Multiplexing -------------
 
-assign in.ready = meta.ready && meta.valid && (
-    (meta.data.compression == COMPRESSION_SNAPPY && decompressor_in.ready && !decompressor_input_paused)
- || (meta.data.compression == COMPRESSION_RAW && bypass_in.ready)
+ready_valid_i #(compression_t) compression_meta ();
+
+// These ready and valid assignments are to make sure that the metadata is
+// forwarded before we move to the next state.
+assign meta.ready = compression_meta.ready && state == ST_DONE;
+assign compression_meta.valid = meta.valid && state == ST_DONE;
+assign compression_meta.data = meta.data.compression;
+
+ready_valid_i #(compression_t) metas[1:0] ();
+
+ReadyValidDuplicator #(2) inst_meta_duplicator (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(compression_meta),
+    .out(metas)
 );
 
-// ------ Wiring output --------------
+DataDemultiplexer #(2) inst_demultiplexer (
+    .clk(clk),
+    .rst_n(reset_synced),
 
-assign out.valid = meta.valid && (meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.valid : bypass_out.valid);
-assign out.data  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.data  : bypass_out.data;
-assign out.keep  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.keep  : bypass_out.keep;
-assign out.last  = meta.data.compression == COMPRESSION_SNAPPY ? decompressor_out.last  : bypass_out.last;
+    .select(metas[0]),
 
-assign decompressor_out.ready = meta.valid && meta.data.compression == COMPRESSION_SNAPPY && out.ready;
-assign bypass_out.ready = meta.valid && meta.data.compression == COMPRESSION_RAW && out.ready;
+    .in(in),
+    .out(ins)
+);
 
-// `ifdef SYNTHESIS
-// ila_decompressor inst_ila_decompressor (
-//     .clk(clk),
-//     .probe0(reset_resync),
-//
-//     .probe1(meta.ready),
-//     .probe2(meta.valid),
-//     .probe3(meta.data),
-//
-//     .probe4(in.ready),
-//     .probe5(in.valid),
-//     .probe6(in.last),
-//
-//     .probe7(out.ready),
-//     .probe8(out.valid),
-//     .probe9(out.last),
-//
-//     .probe10(out.data[0]),
-//     .probe11(out.data[1]),
-//     .probe12(out.data[2]),
-//     .probe13(out.data[3]),
-//
-//     .probe14(out.data[NUM_BYTES - 1]),
-//     .probe15(out.data[NUM_BYTES - 2]),
-//     .probe16(out.data[NUM_BYTES - 3]),
-//     .probe17(out.data[NUM_BYTES - 4])
-// );
-// `endif
+DataMultiplexer #(data8_t, NUM_BYTES, 2) inst_multiplexer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(metas[1]),
+
+    .in(outs),
+    .out(out)
+);
 
 endmodule

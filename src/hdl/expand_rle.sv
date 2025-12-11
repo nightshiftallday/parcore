@@ -28,7 +28,7 @@ TaggedSkidBuffer #(data_t, $bits(rle_count_t)) inst_in_skid_buffer (
     .out(in_inner)
 );
 
-ExpandRLEInternal #(data_t, NUM_ELEMENTS) inst_expand_rle (
+ExpandRLEInternal #(data_t, NUM_ELEMENTS) inst_expand_rle_internal (
     .clk(clk),
     .rst_n(rst_n),
 
