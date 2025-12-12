@@ -312,11 +312,10 @@ task goto_decode_bpe(
     input bpe_count_t bpe_padded_cnt,
     input offset_t offst
 );
-    logic [VARINT_OFFSET_COMPUTATION_WIDTH - 1:0] next_varint_offset; 
     offset_t next_varint_offset;
     bpe_remaining_inputs_t next_bpe_remaining_inputs; 
 
-    next_varint_offset = offst + (bpe_padded_cnt * bit_width) / 8;
+    next_varint_offset = offst + ((bpe_padded_cnt * bit_width) / 8);
     next_bpe_remaining_inputs = bpe_padded_cnt / NUM_ELEMENTS;
 
     // BPE could contain so many values that the offset would go beyond two
@@ -347,9 +346,6 @@ task advance_bpe();
     bpe_remaining_inputs_t  next_bpe_remaining_inputs;
     offset_t next_offset;
 
-    // TODO: can't we remove these checks for min(..., 0) given that here
-    // we know we're not on the last databeat for BPE so these values should
-    // not go below zero
     next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
     next_bpe_count = bpe_count - NUM_ELEMENTS;
     next_bpe_offset = next_bpe_offset_bits % 8;
