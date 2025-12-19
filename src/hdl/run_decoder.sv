@@ -90,7 +90,7 @@ end
 logic [3:0] rle_width;
 rle_count_t rle_count;
 
-typedef logic [VARINT_OFFSET_COMPUTATION_WIDTH - $bits(offset_t):0] bpe_remaining_inputs_t;
+typedef logic [16:0] bpe_remaining_inputs_t;
 
 // The value in bpe_count is computed by << 3 the value in the header
 // (ignoring the LSB). This means that it'll be a multiple of 8.
@@ -267,11 +267,15 @@ task reset();
     bit_width <= '0;
     bit_width_bpe_mask <= '0;
     packed_databeat_bits <= '0;
-    rle_width <= '0;
     varint_offset <= '0;
     varint_in.valid <= 0;
     offset <= '0;
     remaining_values <= '0;
+
+    rle_width <= '0;
+    rle_count <= '0;
+    bpe_offset <= '0;
+    bpe_count <= '0;
 endtask
 
 task goto_decode(input data32_t remaining_values);
@@ -573,30 +577,53 @@ always_comb begin
     end
 end
 
-// `ifdef SYNTHESIS
-// ila_run_decoder inst_ila_run_decoder (
-//     .clk(clk),
-//     .probe0(reset_synced),
-//
-//     .probe1(in_meta.ready),
-//     .probe2(in_meta.valid),
-//     .probe3(in_meta.data),
-//
-//     .probe4(in.ready),
-//     .probe5(in.valid),
-//     .probe6(in.last),
-//
-//     .probe7(out.ready),
-//     .probe8(out.valid),
-//     .probe9(out.keep),
-//     .probe10(out.last),
-//
-//     .probe11(state),
-//     .probe12(offset),
-//     .probe13(varint_offset),
-//     .probe14(varint_out.valid),
-//     .probe15(varint_out.data)
-// );
-// `endif
+`ifdef SYNTHESIS
+ila_run_decoder inst_ila_run_decoder (
+    .clk(clk),
+    .probe0(reset_synced),
+
+    .probe1(in_meta.ready),
+    .probe2(in_meta.valid),
+
+    .probe3(in.ready),
+    .probe4(in.valid),
+    .probe5(in.last),
+
+    .probe6(out.ready),
+    .probe7(out.valid),
+    .probe8(out.last),
+
+    .probe9(state),
+    .probe10(offset),
+    .probe11(varint_offset),
+    .probe12(varint_in.valid),
+    .probe13(varint_in.data),
+    .probe14(varint_out.valid),
+    .probe15(varint_out.data),
+
+    .probe16(remaining_values),
+    .probe17(bpe_count),
+    .probe18(bpe_offset),
+    .probe19(bpe_remaining_inputs),
+    .probe20(rle_width),
+    .probe21(rle_count),
+
+    .probe22(bpe_in.ready),
+    .probe23(bpe_in.valid),
+    .probe24(bpe_in.last),
+
+    .probe25(rle_in.ready),
+    .probe26(rle_in.valid),
+    .probe27(rle_in.last),
+
+    .probe28(bpe_out.ready),
+    .probe29(bpe_out.valid),
+    .probe30(bpe_out.last),
+
+    .probe31(rle_out.ready),
+    .probe32(rle_out.valid),
+    .probe33(rle_out.last)
+);
+`endif
 
 endmodule

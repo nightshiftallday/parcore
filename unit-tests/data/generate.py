@@ -4,15 +4,15 @@ import pyarrow.parquet as pq
 import numpy as np
 
 data = {f'col{i}': np.random.randint(0, 1000, 1024, dtype=np.int32) for i in range(3)}
-pq.write_table(pa.table(data), 'data.parquet', data_page_version="1.0")
+pq.write_table(pa.table(data), 'data.parquet', data_page_version="1.0", write_page_index=True)
 
 rle_data = {'col0': [i for i in range(10, 20) for _ in range(i)]}
 print(rle_data)
-pq.write_table(pa.table(rle_data), 'rle_data.parquet', data_page_version="1.0")
+pq.write_table(pa.table(rle_data), 'rle_data.parquet', data_page_version="1.0", write_page_index=True)
 
 bpe_data = {'col0': list(range(10, 20)) * 15}
 print(bpe_data)
-pq.write_table(pa.table(bpe_data), 'bpe_data.parquet', data_page_version="1.0")
+pq.write_table(pa.table(bpe_data), 'bpe_data.parquet', data_page_version="1.0", write_page_index=True)
 
 
 mixed_data = {'col0':
@@ -22,10 +22,10 @@ mixed_data = {'col0':
                 list(range(128, 256)) * 2
              }
 print(mixed_data)
-pq.write_table(pa.table(mixed_data), 'mixed_data.parquet', data_page_version="1.0")
+pq.write_table(pa.table(mixed_data), 'mixed_data.parquet', data_page_version="1.0", write_page_index=True)
 
 big_bpe_data = {'col0': list(range(10, 100)) * 5}
-pq.write_table(pa.table(big_bpe_data), 'big_bpe_data.parquet', data_page_version="1.0")
+pq.write_table(pa.table(big_bpe_data), 'big_bpe_data.parquet', data_page_version="1.0", write_page_index=True)
 
 def explode_data(data):
     factor = randint(2, 4)
@@ -42,4 +42,4 @@ for _ in range(4):
 
 huge = {'col0': huge_data }
 print(len(huge_data))
-pq.write_table(pa.table(huge), 'huge.parquet', data_page_version="1.0")
+pq.write_table(pa.table(huge), 'huge.parquet', data_page_version="1.0", write_page_index=True)

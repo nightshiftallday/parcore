@@ -5,6 +5,7 @@ import pickle
 
 @dataclass
 class _Data:
+    compression: bool
     dictionary: bytearray
     hybrid: bytearray
     num_values: int
@@ -19,7 +20,8 @@ class _Data:
             b[-21:-17] = self.num_values.to_bytes(4, 'little')
         # otherwise we can leave 0, it's ignored
 
-        b[-17] = int(1).to_bytes(1, 'big')[0] # compression_t =  SNAPPY
+        # compression_t = SNAPPY (1) or RAW (0)
+        b[-17] = int(1 if self.compression else 0).to_bytes(1, 'big')[0] 
 
         b[-16:-8] = len.to_bytes(8, 'little')
        
@@ -45,7 +47,13 @@ def read_data(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_compressed.bin', filename + '_chunk_compressed.bin']
     data = [read_bytes(file) for file in files]
 
-    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values)
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=True)
+
+def read_data_decompressed(filename: str, num_values: int) -> _Data:
+    files = [filename + '_dict_decompressed.bin', filename + '_chunk_decompressed.bin']
+    data = [read_bytes(file) for file in files]
+
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=False)
 
 @dataclass
 class _TestCase:
@@ -70,7 +78,11 @@ _big_bpe_input = read_data('big_bpe_data_rg0_col0', len(_big_bpe_output))
 # NOTE: This test output is trimmed significantly (should be about 1M values)
 # because the simulation doesn't run for long enough to produce all values
 _huge_output = pickle.loads(read_bytes('huge_rg0_col0_result.pkl'))[:6408]
-_huge_input = read_data('huge_rg0_col0', len(_big_bpe_output))
+_huge_input = read_data('huge_rg0_col0', len(_huge_output))
+
+_huge_two_output = ([4294967296] * 64) + ([6975757441] * 896) + ([11019960576] * 960) + \
+    ([16983563041] * 1024) + [k for n in range(128, 137) for k in [n] * 32]
+_huge_two_input = read_data_decompressed('test', len(_huge_two_output))
 
 _test_cases = (
     _TestCase(
@@ -96,6 +108,10 @@ _test_cases = (
     _TestCase(
         inputs=[_huge_input],
         outputs=[_huge_output],
+    ),
+    _TestCase(
+        inputs=[_huge_two_input],
+        outputs=[_huge_two_output],
     )
 )
 
@@ -184,6 +200,16 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     def test_one_huge_page(self):
         # Arrange
         self._setup_test(_test_cases[5])
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_huge_two_page(self):
+        # Arrange
+        self._setup_test(_test_cases[6])
 
         # Act
         self.simulate_fpga()

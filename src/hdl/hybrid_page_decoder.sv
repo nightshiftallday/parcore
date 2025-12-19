@@ -209,36 +209,4 @@ assign normalizer_in.data = run_decoder_out.data;
 assign normalizer_in.keep = run_decoder_out.keep;
 assign normalizer_in.last = run_decoder_out.last && num_values <= normalizer_in_num_values;
 
-// `ifdef SYNTHESIS
-// ila_hybrid_page_decoder inst_ila_hybrid_page_decoder (
-//     .clk(clk),
-//     .probe0(reset_resync),
-//
-//     .probe1(in_meta.ready),
-//     .probe2(in_meta.valid),
-//     .probe3(in_meta.data),
-//
-//     .probe4(in.ready),
-//     .probe5(in.valid),
-//     .probe6(in.last),
-//
-//     .probe7(out.ready),
-//     .probe8(out.valid),
-//     .probe9(out.last),
-//
-//     .probe10(state),
-//     .probe11(offset),
-//     .probe12(actual_offset),
-//     .probe13(bit_width_offset),
-//     .probe14(in.data[0]),
-//     .probe15(in.data[1]),
-//     .probe16(in.data[2]),
-//     .probe17(in.data[3]),
-//     .probe18(in.data[NUM_BYTES - 1]),
-//     .probe19(in.data[NUM_BYTES - 2]),
-//     .probe20(in.data[NUM_BYTES - 3]),
-//     .probe21(in.data[NUM_BYTES - 4])
-// );
-// `endif
-
 endmodule
