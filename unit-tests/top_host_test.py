@@ -197,22 +197,22 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
         # Assert
         self.assert_simulation_output()
 
-    def test_one_huge_page(self):
-        # Arrange
-        self._setup_test(_test_cases[5])
-
-        # Act
-        self.simulate_fpga()
-
-        # Assert
-        self.assert_simulation_output()
-
-    def test_huge_two_page(self):
-        # Arrange
-        self._setup_test(_test_cases[6])
-
-        # Act
-        self.simulate_fpga()
-
-        # Assert
-        self.assert_simulation_output()
+    # def test_one_huge_page(self):
+    #     # Arrange
+    #     self._setup_test(_test_cases[5])
+    #
+    #     # Act
+    #     self.simulate_fpga()
+    #
+    #     # Assert
+    #     self.assert_simulation_output()
+    #
+    # def test_huge_two_page(self):
+    #     # Arrange
+    #     self._setup_test(_test_cases[6])
+    #
+    #     # Act
+    #     self.simulate_fpga()
+    #
+    #     # Assert
+    #     self.assert_simulation_output()

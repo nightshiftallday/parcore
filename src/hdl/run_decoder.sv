@@ -48,8 +48,8 @@ typedef enum logic [2:0] {
     ST_DECODE_BPE
 } state_t;
 state_t state;
-logic store_in_second_half;
 
+logic store_in_second_half;
 data8_t[NUM_BYTES * 2 - 1:0] data;
 logic[NUM_BYTES * 2 - 1:0] keep;
 logic last_received;
@@ -57,6 +57,11 @@ bit_width_t bit_width;
 logic [BPE_MASK_SIZE - 1:0] bit_width_bpe_mask;
 offset_t offset;
 data32_t remaining_values;
+
+// ------- Combinatorial state ---
+data8_t[NUM_BYTES * 2 - 1:0] next_data;
+logic[NUM_BYTES * 2 - 1:0] next_keep;
+logic next_last_received;
 
 // n bits for bit_width_t, + log2(NUM_ELEMENTS) bits
 // as this value is the result of bit_width * NUM_ELEMENTS;
@@ -129,8 +134,8 @@ VarintDecoder inst_varint_decoder (
     .out(varint_out)
 );
 
-// assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (data[varint_offset +: 4] == varint_in.data))
-// else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%d), got 0b%b (%d)", state, varint_offset, offset, data[varint_offset +: 4], data[varint_offset +: 4], varint_in.data, varint_in.data);
+assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (data[varint_offset +: 4] == varint_in.data))
+else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%d), got 0b%b (%d)", state, varint_offset, offset, data[varint_offset +: 4], data[varint_offset +: 4], varint_in.data, varint_in.data);
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -221,23 +226,34 @@ assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || last_receive
 logic bpe_needs_more_input;
 assign bpe_needs_more_input = ~bpe_valid_bytes && ~last_received;
 
+
+// ------- Combinatorial input ---
+always_comb begin
+    next_data = data;
+    next_keep = keep;
+
+    if (in.valid) begin
+        if (store_in_second_half) begin
+            next_data[NUM_BYTES * 2 - 1:NUM_BYTES] <= in_data;
+            next_keep[NUM_BYTES * 2 - 1:NUM_BYTES] <= in_keep;
+        end else begin
+            next_data[NUM_BYTES - 1:0] <= in_data;
+            next_keep[NUM_BYTES - 1:0] <= in_keep;
+        end
+    end
+    next_last_received = in.last;
+end
+
 // ------- State machine ---------
 function offset_t trim_offset(offset_t offset);
     trim_offset = offset >= NUM_BYTES ? offset - NUM_BYTES : offset;
 endfunction
 
-task store_input(input data8_t[NUM_BYTES - 1:0] new_data,
-                 input logic[NUM_BYTES - 1:0] new_keep,
-                 input logic new_last);
-    if (store_in_second_half) begin
-        data[NUM_BYTES * 2 - 1:NUM_BYTES] <= new_data;
-        keep[NUM_BYTES * 2 - 1:NUM_BYTES] <= new_keep;
-    end else begin
-        data[NUM_BYTES - 1:0] <= new_data;
-        keep[NUM_BYTES - 1:0] <= new_keep;
-    end
+task store_input();
+    data <= next_data;
+    keep <= next_keep;
+    last_received <= next_last_received;
 
-    last_received <= new_last;
     store_in_second_half <= ~store_in_second_half;
 endtask
 
@@ -431,7 +447,7 @@ always_ff @(posedge clk) begin
         reset();
     end else begin
         if (in.ready && in.valid) begin
-            store_input(in_data, in_keep, in.last);
+            store_input();
         end
 
         case (state)
@@ -476,8 +492,8 @@ always_ff @(posedge clk) begin
                 if (varint_out.valid) begin
                     goto_decode(remaining_values);
                 end else if (in.valid) begin
-                    update_varint_data(in.data, varint_offset);
-                    update_varint_valid(in.keep, in.last, varint_offset);
+                    update_varint_data(next_data, varint_offset);
+                    update_varint_valid(next_keep, next_last_received, varint_offset);
                 end
             end
 
