@@ -50,9 +50,9 @@ typedef enum logic [2:0] {
 state_t state;
 logic store_in_second_half;
 
-data8_t[NUM_BYTES * 2 - 1:0] keep_data;
-logic[NUM_BYTES * 2 - 1:0] keep_keep;
-logic keep_last_received;
+data8_t[NUM_BYTES * 2 - 1:0] data;
+logic[NUM_BYTES * 2 - 1:0] keep;
+logic last_received;
 bit_width_t bit_width;
 logic [BPE_MASK_SIZE - 1:0] bit_width_bpe_mask;
 offset_t offset;
@@ -111,7 +111,7 @@ bpe_offset_t bpe_offset;
 logic [NUM_BYTES * 8 * 2 - 1:0] bpe_data;
 generate
 for (genvar i = 0; i < NUM_BYTES * 2; i++) begin
-    assign bpe_data[(i+1) * 8 - 1:i * 8] = keep_data[i];
+    assign bpe_data[(i+1) * 8 - 1:i * 8] = data[i];
 end
 endgenerate
 
@@ -129,8 +129,8 @@ VarintDecoder inst_varint_decoder (
     .out(varint_out)
 );
 
-// assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (keep_data[varint_offset +: 4] == varint_in.data))
-// else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%d), got 0b%b (%d)", state, varint_offset, offset, keep_data[varint_offset +: 4], keep_data[varint_offset +: 4], varint_in.data, varint_in.data);
+// assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (data[varint_offset +: 4] == varint_in.data))
+// else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%d), got 0b%b (%d)", state, varint_offset, offset, data[varint_offset +: 4], data[varint_offset +: 4], varint_in.data, varint_in.data);
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -174,15 +174,15 @@ for (genvar i = 0; i < DATA_SIZE; i++) begin
     // bytes are required. For example, for $bits(data_t) = 18, DATA_SIZE = 3,
     // but we can't access indexes 23:18, only 17:16 for the last byte.
     for (genvar b = 0; b < 8 && i * 8 + b < $bits(data_t); b++) begin
-        assign rle_in.data[i * 8 + b] = (i < rle_width) ? keep_data[offset+i][b] : '0;
+        assign rle_in.data[i * 8 + b] = (i < rle_width) ? data[offset+i][b] : '0;
     end
-    assign rle_in_valid_bits[i] = (i >= rle_width) || keep_keep[offset+i];
-    assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep_keep[offset+i]);
+    assign rle_in_valid_bits[i] = (i >= rle_width) || keep[offset+i];
+    assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep[offset+i]);
 end
 endgenerate
 assign rle_in.valid = &rle_in_valid_bits && state == ST_DECODE_RLE;
 logic rle_needs_more_input;
-assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~keep_last_received;
+assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~last_received;
 
 // ------- BPE decoding
 bpe_metadata_t bpe_in_tag;
@@ -212,45 +212,45 @@ assign bpe_in.tag = bpe_in_tag;
 // OPTIMIZATION: here we're only checking for the first and last bit of the
 // desired keep region, to avoid a wide | over several bits.
 logic bpe_valid_bytes;
-assign bpe_valid_bytes = keep_keep[offset] && keep_keep[offset + packed_databeat_bits / 8 - 1];
+assign bpe_valid_bytes = keep[offset] && keep[offset + packed_databeat_bits / 8 - 1];
 
-assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || keep_last_received) && bpe_count > 0;
+assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || last_received) && bpe_count > 0;
 
-// We want to take more input if some of the keep_keep bytes are not high, and
+// We want to take more input if some of the keep bytes are not high, and
 // only if we haven't already consumed the last databeat.
 logic bpe_needs_more_input;
-assign bpe_needs_more_input = ~bpe_valid_bytes && ~keep_last_received;
+assign bpe_needs_more_input = ~bpe_valid_bytes && ~last_received;
 
 // ------- State machine ---------
 function offset_t trim_offset(offset_t offset);
     trim_offset = offset >= NUM_BYTES ? offset - NUM_BYTES : offset;
 endfunction
 
-task store_input(input data8_t[NUM_BYTES - 1:0] data,
-                 input logic[NUM_BYTES - 1:0] keep,
-                 input logic last);
+task store_input(input data8_t[NUM_BYTES - 1:0] new_data,
+                 input logic[NUM_BYTES - 1:0] new_keep,
+                 input logic new_last);
     if (store_in_second_half) begin
-        keep_data[NUM_BYTES * 2 - 1:NUM_BYTES] <= data;
-        keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES] <= keep;
+        data[NUM_BYTES * 2 - 1:NUM_BYTES] <= new_data;
+        keep[NUM_BYTES * 2 - 1:NUM_BYTES] <= new_keep;
     end else begin
-        keep_data[NUM_BYTES - 1:0] <= data;
-        keep_keep[NUM_BYTES - 1:0] <= keep;
+        data[NUM_BYTES - 1:0] <= new_data;
+        keep[NUM_BYTES - 1:0] <= new_keep;
     end
 
-    keep_last_received <= last;
+    last_received <= new_last;
     store_in_second_half <= ~store_in_second_half;
 endtask
 
 task update_offset(input offset_t next_offset, input offset_t trimmed_offset);
-    // If the new offset is beyond the midpoint of the keep_data buffer, which
+    // If the new offset is beyond the midpoint of the data buffer, which
     // holds two databeats, then we rewrite the offset and move the second
     // half of the buffer into the first, zeroing the second.
     if (next_offset >= NUM_BYTES) begin
-        keep_data[NUM_BYTES - 1:0] <= keep_data[NUM_BYTES * 2 - 1:NUM_BYTES];
-        keep_keep[NUM_BYTES - 1:0] <= keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES];
+        data[NUM_BYTES - 1:0] <= data[NUM_BYTES * 2 - 1:NUM_BYTES];
+        keep[NUM_BYTES - 1:0] <= keep[NUM_BYTES * 2 - 1:NUM_BYTES];
 
-        keep_data[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '{default: 'x};
-        keep_keep[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '0;
+        data[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '{default: 'x};
+        keep[NUM_BYTES * 2 - 1:NUM_BYTES] <=  '0;
 
         store_in_second_half <= ~store_in_second_half;
     end
@@ -259,9 +259,9 @@ endtask
 
 task reset();
     state <= ST_IDLE;
-    keep_data <= 'x;
-    keep_keep <= '0;
-    keep_last_received <= '0;
+    data <= 'x;
+    keep <= '0;
+    last_received <= '0;
     store_in_second_half <= 0;
 
     bit_width <= '0;
@@ -331,11 +331,11 @@ task goto_decode_bpe(
     if (next_bpe_remaining_inputs <= 1) begin
         // Here we use next_varint_offset (which may be > NUM_BYTES) as if
         // that's the case, in this databeat we also moved the offset forward
-        // and shifted the keep_data, so we store the varint_offset trimmed
+        // and shifted the data, so we store the varint_offset trimmed
         // (outside of this loop) but compute the correct varint_in data to
         // match.
-        update_varint_data(keep_data, next_varint_offset);
-        update_varint_valid(keep_keep, keep_last_received, next_varint_offset);
+        update_varint_data(data, next_varint_offset);
+        update_varint_valid(keep, last_received, next_varint_offset);
     end else begin
         varint_in.valid <= 0;
     end
@@ -366,8 +366,8 @@ task advance_bpe();
         offset_t actual_varint_offset;
         actual_varint_offset = next_offset >= NUM_BYTES ? NUM_BYTES + varint_offset : varint_offset;
 
-        update_varint_data(keep_data, actual_varint_offset);
-        update_varint_valid(keep_keep, keep_last_received, actual_varint_offset);
+        update_varint_data(data, actual_varint_offset);
+        update_varint_valid(keep, last_received, actual_varint_offset);
     end
 endtask
 
@@ -384,8 +384,8 @@ task finish_bpe();
         // which we're trying to decode and move to a state waiting for more input).
         goto_decode(next_remaining_values);
     end else begin
-        update_varint_data(keep_data, varint_offset);
-        update_varint_valid(keep_keep, keep_last_received, varint_offset);
+        update_varint_data(data, varint_offset);
+        update_varint_valid(keep, last_received, varint_offset);
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
         state <= ST_HEADER2;
@@ -395,8 +395,8 @@ endtask
 task goto_decode_rle(input offset_t offst);
     state <= ST_DECODE_RLE;
     varint_offset <= offst + rle_width;
-    update_varint_data(keep_data, offst + rle_width);
-    update_varint_valid(keep_keep, keep_last_received, offst + rle_width);
+    update_varint_data(data, offst + rle_width);
+    update_varint_valid(keep, last_received, offst + rle_width);
 endtask
 
 task finish_rle();
@@ -418,8 +418,8 @@ task finish_rle();
     end
 endtask
 
-task update_varint_data(input data8_t[NUM_BYTES * 2 - 1:0] data, offset_t offst);
-    varint_in.data <= data[offst +: 4];
+task update_varint_data(input data8_t[NUM_BYTES * 2 - 1:0] new_data, offset_t new_offst);
+    varint_in.data <= new_data[new_offst +: 4];
 endtask
 
 task update_varint_valid(input logic[NUM_BYTES * 2 - 1:0] keep, logic last_received, offset_t offst);
