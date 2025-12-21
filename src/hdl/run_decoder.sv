@@ -151,8 +151,8 @@ bpe_count_t varint_no_encoding_bytes;
 assign varint_no_encoding_bytes = varint_no_encoding  << 3;
 
 // This value always points at the first byte after the varint
-offset_t run_data_offset;
-assign run_data_offset = varint_offset + varint_out.data.length;
+offset_t offset_after_varint;
+assign offset_after_varint = varint_offset + varint_out.data.length;
 
 // ------- RLE decoding
 tagged_i #(data_t, $bits(rle_count_t)) rle_in ();
@@ -246,7 +246,8 @@ end
 
 // ------- State machine ---------
 function offset_t trim_offset(offset_t offset);
-    trim_offset = offset >= NUM_BYTES ? offset - NUM_BYTES : offset;
+    // trim_offset = offset >= NUM_BYTES ? offset - NUM_BYTES : offset;
+    trim_offset = offset[$bits(offset_t) - 2:0];
 endfunction
 
 task store_input();
@@ -257,7 +258,7 @@ task store_input();
     store_in_second_half <= ~store_in_second_half;
 endtask
 
-task update_offset(input offset_t next_offset, input offset_t trimmed_offset);
+task update_offset(input offset_t next_offset);
     // If the new offset is beyond the midpoint of the data buffer, which
     // holds two databeats, then we rewrite the offset and move the second
     // half of the buffer into the first, zeroing the second.
@@ -270,7 +271,7 @@ task update_offset(input offset_t next_offset, input offset_t trimmed_offset);
 
         store_in_second_half <= ~store_in_second_half;
     end
-    offset <= trimmed_offset;
+    offset <= trim_offset(next_offset);
 endtask
 
 task reset();
@@ -300,7 +301,6 @@ task goto_decode(input data32_t remaining_values);
     bpe_count_t next_bpe_count, next_bpe_padded_count;
 
     less_remaining_values_than_next_bpe_count = remaining_values < varint_no_encoding_bytes;
-    next_offset = trim_offset(run_data_offset);
     next_bpe_count = less_remaining_values_than_next_bpe_count ? remaining_values : varint_no_encoding_bytes;
     next_bpe_padded_count = varint_no_encoding_bytes;
 
@@ -310,7 +310,7 @@ task goto_decode(input data32_t remaining_values);
     end
     `endif
 
-    update_offset(run_data_offset, next_offset);
+    update_offset(offset_after_varint);
     if (varint_encoding == ENCODING_BPE) begin
         state <= ST_DECODE_BPE;
 
@@ -318,12 +318,12 @@ task goto_decode(input data32_t remaining_values);
         bpe_offset <= 0;
         bpe_count <= next_bpe_count;
 
-        goto_decode_bpe(bpe_offset, next_bpe_padded_count, next_offset);
+        goto_decode_bpe(bpe_offset, next_bpe_padded_count, offset_after_varint);
     end else begin
         // Compute RLE properties
         rle_count <= varint_no_encoding;
 
-        goto_decode_rle(next_offset);
+        goto_decode_rle(offset_after_varint);
     end
 endtask
 
@@ -342,7 +342,7 @@ task goto_decode_bpe(
     // databeats, in that case, we set the varint position but we don't make
     // it valid
     // invalid valid signals computed with the trimmed offset (short_offset).
-    varint_offset <= next_varint_offset[$bits(offset_t) - 2:0];
+    varint_offset <= trim_offset(next_varint_offset);
     bpe_remaining_inputs <= next_bpe_remaining_inputs;
     if (next_bpe_remaining_inputs <= 1) begin
         // Here we use next_varint_offset (which may be > NUM_BYTES) as if
@@ -376,7 +376,7 @@ task advance_bpe();
     bpe_offset <= next_bpe_offset;
     remaining_values <= remaining_values - NUM_ELEMENTS;
     bpe_remaining_inputs <= next_bpe_remaining_inputs;
-    update_offset(next_offset, trim_offset(next_offset));
+    update_offset(next_offset);
 
     if (next_bpe_remaining_inputs <= 1) begin
         offset_t actual_varint_offset;
@@ -410,7 +410,13 @@ endtask
 
 task goto_decode_rle(input offset_t offst);
     state <= ST_DECODE_RLE;
-    varint_offset <= offst + rle_width;
+    varint_offset <= trim_offset(offst) + rle_width;
+
+    // NOTE: these are using the current offset, not the trimmed value.
+    // This is because, if there has been a change in the offset in this cycle,
+    // the data will be shifted but only from the next cycle, so when indexing
+    // data and keep to populate the varint decoder, we need to use the
+    // current offset.
     update_varint_data(data, offst + rle_width);
     update_varint_valid(keep, last_received, offst + rle_width);
 endtask
