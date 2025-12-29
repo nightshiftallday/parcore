@@ -234,11 +234,11 @@ always_comb begin
 
     if (in.valid) begin
         if (store_in_second_half) begin
-            next_data[NUM_BYTES * 2 - 1:NUM_BYTES] <= in_data;
-            next_keep[NUM_BYTES * 2 - 1:NUM_BYTES] <= in_keep;
+            next_data[NUM_BYTES * 2 - 1:NUM_BYTES] = in_data;
+            next_keep[NUM_BYTES * 2 - 1:NUM_BYTES] = in_keep;
         end else begin
-            next_data[NUM_BYTES - 1:0] <= in_data;
-            next_keep[NUM_BYTES - 1:0] <= in_keep;
+            next_data[NUM_BYTES - 1:0] = in_data;
+            next_keep[NUM_BYTES - 1:0] = in_keep;
         end
     end
     next_last_received = in.last;
