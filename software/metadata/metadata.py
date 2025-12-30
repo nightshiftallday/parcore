@@ -6,9 +6,15 @@ class Encoding(Enum):
     PLAIN = 0
     HYBRID = 1
 
+    def __str__(self):
+        return f'{self.name}'
+
 class Compression(Enum):
     RAW = 0
     SNAPPY = 1
+    
+    def __str__(self):
+        return f'{self.name}'
 
 class Type(Enum):
     BYTE = 0
@@ -16,6 +22,9 @@ class Type(Enum):
     INT64 = 2
     FLOAT = 3
     DOUBLE = 4
+
+    def __str__(self):
+        return f'{self.name}'
 
 def _read_exact(f, n: int) -> bytes:
     b = f.read(n)
@@ -57,7 +66,7 @@ class ColumnChunk:
                              self.compression.value))
         # optional dictionary
         f.write(pack("<B", 1 if self.dictionary else 0))
-        if self.dictionary:
+        if self.dictionary is not None:
             self.dictionary.to_file(f)
         self.data.to_file(f)
     @classmethod

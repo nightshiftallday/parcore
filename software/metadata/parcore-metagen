@@ -125,7 +125,7 @@ def main(file: str):
     except Exception as e:
         print(f"could not open {out_file} to write as binary: {e}", file=sys.stderr)
         sys.exit(1)
-            
+
     try:
         meta.to_file(f)
         f.flush()
