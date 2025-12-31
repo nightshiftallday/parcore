@@ -1,21 +1,13 @@
 #include "metadata.hpp"
+#include "utils.hpp"
 
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <optional>
-#include <stdexcept>
 
-using namespace parcore::metadata;
-
-void read_metadata(std::string &file) {
-  std::ifstream in(file, std::ios::binary);
-  if (!in) {
-    throw std::runtime_error("could not open metadata file at: " + file);
-  }
-
-  Metadata meta = Metadata::from(in);
+void read_metadata(const std::string &file) {
+  auto meta = parcore::metadata::from_file(file);
   for (size_t i = 0; i < meta.groups.size(); ++i) {
     auto rg = meta.groups[i];
     for (size_t j = 0; j < rg.chunks.size(); ++j) {
