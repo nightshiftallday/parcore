@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <istream>
 #include <optional>
-#include <stdint.h>
 #include <vector>
 
 namespace parcore {
