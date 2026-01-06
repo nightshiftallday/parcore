@@ -1,11 +1,13 @@
-#include "utils.hpp"
-#include "fpga.hpp"
-#include "metadata.hpp"
+#include <cstring>
+#include <parcore/fpga.hpp>
+#include <parcore/metadata/metadata.hpp>
+#include <parcore/metadata/utils.hpp>
 
+#include <arrow/array.h>
 #include <arrow/buffer.h>
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
-#include <memory>
+#include <coyote/cThread.hpp>
 #include <optional>
 #include <parquet/types.h>
 #include <stdexcept>
@@ -30,7 +32,7 @@ void send_cmd(std::shared_ptr<coyote::cThread> cthread, ParcoreCommand cmd) {
 
   cthread->clearCompleted();
   cthread->invoke(coyote::CoyoteOper::LOCAL_READ, cmd_sg);
-  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 1)
+  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
     ;
 }
 
@@ -40,17 +42,25 @@ void send_page(std::shared_ptr<coyote::cThread> cthread,
   auto cmd = command_for_column_chunk_page(chunk, page, page_type);
   send_cmd(cthread, cmd);
 
-  auto addr = data.data() + page.offset;
+  auto len = static_cast<uint32_t>(page.size);
+  // TODO: directly use userMapped-memory
+  auto mem = (uint8_t *)cthread->getMem({coyote::CoyoteAllocType::REG, len});
+  if (!mem) {
+    throw std::runtime_error("Could not allocate cmd memory");
+  }
+  memcpy(mem, data.data() + page.offset, len);
   coyote::localSg data_sg = {
-      .addr = const_cast<void *>(reinterpret_cast<const void *>(addr)),
-      .len = static_cast<uint32_t>(page.size),
+      // .addr = const_cast<void *>(
+      //     reinterpret_cast<const void *>(data.data() + page.offset)),
+      .addr = mem,
+      .len = len,
       .stream = coyote::STRM_HOST,
-      .dest = 0,
+      .dest = 1,
   };
 
   cthread->clearCompleted();
   cthread->invoke(coyote::CoyoteOper::LOCAL_READ, data_sg);
-  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 1)
+  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
     ;
 }
 
@@ -66,18 +76,28 @@ get_result(std::shared_ptr<coyote::cThread> cthread, arrow::MemoryPool *pool,
   auto _buffer = std::move(buffer_result).ValueOrDie();
   std::shared_ptr<arrow::Buffer> buffer = std::move(_buffer);
 
+  // TODO: map buffer and use that memory directly
+  // cthread->userMap(const_cast<void *>(buffer->data_as<void>()), bytes);
+  uint32_t len = bytes;
+  auto mem = (uint8_t *)cthread->getMem({coyote::CoyoteAllocType::REG, len});
+  if (!mem) {
+    throw std::runtime_error("Could not allocate cmd memory");
+  }
   coyote::localSg result_sg = {
-      .addr = const_cast<void *>(
-          reinterpret_cast<const void *>(buffer->mutable_data())),
-      .len = static_cast<uint32_t>(bytes),
+      // .addr = const_cast<void *>(buffer->data_as<void>()),
+      // .len = static_cast<uint32_t>(bytes),
+      .addr = mem,
+      .len = len,
       .stream = coyote::STRM_HOST,
       .dest = 0,
   };
 
+  cthread->clearCompleted();
   cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
-  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1)
+  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
     ;
 
+  memcpy(const_cast<void *>(buffer->data_as<void>()), mem, len);
   auto array_data = arrow::ArrayData::Make(type_to_arrow(chunk.type), bytes,
                                            {nullptr, buffer});
   auto array = arrow::MakeArray(array_data);
@@ -94,7 +114,7 @@ read_column_chunk(std::shared_ptr<coyote::cThread> cthread,
   }
   auto group = meta.groups[chunk];
 
-  if (chunk >= group.chunks.size()) {
+  if (column >= group.chunks.size()) {
     throw std::runtime_error(
         "attempted to get column chunk which is out of bounds");
   }

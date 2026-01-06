@@ -1,5 +1,5 @@
-#include "fpga.hpp"
-#include "metadata/metadata.hpp"
+#include <parcore/fpga.hpp>
+#include <parcore/metadata/metadata.hpp>
 
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
@@ -46,14 +46,15 @@ inline uint8_t compression_to_hardware(Compression compression) {
   }
 }
 
-ParcoreCommand command_for_column_chunk(const ColumnChunk &chunk,
-                                        const Page &page, PageType page_type) {
+ParcoreCommand command_for_column_chunk_page(const ColumnChunk &chunk,
+                                             const Page &page,
+                                             PageType page_type) {
   ParcoreCommand cmd = {0};
 
-  cmd[41] = type_to_hardware(chunk.type);
-  cmd[42] = page_type_to_hardware(page_type);
+  cmd[41] = page_type_to_hardware(page_type);
+  cmd[42] = type_to_hardware(chunk.type);
 
-  if (page_type != PageType::DICT) {
+  if (page_type == PageType::DATA) {
     uint32_t encoded_num_values = chunk.num_values;
     std::memcpy(&cmd[43], &encoded_num_values, sizeof(encoded_num_values));
   }

@@ -14,7 +14,7 @@ namespace parcore {
 namespace cpu {
 
 InMemoryRandomAccessFile::InMemoryRandomAccessFile(
-    const std::vector<char> &data)
+    const std::vector<uint8_t> &data)
     : data_(data), position_(0), is_closed(false) {}
 
 arrow::Result<int64_t>

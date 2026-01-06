@@ -10,7 +10,7 @@ namespace cpu {
 
 class InMemoryRandomAccessFile : public arrow::io::RandomAccessFile {
 public:
-  InMemoryRandomAccessFile(const std::vector<char> &data);
+  InMemoryRandomAccessFile(const std::vector<uint8_t> &data);
   arrow::Result<int64_t> ReadAt(int64_t position, int64_t nbytes,
                                 void *out) override;
   arrow::Result<std::shared_ptr<arrow::Buffer>> ReadAt(int64_t position,
@@ -25,7 +25,7 @@ public:
 
 private:
   bool is_closed;
-  const std::vector<char> &data_;
+  const std::vector<uint8_t> &data_;
   uint64_t position_;
 };
 

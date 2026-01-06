@@ -1,9 +1,9 @@
 #pragma once
 
-#include "metadata/metadata.hpp"
 #include <arrow/array.h>
 #include <coyote/cThread.hpp>
 #include <cstdint>
+#include <parcore/metadata/metadata.hpp>
 
 namespace parcore {
 namespace utils {
@@ -17,7 +17,7 @@ namespace utils {
  */
 std::shared_ptr<arrow::ChunkedArray>
 read_column_chunk(std::shared_ptr<coyote::cThread> cthread,
-                  const metadata::Metadata &meta,
+                  arrow::MemoryPool *pool, const metadata::Metadata &meta,
                   const std::vector<uint8_t> data, size_t chunk, size_t column);
 
 } // namespace utils

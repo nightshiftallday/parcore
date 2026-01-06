@@ -1,9 +1,8 @@
 #pragma once
 
-#include "metadata/metadata.hpp"
+#include <parcore/metadata/metadata.hpp>
 
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <parquet/types.h>
 
