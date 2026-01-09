@@ -30,8 +30,8 @@ private:
 };
 
 std::shared_ptr<arrow::ChunkedArray>
-read_column_chunk(const arrow::io::RandomAccessFile &file, size_t chunk,
-                  size_t column);
+read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
+                  size_t chunk, size_t column);
 
 } // namespace cpu
 } // namespace parcore
