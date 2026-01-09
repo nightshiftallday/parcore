@@ -49,6 +49,7 @@ endif()
 
 if (PARCORE_WITH_PROFILING)
     find_package(caliper REQUIRED)
+    target_compile_definitions(Parcore PRIVATE PARCORE_WITH_PROFILING)
 
     target_link_libraries(Parcore PRIVATE caliper)
     target_include_directories(Parcore PRIVATE ${CALIPER_INCLUDE_DIR})

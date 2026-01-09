@@ -4,11 +4,15 @@
 #include <stdexcept>
 #include <string>
 
-const constexpr std::string profile =
+const std::string profile =
     "runtime-report(calc.inclusive=true,output=stdout),event-trace";
 #endif
 
 namespace parcore {
+
+#ifdef PARCORE_WITH_PROFILING
+cali::ConfigManager profiler::mgr;
+#endif
 
 void profiler::init() {
 #ifdef PARCORE_WITH_PROFILING
@@ -17,7 +21,7 @@ void profiler::init() {
   mgr.add(profile.c_str());
 
   if (mgr.error()) {
-    raise std::runtime_error("error while initializing caliper: " +
+    throw std::runtime_error("error while initializing caliper: " +
                              mgr.error_msg());
   }
 #endif
