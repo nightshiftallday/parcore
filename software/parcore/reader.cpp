@@ -13,6 +13,7 @@ namespace parcore {
 
 void enqueue_stream_input(coyote::cThread &cthread, libstf::TLBManager &tlb,
                           const libstf::Buffer &buffer, uint32_t stream) {
+  profiler::open_regions({"enqueue_stream_input"});
   auto byte_ptr = static_cast<const std::byte *>(buffer.ptr);
   tlb.ensure_tlb_mapping(buffer.ptr, buffer.capacity);
 
@@ -29,8 +30,11 @@ void enqueue_stream_input(coyote::cThread &cthread, libstf::TLBManager &tlb,
     sg.dest = stream;
 
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
+    profiler::open_regions({"local_read"});
     cthread.invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
+    profiler::close_regions({"local_read"});
   }
+  profiler::close_regions({"enqueue_stream_input"});
 }
 
 Reader::Reader(std::shared_ptr<coyote::cThread> cthread,
@@ -124,10 +128,12 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
       .dest = 0,
   };
 
+  profiler::open_regions({"local_write"});
   cthread->clearCompleted();
   cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
   while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
     ;
+  profiler::close_regions({"local_write"});
 
   profiler::close_regions({"next_column_chunk"});
 

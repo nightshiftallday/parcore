@@ -10,6 +10,8 @@
 #include <parquet/types.h>
 #include <stdexcept>
 
+#include <parcore/profiling.hpp>
+
 namespace parcore {
 namespace cpu {
 
@@ -65,29 +67,36 @@ bool InMemoryRandomAccessFile::closed() const { return is_closed; }
 std::shared_ptr<arrow::ChunkedArray>
 read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
                   size_t chunk, size_t column) {
+  profiler::open_regions({"read_column_chunk", "builder"});
   parquet::arrow::FileReaderBuilder builder;
   auto status = builder.Open(file);
   if (!status.ok()) {
     throw std::runtime_error("could not open file with reader builder: " +
                              status.message());
   }
+  parquet::ArrowReaderProperties props;
+  props.set_use_threads(false);
+  builder.properties(props);
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
   status = builder.Build(&reader);
   if (!status.ok()) {
     throw std::runtime_error("could not build reader: " + status.message());
   }
+  profiler::close_regions({"builder"});
 
   auto rg = reader->RowGroup(chunk);
   auto col_reader = rg->Column(column);
 
   std::shared_ptr<arrow::ChunkedArray> out;
+  profiler::open_regions({"read"});
   status = col_reader->Read(&out);
   if (!status.ok()) {
     throw std::runtime_error("could not read column chunk: " +
                              status.message());
   }
 
+  profiler::close_regions({"read_column_chunk", "read"});
   return std::move(out);
 }
 

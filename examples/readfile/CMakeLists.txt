@@ -3,7 +3,6 @@ project(readfile)
 
 add_executable(readfile main.cpp)
 
-set(PARCORE_INCLUDE_COYOTE ON)
 set(PARCORE_INCLUDE_CPU ON)
 add_subdirectory(../../software parcore)
 target_link_libraries(readfile PUBLIC Parcore)
