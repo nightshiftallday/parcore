@@ -1,25 +1,24 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/value_semantic.hpp>
 #include <chrono>
-#include <coyote/cDefs.hpp>
-#include <coyote/cThread.hpp>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
+#include <string>
 
 #include <arrow/array.h>
+#include <coyote/cDefs.hpp>
+#include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
-#include <optional>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/fpga.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/profiling.hpp>
 #include <parcore/reader.hpp>
-#include <stdexcept>
-#include <string>
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
 // is the only possible value
@@ -48,7 +47,7 @@ int main(int argc, char *argv[]) {
   size_t start, end;
 
   boost::program_options::options_description runtime_options(
-      "Parcore example");
+      "Parcore readfile");
   runtime_options.add_options()(
       "file,f", boost::program_options::value<std::string>(&parquet_file),
       "Path to the parquet file to parse")(
@@ -76,8 +75,6 @@ int main(int argc, char *argv[]) {
   auto pool = std::make_shared<libstf::HugePageMemoryPool>();
   auto tlb = std::make_shared<libstf::TLBManager>(*cthread, *pool);
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
-  std::cout << "mapped at " << std::hex << pool->initial_address()
-            << " with size " << std::dec << pool->total_capacity() << std::endl;
 
   std::ifstream in(parquet_file, std::ios::binary);
   if (!in) {

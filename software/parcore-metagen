@@ -25,10 +25,10 @@ def parse_compression(raw: str) -> Compression:
     match raw:
         case 'SNAPPY':
             return Compression.SNAPPY
-        case 'PLAIN':
+        case 'UNCOMPRESSED':
             return Compression.RAW
 
-    raise Exception(f'unsupported compression: {raw}, only SNAPPY and PLAIN are supported')
+    raise Exception(f'unsupported compression: {raw}, only SNAPPY and UNCOMPRESSED are supported')
 
 def parse_type(raw: str) -> Type:
     match raw:
@@ -63,10 +63,7 @@ def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
     header_size = transport._buffer.tell()
 
     pos = pos + header_size
-    if compressed:
-        sz = header.compressed_page_size
-    else:
-        sz = header.page_size
+    sz = header.compressed_page_size
 
     if header.dictionary_page_header is not None:
         raw_encoding = header.dictionary_page_header.encoding
@@ -104,12 +101,15 @@ def main(file: str):
             sz = col_meta.total_compressed_size
             data = read_page(f, pos, sz, compressed)
 
+            compression_ratio = col_meta.total_uncompressed_size / col_meta.total_compressed_size
+            print(f"{i}:{j}:compression = {compression_ratio }")
+
             typ = parse_type(col_meta.physical_type)
             chunk = ColumnChunk(
                 type=typ,
                 num_values=col_meta.num_values,
                 compression=compression,
-                dictionary=dict,
+                dictionary=dict if col_meta.has_dictionary_page else None,
                 data=data,
             )
             chunks.append(chunk)
@@ -142,8 +142,14 @@ def main(file: str):
 
     assert written_meta == meta
 
-if len(sys.argv) < 2:
-    print(f"usage: {sys.argv[0]} <file.parquet>", file=sys.stderr)
-    sys.exit(1)
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"usage: {sys.argv[0]} <file.parquet>", file=sys.stderr)
+        sys.exit(1)
 
-main(sys.argv[1])
+    file = sys.argv[1]
+    try:
+        main(file)
+    except Exception as e:
+        print(f"could not parse file {file}: {e}", file=sys.stderr)
+        sys.exit(2)

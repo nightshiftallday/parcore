@@ -3,11 +3,13 @@ project(benchmark)
 
 add_executable(benchmark main.cpp)
 
-set(INCLUDE_COYOTE ON)
-set(INCLUDE_CPU ON)
+set(PARCORE_INCLUDE_CPU ON)
 add_subdirectory(../../software parcore)
 target_link_libraries(benchmark PUBLIC Parcore)
 target_include_directories(benchmark PRIVATE ${PARCORE_INCLUDE_DIRS})
+
+target_link_libraries(benchmark PUBLIC libstf)
+target_include_directories(benchmark PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED COMPONENTS program_options)
 target_link_libraries(benchmark PUBLIC Boost::program_options)

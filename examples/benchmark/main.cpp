@@ -1,17 +1,25 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/value_semantic.hpp>
 #include <chrono>
-#include <coyote/cDefs.hpp>
-#include <coyote/cThread.hpp>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
+#include <string>
 
-#include <optional>
+#include <arrow/array.h>
+#include <coyote/cDefs.hpp>
+#include <coyote/cThread.hpp>
+#include <libstf/buffer.hpp>
+#include <libstf/memory_pool.hpp>
+#include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/fpga.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/utils.hpp>
+#include <parcore/profiling.hpp>
+#include <parcore/reader.hpp>
+#include <unistd.h>
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
 // is the only possible value
@@ -20,41 +28,86 @@
 
 const std::string separator = std::string(80, '-');
 
-inline std::chrono::high_resolution_clock::rep
-benchmark_page_cpu(std::shared_ptr<arrow::io::RandomAccessFile> file,
-                   size_t chunk, size_t column) {
-  auto start = std::chrono::high_resolution_clock::now();
-  parcore::cpu::read_column_chunk(file, chunk, column);
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(
-             std::chrono::high_resolution_clock::now() - start)
-      .count();
+void time(std::string file_path, parcore::Reader &reader,
+          std::shared_ptr<arrow::io::RandomAccessFile> file, size_t i, size_t j,
+          size_t values, size_t reps, bool print) {
+  std::chrono::high_resolution_clock::rep fpga_us = 0, cpu_us = 0;
+
+  for (size_t k = 0; k < reps; ++k) {
+    auto start = std::chrono::high_resolution_clock::now();
+    reader.enqueue_column_chunk(i, j);
+    auto fpga_data = reader.next_column_chunk();
+    auto end = std::chrono::high_resolution_clock::now();
+    fpga_us +=
+        std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+            .count();
+
+    start = std::chrono::high_resolution_clock::now();
+    auto cpu_data_raw = parcore::cpu::read_column_chunk(file, i, j);
+    end = std::chrono::high_resolution_clock::now();
+    cpu_us += std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                  .count();
+    usleep(10000); // sleep 10ms
+  }
+
+  fpga_us /= reps;
+  cpu_us /= reps;
+
+  if (print)
+    std::cout << file_path << "," << i << "," << j << "," << values << ","
+              << fpga_us << "," << cpu_us << std::endl;
 }
 
-inline std::chrono::high_resolution_clock::rep benchmark_page_fpga(
-    std::shared_ptr<coyote::cThread> cthread, arrow::MemoryPool *pool,
-    const parcore::metadata::Metadata &meta, const std::vector<uint8_t> data,
-    size_t chunk, size_t column) {
-  auto start = std::chrono::high_resolution_clock::now();
-  parcore::utils::read_column_chunk(cthread, pool, meta, data, chunk, column);
-  return std::chrono::duration_cast<std::chrono::nanoseconds>(
-             std::chrono::high_resolution_clock::now() - start)
-      .count();
+void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
+  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
+  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
+  auto pool = std::make_shared<libstf::HugePageMemoryPool>();
+  auto tlb = std::make_shared<libstf::TLBManager>(*cthread, *pool);
+  tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
+
+  std::ifstream in(parquet_file, std::ios::binary);
+  if (!in) {
+    throw std::runtime_error("could not open file at: " + parquet_file);
+  }
+  auto data_vector = std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
+                                          std::istreambuf_iterator<char>());
+
+  void *data_ptr;
+  auto status = pool->allocate(data_vector.size(), &data_ptr);
+  if (!status.ok()) {
+    throw std::runtime_error(
+        "could not allocate memory for parquet file data: " + status.message());
+  }
+  auto data = libstf::make_buffer(pool, data_ptr, data_vector.size(),
+                                  data_vector.size());
+  std::memcpy(data->ptr, data_vector.data(), data_vector.size());
+
+  auto file =
+      std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
+  parcore::Reader reader(cthread, pool, tlb, meta, data);
+
+  for (size_t i = 0; i < meta.groups.size(); ++i) {
+    auto group = meta.groups[i];
+    for (size_t j = 0; j < group.chunks.size(); ++j) {
+      auto values = group.chunks[j].num_values;
+      time(parquet_file, reader, file, i, j, values, discard_reps, false);
+      time(parquet_file, reader, file, i, j, values, reps, true);
+    }
+  }
 }
 
 int main(int argc, char *argv[]) {
-  std::string parquet_file;
-  size_t start, end, reps;
+  std::vector<std::string> files;
+  size_t discard_reps, reps;
 
   boost::program_options::options_description runtime_options(
-      "Parcore example");
+      "Parcore benchmark");
   runtime_options.add_options()(
-      "file,f", boost::program_options::value<std::string>(&parquet_file),
-      "Path to the parquet file to parse")(
-      "start,s",
-      boost::program_options::value<size_t>(&start)->default_value(0),
-      "The first page to process")(
-      "end,e", boost::program_options::value<size_t>(&end)->default_value(0),
-      "The last page to process. 0 means to process all")(
+      "file,f", boost::program_options::value(&files)->multitoken(),
+      "Path to the parquet files to benchmark on")(
+      "discard_reps,d",
+      boost::program_options::value<size_t>(&discard_reps)->default_value(5),
+      "The number of times to decode each page for benchmarking")(
       "reps,r",
       boost::program_options::value<size_t>(&reps)->default_value(N_REPS),
       "The number of times to decode each page for benchmarking");
@@ -64,54 +117,9 @@ int main(int argc, char *argv[]) {
       command_line_arguments);
   boost::program_options::notify(command_line_arguments);
 
-  std::ifstream in(parquet_file, std::ios::binary);
-  if (!in) {
-    throw std::runtime_error("could not open file at: " + parquet_file);
-  }
-  auto data = std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                   std::istreambuf_iterator<char>());
-  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
-  auto file = std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data);
-
-  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
-  cthread->userMap(data.data(), data.size());
-
-  if (start > meta.groups.size() || start > end || end > meta.groups.size())
-    throw std::runtime_error("invalid start/end bounds");
-  if (end <= 0)
-    end = meta.groups.size();
-
-  auto pool = arrow::default_memory_pool();
-  for (size_t i = start; i < end; ++i) {
-    auto group = meta.groups[i];
-    for (size_t j = 0; j < group.chunks.size(); ++j) {
-      auto chunk = group.chunks[j];
-
-      std::cout << separator << std::endl;
-      std::cout << "Decoding column chunk " << i << ":" << j << ":"
-                << std::endl;
-      std::cout << "\tcompression: " << chunk.compression << std::endl;
-      std::cout << "\ttype: " << chunk.type << std::endl;
-      std::cout << "\tdictionary: " << (chunk.dictionary != std::nullopt)
-                << std::endl;
-
-      // CPU runs
-      std::chrono::high_resolution_clock::rep total_time = 0;
-      for (auto k = 0; k < reps; ++k) {
-        total_time += benchmark_page_cpu(file, i, j);
-      }
-      auto cpu_time = total_time / reps;
-
-      // FPGA runs
-      total_time = 0;
-      for (auto k = 0; k < reps; ++k) {
-        total_time += benchmark_page_fpga(cthread, pool, meta, data, i, j);
-      }
-      auto fpga_time = total_time / reps;
-
-      std::cout << "cpu time:  " << cpu_time << " ns" << std::endl;
-      std::cout << "fpga time: " << fpga_time << " ns" << std::endl;
-    }
+  std::cout << "file,group,column,values,fpga,cpu" << std::endl;
+  for (auto file : files) {
+    benchmark(file, discard_reps, reps);
   }
 
   return EXIT_SUCCESS;
