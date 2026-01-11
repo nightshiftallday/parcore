@@ -1,12 +1,10 @@
-from random import randint
 import pyarrow as pa
 import pyarrow.parquet as pq
-import numpy as np
 import sys
 
 def usage():
     print(f"usage: {sys.argv[0]} <data_type> <kind> <factor_low> <factor_high>")
-    os.exit(1)
+    sys.exit(1)
 
 if len(sys.argv) < 4:
     usage()
@@ -26,7 +24,7 @@ match kind:
 
     case _:
         print(f"invlaid kind: {kind}")
-        os.exit(2)
+        sys.exit(2)
 
 match dt:
     case 'uint32':
@@ -43,14 +41,15 @@ match dt:
 
     case _:
         print(f"invlaid data type: {dt}")
-        os.exit(3)
+        sys.exit(3)
 
 factor_low = int(factor_low)
 factor_high = int(factor_high)
 
 for factor in range(factor_low, factor_high):
-    print(f"scaling with a factor of {factor}, thus multiplying by {2**factor}")
+    file = f"data_{factor:0>2}.parquet"
+    print(f"{file}: {kind} data with scaling factor {factor} ({2**factor} multiplicative)")
     array = pa.array(base * (2**factor), type=typ)
 
     data = {f'col': array}
-    pq.write_table(pa.table(data), f'data_{factor:0>2}.parquet', data_page_version="1.0", write_page_index=True)
+    pq.write_table(pa.table(data), file, data_page_version="1.0", write_page_index=True)

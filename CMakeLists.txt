@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(test)
+project(parcore)
 
 set(CYT_DIR ${CMAKE_SOURCE_DIR}/coyote/)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
@@ -17,7 +17,7 @@ set(DEBUG 1)
 validation_checks_hw()
 
 load_apps (
-    VFPGA_C0_0 "src libstf/src vhsnunzip/src"
+    VFPGA_C0_0 "src libstf/hardware/src vhsnunzip/src"
 )
 
 create_hw()

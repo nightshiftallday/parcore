@@ -3,7 +3,13 @@ project(benchmark)
 
 add_executable(benchmark main.cpp)
 
+option(BENCHMARK_WITH_SIMULATION "Enable Coyote simulation" OFF)
+
 set(PARCORE_INCLUDE_CPU ON)
+if(BENCHMARK_WITH_SIMULATION)
+  set(PARCORE_WITH_SIMULATION ON)
+  target_compile_definitions(benchmark PRIVATE PARCORE_WITH_SIMULATION)
+endif()
 add_subdirectory(../../software parcore)
 target_link_libraries(benchmark PUBLIC Parcore)
 target_include_directories(benchmark PRIVATE ${PARCORE_INCLUDE_DIRS})

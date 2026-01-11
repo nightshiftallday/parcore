@@ -5,6 +5,10 @@ project(Parcore
   LANGUAGES CXX
 )
 
+option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
+option(PARCORE_WITH_PROFILING "Include profling code around expensive calls to determine where time is being spent" OFF)
+option(PARCORE_WITH_SIMULATION "Include the simulation versino of Coyote" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -23,16 +27,17 @@ include(parcore/metadata/sources.cmake)
 target_sources(Parcore PRIVATE ${PARCORE_METADATA_SOURCES})
 
 
-add_subdirectory(../coyote/sw coyote)
+if (PARCORE_WITH_SIMULATION)
+  add_subdirectory(../coyote/sim/sw coyote)
+else()
+  add_subdirectory(../coyote/sw coyote)
+endif()
 target_link_libraries(Parcore PRIVATE Coyote)
 target_include_directories(Parcore PRIVATE ${COYOTE_INCLUDE_DIRS})
 
 add_subdirectory(../libstf/software libstf)
 target_link_libraries(Parcore PRIVATE libstf)
 target_include_directories(Parcore PRIVATE ${LIBSTF_INCLUDE_DIRS})
-
-option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
-option(PARCORE_WITH_PROFILING "Include profling code around expensive calls to determine where time is being spent" OFF)
 
 if (PARCORE_INCLUDE_CPU)
   find_package(Parquet REQUIRED)
