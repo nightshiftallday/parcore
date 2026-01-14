@@ -8,6 +8,8 @@ package parcore;
 import libstf::data32_t;
 import libstf::data64_t;
 import libstf::type_t;
+import libstf::vaddress_t;
+import libstf::alloc_size_t;
 import lynxTypes::*;
 
 parameter int VARINT_NUM_BYTES = 4;
@@ -88,10 +90,14 @@ typedef struct packed {
     logic [7 - $bits(page_type_t):0] pad_3;     // byte align page_type
     page_type_t page_type;
 
+    vaddress_t   out_vaddr;
+    alloc_size_t out_size;
+    logic [$bits(alloc_size_t) % 8 - 1:0] pad_4; // byte align size
+
     // Round up to 64 bytes (512 bits)
-    // current data size is: 8 + 8 + 1 + 4 + 1 + 1 = 23
-    // thus, we need to fill 64 - 23 = 41 bytes
-    logic [41*8 - 1:0] pad_5;
+    // current data size is: 8 + 8 + 1 + 4 + 1 + 1 + 6 + 4 = 33
+    // thus, we need to fill 64 - 33 = 31 bytes
+    logic [31 * 8 - 1:0] pad_5;
 } parcore_cmd_t;
 
 endpackage
