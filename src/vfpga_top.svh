@@ -50,7 +50,7 @@ assign rst_n = aresetn;
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S axi_host_recv_0 (.aclk(clk));
+AXI4S axi_host_recv_0 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
 data_i #(parcore_cmd_t) data_in ();
@@ -73,7 +73,7 @@ assign in_meta.data.num_values = data_in.data.num_values;
 assign in_meta.data.typ = data_in.data.typ;
 assign in_meta.data.page_type = data_in.data.page_type;
 
-AXI4S axi_host_recv_1 (.aclk(clk));
+AXI4S axi_host_recv_1 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axis_host_recv[1], axi_host_recv_1)
 
 ndata_i #(data8_t, 64) in ();
@@ -87,7 +87,7 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-AXI4S axi_host_send_0 (.aclk(clk));
+AXI4S axi_host_send_0 (.aclk(aclk), .aresetn(aresetn));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data8_t, 64) out_u8 ();

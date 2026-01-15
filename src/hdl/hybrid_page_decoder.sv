@@ -69,7 +69,11 @@ ndata_i #(data_t, NUM_ELEMENTS) normalizer_in ();
 logic [$clog2(NUM_ELEMENTS):0] normalizer_in_num_values;
 assign normalizer_in_num_values = $countones(run_decoder_out.keep);
 
-DataNormalizer #(data_t, NUM_ELEMENTS) data_normalizer_inst (
+DataNormalizer #(
+    .data_t(data_t),
+    .NUM_ELEMENTS(NUM_ELEMENTS),
+    .ENABLE_COMPACTOR(0)
+) data_normalizer_inst (
     .clk(clk),
     .rst_n(reset_synced),
 
