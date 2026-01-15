@@ -144,8 +144,8 @@ VarintDecoder inst_varint_decoder (
 
 data8_t[3:0] expected_varint_data;
 assign expected_varint_data = data[varint_offset +: 4];
-// assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (expected_varint_data == varint_in.data))
-// else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%x), got 0b%b (%x)", state, varint_offset, offset, expected_varint_data, expected_varint_data, varint_in.data, varint_in.data);
+assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (expected_varint_data == varint_in.data))
+else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%x), got 0b%b (%x)", state, varint_offset, offset, expected_varint_data, expected_varint_data, varint_in.data, varint_in.data);
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -272,9 +272,9 @@ endtask
 
 task update_offset(input offset_t next_offset);
     `ifndef SYNTHESIS
-    // if (next_offset < offset) begin
-    //     $fatal(1, "Attempted to decrement offset in update_offset, going from %d to %d", offset, next_offset);
-    // end
+    if (next_offset < offset) begin
+        $fatal(1, "Attempted to decrement offset in update_offset, going from %d to %d", offset, next_offset);
+    end
     `endif
 
     // If the new offset is beyond the midpoint of the data buffer, which
