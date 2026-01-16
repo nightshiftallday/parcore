@@ -3,6 +3,17 @@ project(readfile)
 
 add_executable(readfile main.cpp)
 
+option(ENABLE_SIMULATION "Include the simulation version of Coyote" OFF)
+
+if (ENABLE_SIMULATION)
+  add_subdirectory(../../coyote/sim/sw coyote)
+  target_compile_definitions(readfile PRIVATE ENABLE_SIMULATION)
+else ()
+  add_subdirectory(../../coyote/sw coyote)
+endif ()
+target_link_libraries(readfile PRIVATE Coyote)
+target_include_directories(readfile PRIVATE ${COYOTE_INCLUDE_DIRS})
+
 set(PARCORE_INCLUDE_CPU ON)
 add_subdirectory(../../software parcore)
 target_link_libraries(readfile PUBLIC Parcore)
@@ -18,6 +29,3 @@ target_include_directories(readfile PUBLIC ${ARROW_INCLUDE_DIRS})
 find_package(Arrow REQUIRED)
 target_link_libraries(readfile PRIVATE Arrow::arrow_shared)
 target_include_directories(readfile PRIVATE ${ARROW_INCLUDE_DIRS})
-
-target_link_libraries(readfile PRIVATE Coyote)
-target_include_directories(readfile PRIVATE ${COYOTE_INCLUDE_DIRS})

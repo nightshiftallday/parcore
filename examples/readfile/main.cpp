@@ -37,7 +37,7 @@ void diff(const void *d1, const void *d2, size_t size) {
     }
   }
 
-  std::cout << size << " bytes match" << std::endl;
+  std::cout << size << "\tbytes match" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -72,9 +72,15 @@ int main(int argc, char *argv[]) {
     end = meta.groups.size();
 
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
+#ifdef ENABLE_SIMULATION
+  auto pool = std::make_shared<libstf::SimpleMemoryPool>();
+#else
   auto pool = std::make_shared<libstf::HugePageMemoryPool>();
-  auto tlb = std::make_shared<libstf::TLBManager>(*cthread, *pool);
+#endif
+  auto tlb = std::make_shared<libstf::TLBManager>(cthread, pool);
+#ifndef ENABLE_SIMULATION
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
+#endif
 
   std::ifstream in(parquet_file, std::ios::binary);
   if (!in) {

@@ -74,8 +74,6 @@ void Reader::send_page(const metadata::ColumnChunk &chunk,
 
   send_command(chunk, page, page_type);
   auto byte_ptr = static_cast<const std::byte *>(data->ptr);
-  std::cout << "byte ptr " << std::hex << byte_ptr << " size " << std::dec
-            << data->size << std::endl;
 
   auto buffer = libstf::Buffer{
       .ptr = const_cast<void *>(

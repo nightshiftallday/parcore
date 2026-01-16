@@ -61,13 +61,13 @@ void time(std::string file_path, parcore::Reader &reader,
 void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
-#ifdef PARCORE_WITH_SIMULATION
+#ifdef ENABLE_SIMULATION
   auto pool = std::make_shared<libstf::SimpleMemoryPool>();
 #else
   auto pool = std::make_shared<libstf::HugePageMemoryPool>();
 #endif
-  auto tlb = std::make_shared<libstf::TLBManager>(*cthread, *pool);
-#ifndef PARCORE_WITH_SIMULATION
+  auto tlb = std::make_shared<libstf::TLBManager>(cthread, pool);
+#ifdef ENABLE_SIMULATION
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
 #endif
 

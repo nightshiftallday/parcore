@@ -3,13 +3,11 @@ project(benchmark)
 
 add_executable(benchmark main.cpp)
 
-option(BENCHMARK_WITH_SIMULATION "Enable Coyote simulation" OFF)
+add_subdirectory(../../coyote/sw coyote)
+target_link_libraries(benchmark PRIVATE Coyote)
+target_include_directories(benchmark PRIVATE ${COYOTE_INCLUDE_DIRS})
 
 set(PARCORE_INCLUDE_CPU ON)
-if(BENCHMARK_WITH_SIMULATION)
-  set(PARCORE_WITH_SIMULATION ON)
-  target_compile_definitions(benchmark PRIVATE PARCORE_WITH_SIMULATION)
-endif()
 add_subdirectory(../../software parcore)
 target_link_libraries(benchmark PUBLIC Parcore)
 target_include_directories(benchmark PRIVATE ${PARCORE_INCLUDE_DIRS})
@@ -26,5 +24,3 @@ find_package(Parquet REQUIRED)
 target_link_libraries(benchmark PRIVATE Arrow::arrow_shared Parquet::parquet_shared)
 target_include_directories(benchmark PRIVATE ${ARROW_INCLUDE_DIRS})
 
-target_link_libraries(benchmark PRIVATE Coyote)
-target_include_directories(benchmark PRIVATE ${COYOTE_INCLUDE_DIRS})

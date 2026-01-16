@@ -1,5 +1,6 @@
 */compile_commands.json
 build
+build1
 
 build_*/
 unit-tests/diff/**

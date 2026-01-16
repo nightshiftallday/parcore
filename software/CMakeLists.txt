@@ -7,7 +7,6 @@ project(Parcore
 
 option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
 option(PARCORE_WITH_PROFILING "Include profling code around expensive calls to determine where time is being spent" OFF)
-option(PARCORE_WITH_SIMULATION "Include the simulation versino of Coyote" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,11 +25,12 @@ target_include_directories(Parcore
 include(parcore/metadata/sources.cmake)
 target_sources(Parcore PRIVATE ${PARCORE_METADATA_SOURCES})
 
-
-if (PARCORE_WITH_SIMULATION)
-  add_subdirectory(../coyote/sim/sw coyote)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR) 
+    add_subdirectory(../coyote/sw coyote)
 else()
-  add_subdirectory(../coyote/sw coyote)
+    if(NOT TARGET Coyote)
+        message(FATAL_ERROR "When Parcore is a subproject, parent must provide Coyote")
+    endif()
 endif()
 target_link_libraries(Parcore PRIVATE Coyote)
 target_include_directories(Parcore PRIVATE ${COYOTE_INCLUDE_DIRS})
