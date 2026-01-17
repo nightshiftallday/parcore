@@ -37,7 +37,7 @@ void diff(const void *d1, const void *d2, size_t size) {
     }
   }
 
-  std::cout << size << "\tbytes match" << std::endl;
+  std::cout << "\t" << size << " bytes match" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
