@@ -63,6 +63,9 @@ class _TestCase:
 _first_output =  list(range(16, 32)) * (2**6)
 _first_input = read_data('broken/first_rg0_col0', len(_first_output))
 
+_second_output =  list(range(16, 32)) * (2**7)
+_second_input = read_data('broken/second_rg0_col0', len(_second_output))
+
 class TopHostTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "top_host_test.sv"
     debug_mode = True
@@ -100,6 +103,19 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
         self._setup_test(_TestCase(
             inputs=[_first_input],
             outputs=[_first_output],
+        ))
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_second(self):
+        # Arrange
+        self._setup_test(_TestCase(
+            inputs=[_second_input],
+            outputs=[_second_output],
         ))
 
         # Act
