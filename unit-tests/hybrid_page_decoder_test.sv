@@ -16,7 +16,7 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
-// -- Fix clock and reset names ----------------------------------------- */
+/* -- Fix clock and reset names ----------------------------------------- */
 logic clk;
 logic rst_n;
 
@@ -53,7 +53,7 @@ HybridPageDecoderConfig inst_hybrid_page_decoder_config (
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S axi_host_recv_0 (.aclk(aclk), .aresetn(rst_n));
+AXI4S axi_host_recv_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
 ndata_i #(data8_t, 64) in ();
@@ -67,12 +67,12 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-AXI4S axi_host_send_0 (.aclk(aclk), .aresetn(rst_n));
+AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data32_t, 16) out ();
 NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
-    .clk(aclk),
+    .clk(clk),
     .rst_n(rst_n),
 
     .in(out),
@@ -82,7 +82,7 @@ NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
 HybridPageDecoder #(data32_t, 16) inst_hybrid_page_decoder (
-    .clk(aclk),
+    .clk(clk),
     .rst_n(rst_n),
 
     .in(in),

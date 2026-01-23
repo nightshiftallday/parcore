@@ -14,11 +14,16 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
-/* -- USER LOGIC -------------------------------------------------------- */
+/* -- Fix clock and reset names ----------------------------------------- */
+logic clk;
+logic rst_n;
+
+assign clk   = aclk;
+assign rst_n = aresetn;
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S axi_host_recv_0 (.aclk(aclk), .aresetn(rst_n));
+AXI4S axi_host_recv_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
 ndata_i #(data8_t, 64) in ();
@@ -40,8 +45,8 @@ assign test_metadata = '{
 };
 
 ReadyValidCyclicDriver #(run_decoder_metadata_t, 3) inst_meta_driver (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
     .data(test_metadata),
     .out_data(in_meta)
@@ -49,12 +54,12 @@ ReadyValidCyclicDriver #(run_decoder_metadata_t, 3) inst_meta_driver (
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-AXI4S axi_host_send_0 (.aclk(aclk), .aresetn(rst_n));
+AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data32_t, 16) out ();
 NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
-    .clk(aclk),
+    .clk(clk),
     .rst_n(rst_n),
 
     .in(out),
@@ -64,8 +69,8 @@ NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
 RunDecoder #(data32_t, 16) inst_run_decoder (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
     .in(in),
     .in_meta(in_meta),
