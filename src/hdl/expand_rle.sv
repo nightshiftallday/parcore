@@ -2,7 +2,6 @@
 
 `include "axi_macros.svh"
 `include "lynx_macros.svh"
-`include "parcore_types.svh"
 
 import lynxTypes::*;
 import parcore::*;

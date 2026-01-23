@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from coyote_test import fpga_test_case, fpga_stream
+from coyote_test import fpga_test_case, fpga_stream, fpga_register
 from os.path import dirname, realpath, join
 import pickle
 
@@ -10,30 +10,18 @@ class _Data:
     hybrid: bytearray
     num_values: int
 
-    def _cmd(self, vaddr: int, len: int, page_type: int) -> bytearray:
-        b = bytearray([0] * 64)
+    def _registers(self, page_type: int) -> list[bytearray]:
+        return [
+            bytearray(int(1 if self.compression else 0).to_bytes(1, 'big')), # compression_t
+            bytearray(page_type.to_bytes(1, 'big')), # page_t
+            bytearray(self.num_values.to_bytes(4, 'little')), # num_values
+            bytearray(int(2).to_bytes(1, 'big')), # type_t = int64_t
+        ]
 
-        b[-23] = page_type.to_bytes(1, 'big')[0] # page_t
-        b[-22] = int(2).to_bytes(1, 'big')[0] # type_t = INT64_T
-
-        if page_type == 0: # hybrid
-            b[-21:-17] = self.num_values.to_bytes(4, 'little')
-        # otherwise we can leave 0, it's ignored
-
-        # compression_t = SNAPPY (1) or RAW (0)
-        b[-17] = int(1 if self.compression else 0).to_bytes(1, 'big')[0] 
-
-        b[-16:-8] = len.to_bytes(8, 'little')
-       
-        # b[56-64:64] = vaddr.to_bytes(8, 'little')
-        b[-8:] = vaddr.to_bytes(8, 'little')
-
-        return b
-
-    def cmd(self, memory_offset: int) -> bytearray:
-        first = self._cmd(memory_offset, len(self.dictionary), 1)
-        second = self._cmd(memory_offset + len(self.dictionary), len(self.hybrid), 0)
-        return first + second
+    def registers(self) -> list[list[bytearray]]:
+        first = self._registers(1)
+        second = self._registers(0)
+        return [first, second]
 
     def data(self) -> list[bytearray]:
         return [self.dictionary, self.hybrid]
@@ -130,26 +118,29 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     # Overwrite of the parent classes simulation method.
     # Can be used to implement common behavior between tests
     def simulate_fpga(self):
-        return super().simulate_fpga()
+        assert self.test_case is not None, (
+            "Cannot have host test with empty test case!"
+        )
 
-    # buffers are a list of (len, vaddr)
-    def _setup_test(self, test_case: _TestCase) -> None:
-        offset = 0
-        for input in test_case.inputs:
-            for data in input.data():
-                self.set_stream_input(1, data)
+        for input in self.test_case.inputs:
+            for register_set in input.registers():
+                for i, value in enumerate(register_set):
+                    # Configuration (offset of 3 because of GlobalConfig)
+                    self.write_register(fpga_register.vFPGARegister(3 + i, value))
 
-            cmd = input.cmd(0)
-            self.set_stream_input(0, cmd)
-            offset += len(data)
+        # Set the input data
+        for input in (data for i in self.test_case.inputs for data in i.data()):
+            self.set_stream_input(0, input)
 
-        for output in test_case.outputs:
+        # Set the expected output data
+        for output in self.test_case.outputs:
             self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, output))
-        
+
+        return super().simulate_fpga()
 
     def test_one_rle_page(self):
         # Arrange
-        self._setup_test(_test_cases[0])
+        self.test_case= _test_cases[0]
 
         # Act
         self.simulate_fpga()
@@ -159,7 +150,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     def test_one_bpe_page(self):
         # Arrange
-        self._setup_test(_test_cases[1])
+        self.test_case = (_test_cases[1])
 
         # Act
         self.simulate_fpga()
@@ -169,7 +160,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     def test_one_mixed_page(self):
         # Arrange
-        self._setup_test(_test_cases[2])
+        self.test_case = (_test_cases[2])
 
         # Act
         self.simulate_fpga()
@@ -179,7 +170,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     def test_one_big_bpe_pages(self):
         # Arrange
-        self._setup_test(_test_cases[3])
+        self.test_case = (_test_cases[3])
 
         # Act
         self.simulate_fpga()
@@ -189,7 +180,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     def test_all_pages(self):
         # Arrange
-        self._setup_test(_test_cases[4])
+        self.test_case = (_test_cases[4])
 
         # Act
         self.simulate_fpga()
@@ -199,7 +190,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     # def test_one_huge_page(self):
     #     # Arrange
-    #     self._setup_test(_test_cases[5])
+    #     self.test_case = (_test_cases[5])
     #
     #     # Act
     #     self.simulate_fpga()
@@ -209,7 +200,7 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     #
     # def test_huge_two_page(self):
     #     # Arrange
-    #     self._setup_test(_test_cases[6])
+    #     self.test_case = (_test_cases[6])
     #
     #     # Act
     #     self.simulate_fpga()

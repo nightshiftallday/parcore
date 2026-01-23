@@ -2,7 +2,6 @@
 
 `include "libstf_macros.svh"
 `include "lynx_macros.svh"
-`include "parcore_types.svh"
 
 import lynxTypes::*;
 import libstf::data8_t;

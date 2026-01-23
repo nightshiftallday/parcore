@@ -61,38 +61,13 @@ typedef enum logic {
     PAGE_TYPE_DICT = 1
 } page_type_t;
 
-typedef struct packed {
-    compression_t compression;
-    data32_t num_values;
-    type_t typ;
-    page_type_t page_type;
-} page_metadata_t;
+parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
 
-typedef data64_t rdma_vaddress_t;
-typedef data64_t rdma_alloc_size_t;
+parameter int PAGE_DECODER_CONFIG_NUM_REGS = 4;
+parameter longint unsigned PAGE_DECODER_CONFIG_ID = 64'hc0779792c320630e;
 
-typedef struct packed {
-    rdma_vaddress_t   vaddr;
-    rdma_alloc_size_t size;
-} rdma_buffer_t;
-
-typedef struct packed {
-    rdma_vaddress_t   in_vaddr;
-    rdma_alloc_size_t in_size;
-
-    logic [7 - $bits(compression_t):0] pad_1; // byte align compression
-    compression_t compression;
-    data32_t num_values;
-    logic [7 - $bits(type_t):0] pad_2;        // byte align type
-    type_t typ;
-    logic [7 - $bits(page_type_t):0] pad_3;     // byte align page_type
-    page_type_t page_type;
-
-    // Round up to 64 bytes (512 bits)
-    // current data size is: 8 + 8 + 1 + 4 + 1 + 1 = 23
-    // thus, we need to fill 64 - 23 = 41 bytes
-    logic [41*8 - 1:0] pad_5;
-} parcore_cmd_t;
+parameter int HYBRID_PAGE_DECODER_CONFIG_NUM_REGS = 2;
+parameter longint unsigned HYBRID_PAGE_DECODER_CONFIG_ID = 64'hd6736a4eef933024;
 
 endpackage
 

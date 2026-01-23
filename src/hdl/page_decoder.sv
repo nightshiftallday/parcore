@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
 `include "libstf_macros.svh"
-`include "parcore_types.svh"
 
 import lynxTypes::AXI_DATA_BITS;
 import libstf::data8_t;
@@ -14,7 +13,7 @@ module PageDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s in_meta, // #(page_metadata_t)
+    page_decoder_config_i.s conf,
     ndata_i.s in,            // #(data8_t, DATABEAT_SIZE)
 
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
@@ -25,29 +24,21 @@ module PageDecoder #(
 parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
-ready_valid_i #(page_metadata_t) decompressor_meta_inner (), decompressor_meta ();
+page_decoder_config_i decompressor_conf ();
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in_meta(in_meta),
+    .in_conf(conf),
     .in(in),
 
-    .out_meta(decompressor_meta_inner),
+    .out_conf(decompressor_conf),
     .out(decompressor_out)
 );
 
-SkidBuffer #(page_metadata_t) inst_skid_buffer_meta (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .in(decompressor_meta_inner),
-    .out(decompressor_meta)
-);
-
 // ------ Hybrid decoder wiring -------------------
-ready_valid_i #(page_metadata_t) decoder_meta ();
+hybrid_page_decoder_config_i decoder_conf ();
 ndata_i #(data8_t, DATABEAT_SIZE) decoder_in ();
 ndata_i #(id_t, NUM_IDS) decoder_out ();
 HybridPageDecoder #(
@@ -58,7 +49,7 @@ HybridPageDecoder #(
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in_meta(decoder_meta),
+    .conf(decoder_conf),
     .in(decoder_in),
 
     .out(decoder_out)
@@ -94,40 +85,49 @@ TypedDictionary #(
 // ------------------------------------------------
 
 // ------ Preserve+forward metadata ---------------
-type_t typ;
-valid_i #(page_type_t) meta ();
+typedef struct packed {
+    page_type_t page_type;
+    type_t typ;
+} state_t;
+valid_i #(state_t) state ();
+
+// For debugging purposes
+page_type_t state_page_type;
+type_t state_typ;
+assign state_page_type = state.data.page_type;
+assign state_typ = state.data.typ;
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        meta.valid <= 0;
-        decoder_meta.valid <= 0;
+        state.valid <= 0;
+        decoder_conf.valid <= 0;
     end else begin
-        if (decompressor_meta.ready && decompressor_meta.valid) begin
-            meta.valid <= 1;
-            meta.data <= decompressor_meta.data.page_type;
-            typ <= decompressor_meta.data.typ;
+        if (decompressor_conf.ready && decompressor_conf.valid) begin
+            state.valid <= 1;
+            state.data.page_type <= decompressor_conf.page_type;
+            state.data.typ <= decompressor_conf.typ;
 
             // If the page we're handling now is hybrid, we need to
             // forward the metadata to the HybridDecoder
-            decoder_meta.valid = decompressor_meta.data.page_type == PAGE_TYPE_HYBRID;
-            decoder_meta.data <= decompressor_meta.data;
+            decoder_conf.valid = decompressor_conf.page_type == PAGE_TYPE_HYBRID;
+            decoder_conf.num_values <= decompressor_conf.num_values;
         end
 
-        if (meta.valid) begin
-            case (meta.data)
+        if (state.valid) begin
+            case (state.data.page_type)
                 PAGE_TYPE_HYBRID: begin
-                    if (decoder_meta.valid && decoder_meta.ready) begin
-                        decoder_meta.valid <= 0;
+                    if (decoder_conf.valid && decoder_conf.ready) begin
+                        decoder_conf.valid <= 0;
                     end
 
                     if (out.valid && out.ready && out.last) begin
-                        meta.valid <= 0;
+                        state.valid <= 0;
                     end
                 end
 
                 PAGE_TYPE_DICT: begin
                     if (typed_dictionary_values.valid && typed_dictionary_values.ready && typed_dictionary_values.last) begin
-                        meta.valid <= 0;
+                        state.valid <= 0;
                     end
                 end
             endcase
@@ -135,25 +135,25 @@ always_ff @(posedge clk) begin
     end
 end
 
-assign decompressor_meta.ready = ~meta.valid && ~decoder_meta.valid;
+assign decompressor_conf.ready = ~state.valid && ~decoder_conf.valid;
 
 // NOTE: meta.ready signifies "ready to receive more input" (not paused) for the
 // parent component, it's not meant as a handshaking signal along with valid.
 // Valid signifies that the meta signal is valid and its data can be read.
-assign decompressor_out.ready = meta.valid && (
-    (meta.data == PAGE_TYPE_HYBRID && decoder_in.ready)
- || (meta.data == PAGE_TYPE_DICT && typed_dictionary_values.ready)
+assign decompressor_out.ready = state.valid && (
+    (state.data.page_type == PAGE_TYPE_HYBRID && decoder_in.ready)
+ || (state.data.page_type == PAGE_TYPE_DICT && typed_dictionary_values.ready)
 );
 
 // ------ Driving typed dictionary ----------------
-assign typed_dictionary_values.valid = meta.valid && meta.data == PAGE_TYPE_DICT && decompressor_out.valid;
-assign typed_dictionary_values.typ = typ;
+assign typed_dictionary_values.valid = state.valid && state.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
+assign typed_dictionary_values.typ = state.data.typ;
 assign typed_dictionary_values.data = decompressor_out.data;
 assign typed_dictionary_values.keep = decompressor_out.keep;
 assign typed_dictionary_values.last = decompressor_out.last;
 
 // ------ Driving Hybrid decoder ------------------
-assign decoder_in.valid = meta.valid && meta.data == PAGE_TYPE_HYBRID && decompressor_out.valid;
+assign decoder_in.valid = state.valid && state.data.page_type == PAGE_TYPE_HYBRID && decompressor_out.valid;
 assign decoder_in.data = decompressor_out.data;
 assign decoder_in.keep = decompressor_out.keep;
 assign decoder_in.last = decompressor_out.last;
@@ -163,8 +163,8 @@ ila_page_decoder inst_ila_page_decoder (
     .clk(clk),
     .probe0(reset_resync),
 
-    .probe1(in_meta.ready),
-    .probe2(in_meta.valid),
+    .probe1(conf.ready),
+    .probe2(conf.valid),
 
     .probe3(in.ready),
     .probe4(in.valid),

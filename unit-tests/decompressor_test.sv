@@ -2,7 +2,6 @@
 
 import libstf::data8_t;
 
-`include "parcore_types.svh"
 import parcore::*;
 import libstf::*;
 

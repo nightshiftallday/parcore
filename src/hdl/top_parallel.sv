@@ -1,7 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "parcore_types.svh"
-
 import lynxTypes::AXI_DATA_BITS;
 import lynxTypes::N_STRM_AXI;
 

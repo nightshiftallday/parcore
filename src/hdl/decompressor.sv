@@ -1,12 +1,10 @@
 `timescale 1ns / 1ps
 
 `include "libstf_macros.svh"
-`include "parcore_types.svh"
 
 import lynxTypes::*;
 import libstf::data8_t;
 
-import parcore::page_metadata_t;
 import parcore::compression_t;
 import parcore::COMPRESSION_SNAPPY;
 import parcore::COMPRESSION_RAW;
@@ -17,33 +15,40 @@ module Decompressor #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s in_meta,  // #(page_metadata_t)
-    ndata_i.s in,             // #(data8_t, NUM_BYTES)
+    page_decoder_config_i.s in_conf,
+    ndata_i.s in,                     // #(data8_t, NUM_BYTES)
 
-    ready_valid_i.m out_meta, // #(page_metadata_t)
-    ndata_i.m out             // #(data8_t, NUM_BYTES)
+    page_decoder_config_i.m out_conf,
+    ndata_i.m out                     // #(data8_t, NUM_BYTES)
 );
 
 localparam int MAX_IN_TRANSIT = 8;
 
 `RESET_RESYNC // Reset pipelining
 
-ready_valid_i #(page_metadata_t) meta ();
+page_decoder_config_i conf ();
+
+typedef struct {
+    compression_t compression;
+    page_type_t   page_type;
+    data32_t      num_values;
+    type_t        typ;
+} config_t;
 
 FIFO #(
     .DEPTH(2),
-    .WIDTH($bits(page_metadata_t))
+    .WIDTH($bits(config_t))
 ) inst_mask_fifo (
     .i_clk(clk),
     .i_rst_n(reset_synced),
 
-    .i_data(in_meta.data),
-    .i_valid(in_meta.valid),
-    .i_ready(in_meta.ready),
+    .i_data({in_conf.compression, in_conf.page_type, in_conf.num_values, in_conf.typ}),
+    .i_valid(in_conf.valid),
+    .i_ready(in_conf.ready),
 
-    .o_data(meta.data),
-    .o_valid(meta.valid),
-    .o_ready(meta.ready),
+    .o_data({conf.compression, conf.page_type, conf.num_values, conf.typ}),
+    .o_valid(conf.valid),
+    .o_ready(conf.ready),
 
     .o_filling_level()
 );
@@ -54,8 +59,11 @@ typedef enum logic {
 } state_t;
 state_t state;
 
-assign out_meta.data = meta.data;
-assign out_meta.valid = state == ST_FORWARD && meta.valid;
+assign out_conf.compression = conf.compression;
+assign out_conf.page_type = conf.page_type;
+assign out_conf.num_values = conf.num_values;
+assign out_conf.typ = conf.typ;
+assign out_conf.valid = state == ST_FORWARD && conf.valid;
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
@@ -63,13 +71,13 @@ always_ff @(posedge clk) begin
     end else begin
         case (state)
             ST_FORWARD: begin
-                if (meta.valid && out_meta.ready) begin
+                if (conf.valid && out_conf.ready) begin
                     state <= ST_DONE;
                 end
             end
 
             ST_DONE: begin
-                if (meta.valid && meta.ready) begin
+                if (conf.valid && conf.ready) begin
                     state <= ST_FORWARD;
                 end
             end
@@ -114,9 +122,9 @@ ready_valid_i #(compression_t) compression_meta ();
 
 // These ready and valid assignments are to make sure that the metadata is
 // forwarded before we move to the next state.
-assign meta.ready = compression_meta.ready && state == ST_DONE;
-assign compression_meta.valid = meta.valid && state == ST_DONE;
-assign compression_meta.data = meta.data.compression;
+assign conf.ready = compression_meta.ready && state == ST_DONE;
+assign compression_meta.valid = conf.valid && state == ST_DONE;
+assign compression_meta.data = conf.compression;
 
 ready_valid_i #(compression_t) metas[1:0] ();
 

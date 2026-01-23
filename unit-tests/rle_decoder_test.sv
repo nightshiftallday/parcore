@@ -1,6 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "parcore_types.svh"
 import parcore::*;
 
 import libstf::data32_t;

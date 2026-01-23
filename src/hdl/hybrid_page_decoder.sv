@@ -2,7 +2,6 @@
 
 `include "libstf_macros.svh"
 `include "lynx_macros.svh"
-`include "parcore_types.svh"
 
 import lynxTypes::*;
 import libstf::data8_t;
@@ -23,7 +22,7 @@ module HybridPageDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s in_meta, // #(page_metadata_t)
+    hybrid_page_decoder_config_i.s conf,
     ndata_i.s in,            // #(data8_t, NUM_BYTES)
 
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
@@ -32,10 +31,6 @@ module HybridPageDecoder #(
 `RESET_RESYNC // Reset pipelining
 
 localparam int NUM_BYTES_OFFSET = 4;
-
-// ------- Input extraction ------
-page_metadata_t in_meta_data;
-assign in_meta_data = in_meta.data;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
@@ -134,8 +129,8 @@ always_ff @(posedge clk) begin
     end else begin
         case (state)
             ST_IDLE: begin
-                if (in_meta.valid) begin
-                    num_values <= in_meta_data.num_values;
+                if (conf.valid) begin
+                    num_values <= conf.num_values;
 
                     if (in.valid) begin
                         process_first_databeat();
@@ -193,7 +188,7 @@ always_ff @(posedge clk) begin
 end
 
 // ------- Driving input ---------
-assign in_meta.ready = state == ST_IDLE;
+assign conf.ready = state == ST_IDLE;
 assign in.ready = state == ST_CONSUME || (state == ST_PIPE && run_decoder_in.ready);
 
 assign run_decoder_in.valid = state == ST_PIPE && in.valid;

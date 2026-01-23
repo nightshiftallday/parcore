@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from coyote_test import fpga_test_case, fpga_stream
+from coyote_test import fpga_test_case, fpga_stream, fpga_register
 from os.path import dirname, realpath, join
 from random import randint
 
@@ -71,6 +71,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
         test_case = _test_cases[0]
         self.set_stream_input(0, test_case.inputs[0])
         self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, test_case.outputs[0]))
+        self.write_register(fpga_register.vFPGARegister(3, bytearray(len(test_case.outputs[0]).to_bytes(8, 'little'))))
 
         # Act
         self.simulate_fpga()
@@ -82,6 +83,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
         test_case = _test_cases[1]
         self.set_stream_input(0, test_case.inputs[0])
         self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, test_case.outputs[0]))
+        self.write_register(fpga_register.vFPGARegister(3, bytearray(len(test_case.outputs[0]).to_bytes(8, 'little'))))
 
         # Act
         self.simulate_fpga()
@@ -93,6 +95,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
         test_case = _test_cases[2]
         self.set_stream_input(0, test_case.inputs[0])
         self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, test_case.outputs[0]))
+        self.write_register(fpga_register.vFPGARegister(3, bytearray(len(test_case.outputs[0]).to_bytes(8, 'little'))))
 
         # Act
         self.simulate_fpga()
@@ -106,6 +109,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
             self.set_stream_input(0, lst)
         for lst in test_case.outputs:
             self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
+            self.write_register(fpga_register.vFPGARegister(3, bytearray(len(lst).to_bytes(8, 'little'))))
 
         # Act
         self.simulate_fpga()
@@ -119,6 +123,7 @@ class PageDecoderTestCase(fpga_test_case.FPGATestCase):
             self.set_stream_input(0, lst)
         for lst in test_case.outputs:
             self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_32, lst))
+            self.write_register(fpga_register.vFPGARegister(3, bytearray(len(lst).to_bytes(8, 'little'))))
 
         # Act
         self.simulate_fpga()

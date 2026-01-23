@@ -1,6 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "parcore_types.svh"
 `include "lynx_macros.svh"
 
 import parcore::*;

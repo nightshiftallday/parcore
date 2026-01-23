@@ -1,6 +1,5 @@
 `timescale 1ns / 1ps
 
-`include "parcore_types.svh"
 `include "libstf_macros.svh"
 
 import lynxTypes::AXI_DATA_BITS;
