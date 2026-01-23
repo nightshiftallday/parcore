@@ -1,77 +1,76 @@
-`timescale 1ns / 1ps
-
 `include "lynx_macros.svh"
+`include "libstf_macros.svh"
 
-import parcore::*;
 import libstf::data8_t;
-import libstf::data32_t;
-import libstf::INT64_T;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
-always_comb axi_ctrl.tie_off_s();
 always_comb notify.tie_off_m();
 always_comb sq_rd.tie_off_m();
 always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
-always_comb axis_host_recv[1].tie_off_s();
-always_comb axis_host_send[1].tie_off_m();
+// -- Fix clock and reset names ----------------------------------------- */
+logic clk;
+logic rst_n;
+
+assign clk   = aclk;
+assign rst_n = aresetn;
+
+/* -- CONFIG ------------------------------------------------------------ */
+write_config_i write_configs[1](.*);
+read_config_i  read_configs [1](.*);
+GlobalConfig #(
+    .SYSTEM_ID(PARCORE_SYSTEM_ID),
+    .NUM_CONFIGS(1),
+    .ADDR_SPACE_SIZES({PAGE_DECODER_CONFIG_NUM_REGS})
+) inst_config (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .axi_ctrl(axi_ctrl),
+
+    .write_configs(write_configs),
+    .read_configs(read_configs)
+);
+
+page_decoder_config_i conf(.*);
+PageDecoderConfig inst_page_decoder_config (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .write_config(write_configs[0]),
+    .read_config(read_configs[0]),
+
+    .out(conf)
+);
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk), .aresetn(aresetn));
-assign axis_host_recv[0].tready = host_in.tready;
-assign host_in.tdata = axis_host_recv[0].tdata;
-assign host_in.tkeep = axis_host_recv[0].tkeep;
-assign host_in.tlast = axis_host_recv[0].tlast;
-assign host_in.tvalid = axis_host_recv[0].tvalid;
+AXI4S axi_host_recv_0 (.aclk(aclk), .aresetn(rst_n));
+`AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
 ndata_i #(data8_t, 64) in ();
 AXIToNData #(data8_t, 64) inst_axi_to_ndata (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
-    .in(host_in),
+    .in(axi_host_recv_0),
     .out(in)
-);
-
-ready_valid_i #(page_metadata_t) in_meta ();
-page_metadata_t test_metadata[5:0];
-assign test_metadata = '{
-    '{compression: COMPRESSION_SNAPPY, num_values: 802, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT},
-    '{compression: COMPRESSION_SNAPPY, num_values: 150, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT},
-    '{compression: COMPRESSION_SNAPPY, num_values: 145, typ: INT64_T, page_type: PAGE_TYPE_HYBRID},
-    '{compression: COMPRESSION_SNAPPY, num_values: 0, typ: INT64_T, page_type: PAGE_TYPE_DICT}
-};
-ReadyValidCyclicDriver #(page_metadata_t, 6) inst_meta_driver (
-    .clk(aclk),
-    .rst_n(aresetn),
-
-    .data(test_metadata),
-    .out_data(in_meta)
 );
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-integer output_databeat;
-AXI4S #(.AXI4S_DATA_BITS(512)) host_out (.aclk(aclk), .aresetn(aresetn));
-assign host_out.tready = axis_host_send[0].tready;
-assign axis_host_send[0].tdata = host_out.tdata;
-assign axis_host_send[0].tkeep = host_out.tkeep;
-assign axis_host_send[0].tlast = host_out.tlast;
-assign axis_host_send[0].tvalid = host_out.tvalid;
-assign axis_host_send[0].tid = output_databeat;
+AXI4S axi_host_send_0 (.aclk(aclk), .aresetn(rst_n));
+`AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
 ndata_i #(data8_t, 64) out_u8 ();
 NDataToAXI #(data8_t, 64) inst_ndata_to_axi (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
     .in(out_u8),
-    .out(host_out)
+    .out(axi_host_send_0)
 );
 
 // discard typed interface
@@ -80,32 +79,14 @@ typed_ndata_i #(64) out();
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-always_ff @(posedge aclk) begin
-    if(aresetn == 1'b0) begin 
-        output_databeat  <= 0;
-    end else begin
-        // if (host_in.tvalid && host_in.tready) begin
-        //     $display("< in valid: %x, ready: %x, last: %x", host_in.tvalid, host_in.tready, host_in.tlast);
-        // end
+PageDecoder #(
+    .DATABEAT_SIZE(64)
+) inst_page_decoder (
+    .clk(clk),
+    .rst_n(rst_n),
 
-        if (host_out.tvalid && host_out.tready) begin
-            // $display("> out valid: %x, ready: %x, last: %x, keep: %x", host_out.tvalid, host_out.tready, host_out.tlast, host_out.tkeep);
-            output_databeat <= output_databeat + 1;
-
-            if (host_out.tlast) begin
-              // $display(">>! got tlast after %d databeats", output_databeat+1);
-              output_databeat <= 0;
-            end
-        end
-    end
-end
-
-PageDecoder #(64) inst_page_decoder (
-    .clk(aclk),
-    .rst_n(aresetn),
-
-    .in_meta(in_meta),
+    .conf(conf),
     .in(in),
-
+    
     .out(out)
 );

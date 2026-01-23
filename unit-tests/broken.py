@@ -67,7 +67,7 @@ _second_output =  list(range(16, 32)) * (2**7)
 _second_input = read_data('broken/second_rg0_col0', len(_second_output))
 
 class TopHostTestCase(fpga_test_case.FPGATestCase):
-    alternative_vfpga_top_file = "top_host_test.sv"
+    alternative_vfpga_top_file = "page_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
 
