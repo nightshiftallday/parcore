@@ -1,0 +1,3 @@
+open_checkpoint build_synth/checkpoints/shell_routed.dcp
+report_timing_summary -file tools/timing_report_summary.txt
+quit

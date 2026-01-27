@@ -1,2 +1,26 @@
-.DS_Store
+*/compile_commands.json
 build
+build1
+
+build_*/
+unit-tests/diff/**
+unit-tests/sim_dump.vcd
+unit-tests/sim.out
+unit-tests/vapor_view.json
+tst/tb_design_user_logic.sv
+
+# Vivado generated files
+*.jou
+*.log
+*.str
+.nfs*
+
+# Python
+*.pyc
+__pycache__
+
+# MacOS DS_Store files
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store

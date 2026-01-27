@@ -1,2 +1,4 @@
 *.bit filter=lfs diff=lfs merge=lfs -text
 *.ltx filter=lfs diff=lfs merge=lfs -text
+*.parquet filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text

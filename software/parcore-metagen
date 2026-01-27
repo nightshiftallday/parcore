@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# vi: set ft=python
+
+from io import BufferedReader
+from pyarrow.parquet import ParquetFile
+from thrift.transport import TTransport
+from thrift.protocol import TCompactProtocol
+import sys
+
+from metadata import Page, ColumnChunk, Encoding, Compression, Type, RowGroup, Metadata
+# This file has been generated with the thirft compiler from the parquet header
+# definition files
+from ttypes import PageHeader
+
+def parse_encoding(raw: int) -> Encoding:
+    match raw:
+        case 0:
+            return Encoding.PLAIN
+        case 8:
+            return Encoding.HYBRID
+
+    raise Exception(f'unsupported encoding: {raw}, only 0 (PLAIN) and 8 (HYBRID) are supported')
+
+def parse_compression(raw: str) -> Compression:
+    match raw:
+        case 'SNAPPY':
+            return Compression.SNAPPY
+        case 'UNCOMPRESSED':
+            return Compression.RAW
+
+    raise Exception(f'unsupported compression: {raw}, only SNAPPY and UNCOMPRESSED are supported')
+
+def parse_type(raw: str) -> Type:
+    match raw:
+        case 'BYTE' | 'BOOL':
+            return Type.BYTE
+        case 'INT32':
+            return Type.INT32
+        case 'INT64':
+            return Type.INT64
+        case 'FLOAT':
+            return Type.FLOAT
+        case 'DOUBLE':
+            return Type.DOUBLE
+
+    raise Exception(f'unsupported type: {raw}')
+
+def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
+    pos = f.seek(pos)
+    if pos != pos:
+        raise Exception(f"attempted to seek to {pos}, only got to {pos}")
+
+    # We read the whole page in memory to then use TMemoryBuffer and thus be
+    # able to tell how big the page is. We could use a TFileTransport instead,
+    # but that includes buffering (+ python has its own buffering on `File`s),
+    # so the readnig would not be accurate.
+    data = f.read(sz)
+    transport = TTransport.TMemoryBuffer(data)
+    protocol = TCompactProtocol.TCompactProtocol(transport)
+
+    header = PageHeader()
+    header.read(protocol)
+    header_size = transport._buffer.tell()
+
+    pos = pos + header_size
+    sz = header.compressed_page_size
+
+    if header.dictionary_page_header is not None:
+        raw_encoding = header.dictionary_page_header.encoding
+    elif header.data_page_header is not None:
+        raw_encoding = header.data_page_header.encoding
+    else:
+        raise Exception(f"header for page at {pos}+:{sz} is not supported (value: {header}). only dictionary or datav1 pages are supported")
+
+    encoding = parse_encoding(raw_encoding)
+    return Page(encoding=encoding, offset=pos, size=sz)
+
+
+def main(file: str):
+    try:
+        pf = ParquetFile(file)
+        f = open(file, "rb")
+    except Exception as e:
+        print(f"could not open {file} to read as binary: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    row_groups = []
+    for i in range(pf.metadata.num_row_groups):
+        chunks = []
+        for j in range(pf.metadata.num_columns):
+            col_meta = pf.metadata.row_group(i).column(j)
+            compression = parse_compression(col_meta.compression)
+            compressed = compression is not Compression.RAW
+
+            if col_meta.has_dictionary_page:
+                pos = col_meta.dictionary_page_offset
+                sz = col_meta.data_page_offset - col_meta.dictionary_page_offset
+                dict = read_page(f, pos, sz, compressed)
+
+            pos = col_meta.data_page_offset
+            sz = col_meta.total_compressed_size
+            data = read_page(f, pos, sz, compressed)
+
+            compression_ratio = col_meta.total_uncompressed_size / col_meta.total_compressed_size
+            print(f"{i}:{j}:compression = {compression_ratio }")
+
+            typ = parse_type(col_meta.physical_type)
+            chunk = ColumnChunk(
+                type=typ,
+                num_values=col_meta.num_values,
+                compression=compression,
+                dictionary=dict if col_meta.has_dictionary_page else None,
+                data=data,
+            )
+            chunks.append(chunk)
+
+        rg = RowGroup(chunks=tuple(chunks))
+        row_groups.append(rg)
+
+    meta = Metadata(groups=tuple(row_groups))
+
+    out_file = f"{file}.meta"
+    try:
+        f = open(out_file, "wb")
+    except Exception as e:
+        print(f"could not open {out_file} to write as binary: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        meta.to_file(f)
+        f.flush()
+    except Exception as e:
+        print(f"could not write metadata to {out_file}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        f = open(out_file, "rb")
+        written_meta = Metadata.from_file(f)
+    except Exception as e:
+        print(f"error while reading written meta to check if it matches: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    assert written_meta == meta
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(f"usage: {sys.argv[0]} <file.parquet>", file=sys.stderr)
+        sys.exit(1)
+
+    file = sys.argv[1]
+    try:
+        main(file)
+    except Exception as e:
+        print(f"could not parse file {file}: {e}", file=sys.stderr)
+        sys.exit(2)

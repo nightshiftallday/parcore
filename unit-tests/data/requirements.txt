@@ -1,0 +1,4 @@
+pyarrow
+numpy
+python-snappy
+thrift
