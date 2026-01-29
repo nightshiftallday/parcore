@@ -35,7 +35,7 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .out(in)
 );
 
-ready_valid_i #(run_decoder_metadata_t) in_meta ();
+ready_valid_i #(run_decoder_metadata_t) in_meta (.clk(clk), .rst_n(rst_n));
 
 run_decoder_metadata_t test_metadata[2:0];
 assign test_metadata = '{

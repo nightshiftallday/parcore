@@ -24,7 +24,7 @@ module PageDecoder #(
 parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
-page_decoder_config_i decompressor_conf ();
+page_decoder_config_i decompressor_conf (.clk(clk), .rst_n(reset_synced));
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
@@ -37,35 +37,66 @@ Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .out(decompressor_out)
 );
 
-// ------ Hybrid decoder wiring -------------------
-hybrid_page_decoder_config_i decoder_conf ();
-ndata_i #(data8_t, DATABEAT_SIZE) decoder_in ();
-ndata_i #(id_t, NUM_IDS) decoder_out ();
+// ------ Multiplexing declarations ---------------
+localparam int NUM_IN = 3;
+typedef enum logic [$bits(page_type_t) - 1:0] {
+    IN_HYBRID = PAGE_TYPE_HYBRID,
+    IN_DICT = PAGE_TYPE_DICT,
+    IN_PLAIN = PAGE_TYPE_PLAIN
+} in_selector_t;
+`ASSERT_ELAB(NUM_IN <= 2**$bits(in_selector_t))
+
+ndata_i #(data8_t, DATABEAT_SIZE) ins[NUM_IN] ();
+
+localparam int NUM_OUT = 2;
+typedef enum logic {
+  OUT_HYBRID = 0,
+  OUT_PLAIN = 1
+} out_selector_t;
+`ASSERT_ELAB(NUM_OUT <= 2**$bits(out_selector_t))
+typed_ndata_i #(DATABEAT_SIZE) outs[NUM_OUT] ();
+
+ready_valid_i #(in_selector_t) in_select ();
+ready_valid_i #(out_selector_t) out_select ();
+
+// ------ Hybrid decoder + Dictionary wiring ------
+hybrid_page_decoder_config_i hybrid_conf ();
+
+ndata_i #(id_t, NUM_IDS) hybrid_out ();
 HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
     .NUM_BYTES(DATABEAT_SIZE)
-) inst_hybrid_page_decoder (
+) inst_hybrid (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .conf(decoder_conf),
-    .in(decoder_in),
+    .conf(hybrid_conf),
+    .in(ins[IN_HYBRID]),
 
-    .out(decoder_out)
+    .out(hybrid_out)
 );
 
-ndata_i #(id_t, NUM_IDS) typed_dictionary_ids ();
-NDataSkidBuffer #(id_t, NUM_IDS) inst_skid_buffer_decoder (
+ndata_i #(id_t, NUM_IDS) dict_ids ();
+NDataSkidBuffer #(id_t, NUM_IDS) inst_skid_buffer_hybrid (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(decoder_out),
-    .out(typed_dictionary_ids)
+    .in(hybrid_out),
+    .out(dict_ids)
 );
 
-// ------ Typed dictionary wiring -----------------
-typed_ndata_i #(DATABEAT_SIZE) typed_dictionary_values ();
+ready_valid_i #(type_t) dict_type ();
+typed_ndata_i #(DATABEAT_SIZE) dict_values ();
+NDataToTypedNData #(DATABEAT_SIZE) inst_dict_typed_conversion (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in_type(dict_type),
+    .in(ins[IN_DICT]),
+
+    .out(dict_values)
+);
 TypedDictionary #(
     .id_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -74,89 +105,159 @@ TypedDictionary #(
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in_values(typed_dictionary_values),
-    .in_ids(typed_dictionary_ids),
+    .in_values(dict_values),
+    .in_ids(dict_ids),
 
+    .out(outs[OUT_HYBRID])
+);
+
+// ------ Plain wiring ----------------------------
+ready_valid_i #(type_t) plain_type ();
+typed_ndata_i #(DATABEAT_SIZE) plain_out ();
+NDataToTypedNData #(DATABEAT_SIZE) inst_plain_typed_conversion (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in_type(plain_type),
+    .in(ins[IN_PLAIN]),
+
+    .out(plain_out)
+);
+
+TypedNDataSkidBuffer #(DATABEAT_SIZE) inst_plain_skid_buffer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(plain_out),
+    .out(outs[OUT_PLAIN])
+);
+
+// ------ Multiplexing ----------------------------
+DataDemultiplexer #(NUM_IN) inst_multiplexer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(in_select),
+
+    .in(decompressor_out),
+    .out(ins)
+);
+
+typed_ndata_i #(DATABEAT_SIZE) inner_out ();
+TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(out_select),
+
+    .in(outs),
+    .out(inner_out)
+);
+
+TypedNDataSkidBuffer #(DATABEAT_SIZE) inst_skid_buffer_out (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(inner_out),
     .out(out)
 );
+
 
 // ------------------------------------------------
 // ------ Design wiring ---------------------------
 // ------------------------------------------------
 
 // ------ Preserve+forward metadata ---------------
-typedef struct packed {
-    page_type_t page_type;
-    type_t typ;
+typedef enum logic {
+    ST_IDLE,
+    ST_CONFIGURED
 } state_t;
-valid_i #(state_t) state ();
-
-// For debugging purposes
-page_type_t state_page_type;
-type_t state_typ;
-assign state_page_type = state.data.page_type;
-assign state_typ = state.data.typ;
+state_t state;
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        state.valid <= 0;
-        decoder_conf.valid <= 0;
+        hybrid_conf.valid <= 1'b0;
+        dict_type.valid <= 1'b0;
+        plain_type.valid <= 1'b0;
+        in_select.valid <= 1'b0;
+        out_select.valid <= 1'b0;
+        state <= ST_IDLE;
     end else begin
-        if (decompressor_conf.ready && decompressor_conf.valid) begin
-            state.valid <= 1;
-            state.data.page_type <= decompressor_conf.page_type;
-            state.data.typ <= decompressor_conf.typ;
+        case (state)
+            ST_IDLE: begin
+                if (decompressor_conf.valid) begin
+                    // In each switch case we:
+                    // 1. Route input from the decompressor
+                    // 2. Configure the module that will transform/consume the input
+                    // 3. Configure the output multiplexing any
+                    case (decompressor_conf.page_type)
+                        PAGE_TYPE_HYBRID: begin
+                            in_select.data <= IN_HYBRID;
 
-            // If the page we're handling now is hybrid, we need to
-            // forward the metadata to the HybridDecoder
-            decoder_conf.valid = decompressor_conf.page_type == PAGE_TYPE_HYBRID;
-            decoder_conf.num_values <= decompressor_conf.num_values;
-        end
+                            hybrid_conf.valid = 1'b1;
+                            hybrid_conf.num_values <= decompressor_conf.num_values;
 
-        if (state.valid) begin
-            case (state.data.page_type)
-                PAGE_TYPE_HYBRID: begin
-                    if (decoder_conf.valid && decoder_conf.ready) begin
-                        decoder_conf.valid <= 0;
-                    end
+                            out_select.valid <= 1'b1;
+                            out_select.data <= OUT_HYBRID;
+                        end
+                        PAGE_TYPE_DICT: begin
+                            in_select.data <= IN_DICT;
 
-                    if (out.valid && out.ready && out.last) begin
-                        state.valid <= 0;
-                    end
+                            dict_type.valid <= 1'b1;
+                            dict_type.data <= decompressor_conf.typ;
+                        end
+                        PAGE_TYPE_PLAIN: begin
+                            in_select.data <= IN_PLAIN;
+
+                            plain_type.valid <= 1'b1;
+                            plain_type.data <= decompressor_conf.typ;
+
+                            out_select.valid <= 1'b1;
+                            out_select.data <= OUT_PLAIN;
+                        end
+                    endcase
+
+                    // Input is always consumed
+                    in_select.valid <= 1'b1;
+
+                    state <= ST_CONFIGURED;
+                end
+            end
+
+            ST_CONFIGURED: begin
+                if (hybrid_conf.ready) begin
+                    hybrid_conf.valid <= 1'b0;
                 end
 
-                PAGE_TYPE_DICT: begin
-                    if (typed_dictionary_values.valid && typed_dictionary_values.ready && typed_dictionary_values.last) begin
-                        state.valid <= 0;
-                    end
+                if (dict_type.ready) begin
+                    dict_type.valid <= 1'b0;
                 end
-            endcase
-        end
+
+                if (plain_type.ready) begin
+                    plain_type.valid <= 1'b0;
+                end
+
+                if (in_select.ready) begin
+                    in_select.valid <= 1'b0;
+                end
+
+                if (out_select.ready) begin
+                    out_select.valid <= 1'b0;
+                end
+
+                // If all configurations/selectors are invalid, it means they
+                // have been successfully consumed by the multiplexers/decoders
+                // (or not been set in the first place) and thus we can move
+                // back to the IDLE state, to receive further configuration.
+                if (hybrid_conf.valid == 1'b0 && dict_type.valid == 1'b0 && plain_type.valid == 1'b0 && in_select.valid == 1'b0 && out_select.valid == 1'b0) begin
+                    state <= ST_IDLE;
+                end
+            end
+        endcase
     end
 end
 
-assign decompressor_conf.ready = ~state.valid && ~decoder_conf.valid;
-
-// NOTE: meta.ready signifies "ready to receive more input" (not paused) for the
-// parent component, it's not meant as a handshaking signal along with valid.
-// Valid signifies that the meta signal is valid and its data can be read.
-assign decompressor_out.ready = state.valid && (
-    (state.data.page_type == PAGE_TYPE_HYBRID && decoder_in.ready)
- || (state.data.page_type == PAGE_TYPE_DICT && typed_dictionary_values.ready)
-);
-
-// ------ Driving typed dictionary ----------------
-assign typed_dictionary_values.valid = state.valid && state.data.page_type == PAGE_TYPE_DICT && decompressor_out.valid;
-assign typed_dictionary_values.typ = state.data.typ;
-assign typed_dictionary_values.data = decompressor_out.data;
-assign typed_dictionary_values.keep = decompressor_out.keep;
-assign typed_dictionary_values.last = decompressor_out.last;
-
-// ------ Driving Hybrid decoder ------------------
-assign decoder_in.valid = state.valid && state.data.page_type == PAGE_TYPE_HYBRID && decompressor_out.valid;
-assign decoder_in.data = decompressor_out.data;
-assign decoder_in.keep = decompressor_out.keep;
-assign decoder_in.last = decompressor_out.last;
+assign decompressor_conf.ready = state == ST_IDLE;
 
 `ifdef SYNTHESIS
 ila_page_decoder inst_ila_page_decoder (
@@ -174,13 +275,13 @@ ila_page_decoder inst_ila_page_decoder (
     .probe7(out.valid),
     .probe8(out.last),
 
-    .probe9(typed_dictionary_values.ready),
-    .probe10(typed_dictionary_values.valid),
-    .probe11(typed_dictionary_values.last),
+    .probe9(dict_values.ready),
+    .probe10(dict_values.valid),
+    .probe11(dict_values.last),
 
-    .probe12(typed_dictionary_ids.ready),
-    .probe13(typed_dictionary_ids.valid),
-    .probe14(typed_dictionary_ids.last)
+    .probe12(dict_ids.ready),
+    .probe13(dict_ids.valid),
+    .probe14(dict_ids.last)
 );
 `endif
 

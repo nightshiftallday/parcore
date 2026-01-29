@@ -1,30 +1,43 @@
 from dataclasses import dataclass
+from enum import Enum
 from coyote_test import fpga_test_case, fpga_stream, fpga_register
 from os.path import dirname, realpath, join
 import pickle
 
+class _PageType(Enum):
+    HYBRID = 0
+    DICT = 1
+    PLAIN = 2
+
 @dataclass
 class _Data:
     compression: bool
-    dictionary: bytearray
+    dictionary: bytearray | None
     hybrid: bytearray
     num_values: int
+    plain: bool
 
-    def _registers(self, page_type: int) -> list[bytearray]:
+    def _registers(self, page_type: _PageType) -> list[bytearray]:
         return [
             bytearray(int(1 if self.compression else 0).to_bytes(1, 'big')), # compression_t
-            bytearray(page_type.to_bytes(1, 'big')), # page_t
+            bytearray(page_type.value.to_bytes(1, 'big')), # page_t
             bytearray(self.num_values.to_bytes(4, 'little')), # num_values
             bytearray(int(2).to_bytes(1, 'big')), # type_t = int64_t
         ]
 
     def registers(self) -> list[list[bytearray]]:
-        first = self._registers(1)
-        second = self._registers(0)
-        return [first, second]
+        if self.dictionary is not None:
+            first = self._registers(_PageType.DICT)
+        second = self._registers(_PageType.PLAIN if self.plain else _PageType.HYBRID)
+
+        if self.dictionary is not None:
+            return [first, second]
+        return [second]
 
     def data(self) -> list[bytearray]:
-        return [self.dictionary, self.hybrid]
+        if self.dictionary is not None:
+            return [self.dictionary, self.hybrid]
+        return  [self.hybrid]
 
 def read_bytes(filename: str) -> bytearray:
     dir = dirname(realpath(__file__))
@@ -35,13 +48,17 @@ def read_data(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_compressed.bin', filename + '_chunk_compressed.bin']
     data = [read_bytes(file) for file in files]
 
-    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=True)
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=True, plain=False)
 
 def read_data_decompressed(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_decompressed.bin', filename + '_chunk_decompressed.bin']
     data = [read_bytes(file) for file in files]
 
-    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=False)
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=False, plain=False)
+
+def make_plain_data(items: list[int]) -> _Data:
+    stream = fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, items)
+    return _Data(dictionary=None, hybrid=stream.data_to_bytearray(), num_values=len(items), compression=False, plain=True)
 
 @dataclass
 class _TestCase:
@@ -72,6 +89,9 @@ _huge_two_output = ([4294967296] * 64) + ([6975757441] * 896) + ([11019960576] *
     ([16983563041] * 1024) + [k for n in range(128, 137) for k in [n] * 32]
 _huge_two_input = read_data_decompressed('test', len(_huge_two_output))
 
+_mixed_output_plain = list(range(0,256))
+_mixed_input_plain = make_plain_data(_mixed_output_plain)
+
 _test_cases = (
     _TestCase(
         inputs=[_rle_input],
@@ -100,6 +120,10 @@ _test_cases = (
     _TestCase(
         inputs=[_huge_two_input],
         outputs=[_huge_two_output],
+    ),
+    _TestCase(
+        inputs=[_mixed_input_plain],
+        outputs=[_mixed_output_plain],
     )
 )
 
@@ -181,6 +205,16 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     def test_all_pages(self):
         # Arrange
         self.test_case = (_test_cases[4])
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_plain_page(self):
+        # Arrange
+        self.test_case = (_test_cases[7])
 
         # Act
         self.simulate_fpga()

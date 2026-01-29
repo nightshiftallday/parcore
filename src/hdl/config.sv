@@ -27,9 +27,11 @@ module PageDecoderConfig (
 // -- Read -----------------------------------------------------------------------------------------
 logic[AXIL_DATA_BITS - 1:0] values[PAGE_DECODER_CONFIG_NUM_REGS];
 assign values[0] = PAGE_DECODER_CONFIG_ID;
-assign values[0] = 0;
-assign values[0] = 0;
-assign values[0] = 0;
+generate
+for (genvar I = 1; I < PAGE_DECODER_CONFIG_NUM_REGS; I++) begin
+    assign values[I] = '0;
+end
+endgenerate
 
 ConfigReadRegisterFile #(
     .NUM_REGS(PAGE_DECODER_CONFIG_NUM_REGS)

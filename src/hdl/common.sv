@@ -25,10 +25,10 @@ typedef enum logic {
 } compression_t;
 
 // Number of bits in RLE/BPE encodings
-// NOTE: This does not allow bit-width of 64!!
-// This is a limitation of the design. But bit_width 64 will likely be never
-// encountered as values then can can just be PLAIN encoded.
-typedef logic [$clog2(64) - 1:0] bit_width_t; 
+// "the bit width used to encode the entry ids stored as 1 byte (max bit width = 32)"
+// NOTE: This does not allow bit-width of 32!!
+// This is a limitation of the design. Nevertheless, bit_width=32 is unlikely.
+typedef logic [$clog2(32) - 1:0] bit_width_t; 
 
 typedef data32_t rle_count_t;
 
@@ -56,9 +56,10 @@ typedef struct packed {
     logic [$clog2(VARINT_NUM_BYTES) - 1:0] length;
 } varint_t;
 
-typedef enum logic {
+typedef enum logic [1:0] {
     PAGE_TYPE_HYBRID = 0,
-    PAGE_TYPE_DICT = 1
+    PAGE_TYPE_DICT = 1,
+    PAGE_TYPE_PLAIN = 2
 } page_type_t;
 
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
