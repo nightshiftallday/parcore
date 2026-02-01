@@ -12,10 +12,10 @@
 #include <coyote/cDefs.hpp>
 #include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
+#include <libstf/common.hpp>
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/fpga.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/profiling.hpp>
 #include <parcore/reader.hpp>
@@ -90,7 +90,16 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
 
   auto file =
       std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
-  parcore::Reader reader(cthread, pool, tlb, meta, data);
+
+  libstf::GlobalConfig global_config(cthread);
+  if (!global_config.has_config(parcore::PageDecoderConfig::ID)) {
+    throw std::runtime_error("flashed design doesn't have PageDecoderConfig");
+  }
+  auto addr_offset = std::get<0>(
+      global_config.get_config_bounds(parcore::PageDecoderConfig::ID));
+  parcore::PageDecoderConfig decoder_config(cthread, addr_offset);
+
+  parcore::Reader reader(cthread, pool, tlb, decoder_config, meta, data);
 
   for (size_t i = 0; i < meta.groups.size(); ++i) {
     auto group = meta.groups[i];

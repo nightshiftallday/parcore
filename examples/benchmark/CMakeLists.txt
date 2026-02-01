@@ -7,13 +7,14 @@ add_subdirectory(../../coyote/sw coyote)
 target_link_libraries(benchmark PRIVATE Coyote)
 target_include_directories(benchmark PRIVATE ${COYOTE_INCLUDE_DIRS})
 
+add_subdirectory(../../libstf/software libstf)
+target_link_libraries(benchmark PUBLIC libstf)
+target_include_directories(benchmark PRIVATE ${LIBSTF_INCLUDE_DIRS})
+
 set(PARCORE_INCLUDE_CPU ON)
 add_subdirectory(../../software parcore)
 target_link_libraries(benchmark PUBLIC Parcore)
 target_include_directories(benchmark PRIVATE ${PARCORE_INCLUDE_DIRS})
-
-target_link_libraries(benchmark PUBLIC libstf)
-target_include_directories(benchmark PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED COMPONENTS program_options)
 target_link_libraries(benchmark PUBLIC Boost::program_options)
