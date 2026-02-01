@@ -12,10 +12,10 @@
 #include <coyote/cDefs.hpp>
 #include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
+#include <libstf/common.hpp>
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/fpga.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/profiling.hpp>
 #include <parcore/reader.hpp>
@@ -101,7 +101,16 @@ int main(int argc, char *argv[]) {
 
   auto file =
       std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
-  parcore::Reader reader(cthread, pool, tlb, meta, data);
+
+  libstf::GlobalConfig global_config(cthread);
+  if (!global_config.has_config(parcore::PageDecoderConfig::ID)) {
+    throw std::runtime_error("flashed design doesn't have PageDecoderConfig");
+  }
+  auto addr_offset = std::get<0>(
+      global_config.get_config_bounds(parcore::PageDecoderConfig::ID));
+  parcore::PageDecoderConfig decoder_config(cthread, addr_offset);
+
+  parcore::Reader reader(cthread, pool, tlb, decoder_config, meta, data);
 
   for (size_t i = start; i < end; ++i) {
     auto group = meta.groups[i];
@@ -141,7 +150,7 @@ int main(int argc, char *argv[]) {
       for (const auto &cc : cpu_data_raw->chunks()) {
         auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
         const uint8_t *data = arr->data()->GetValues<uint8_t>(1);
-        size_t byte_size = arr->length() * parcore::type_data_size(chunk.type);
+        size_t byte_size = arr->length() * libstf::size_of(chunk.type);
         cpu_data.insert(cpu_data.end(), data, data + byte_size);
       }
 

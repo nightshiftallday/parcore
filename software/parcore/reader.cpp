@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 #include <coyote/cThread.hpp>
-#include <parcore/fpga.hpp>
+#include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/profiling.hpp>
@@ -40,9 +40,10 @@ void enqueue_stream_input(coyote::cThread &cthread, libstf::TLBManager &tlb,
 Reader::Reader(std::shared_ptr<coyote::cThread> cthread,
                std::shared_ptr<libstf::MemoryPool> pool,
                std::shared_ptr<libstf::TLBManager> tlb,
-               const metadata::Metadata &meta,
-               std::shared_ptr<libstf::Buffer> data)
-    : cthread(cthread), pool(pool), tlb(tlb), meta(meta), data(data) {}
+               PageDecoderConfig config, const metadata::Metadata &meta,
+               std::shared_ptr<libstf::Buffer> data, uint32_t stream)
+    : cthread(cthread), pool(pool), tlb(tlb), config(config), meta(meta),
+      data(data), stream(stream) {}
 
 std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
   void *ptr;
@@ -54,25 +55,9 @@ std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
   return std::move(buffer);
 }
 
-void Reader::send_command(const metadata::ColumnChunk &column_chunk,
-                          const metadata::Page &page, PageType page_type) {
-  profiler::open_regions({"send_command"});
-
-  auto mem = allocate_buffer(PARCORE_COMMAND_SIZE);
-  auto cmd = command_for_column_chunk_page(column_chunk, page, page_type);
-  assert(mem->size == cmd.size());
-  std::memcpy(mem->ptr, cmd.data(), cmd.size());
-
-  enqueue_stream_input(*cthread, *tlb, *mem, 0);
-
-  profiler::close_regions({"send_command"});
-}
-
 void Reader::send_page(const metadata::ColumnChunk &chunk,
                        const metadata::Page &page, PageType page_type) {
   profiler::open_regions({"send_page"});
-
-  send_command(chunk, page, page_type);
   auto byte_ptr = static_cast<const std::byte *>(data->ptr);
 
   auto buffer = libstf::Buffer{
@@ -82,7 +67,7 @@ void Reader::send_page(const metadata::ColumnChunk &chunk,
       .capacity = data->capacity - page.offset,
   };
 
-  enqueue_stream_input(*cthread, *tlb, buffer, 1);
+  enqueue_stream_input(*cthread, *tlb, buffer, stream);
 
   profiler::close_regions({"send_page"});
 }
@@ -102,8 +87,15 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   auto column_chunk = group.chunks[column];
 
   if (column_chunk.dictionary != std::nullopt) {
+    config.process_page(column_chunk.compression, PageType::DICT,
+                        column_chunk.dictionary->encoding, 0,
+                        column_chunk.type);
     send_page(column_chunk, *column_chunk.dictionary, PageType::DICT);
   }
+
+  config.process_page(column_chunk.compression, PageType::DATA,
+                      column_chunk.data.encoding, column_chunk.num_values,
+                      column_chunk.type);
   send_page(column_chunk, column_chunk.data, PageType::DATA);
 
   queue.push(column_chunk);
@@ -117,7 +109,7 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
   auto column_chunk = queue.front();
   queue.pop();
 
-  auto size = type_data_size(column_chunk.type) * column_chunk.num_values;
+  auto size = libstf::size_of(column_chunk.type) * column_chunk.num_values;
   auto mem = allocate_buffer(size);
   tlb->ensure_tlb_mapping(mem->ptr, mem->capacity);
 

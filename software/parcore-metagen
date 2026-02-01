@@ -100,6 +100,10 @@ def main(file: str):
             pos = col_meta.data_page_offset
             sz = col_meta.total_compressed_size
             data = read_page(f, pos, sz, compressed)
+            if data.encoding == Encoding.PLAIN and col_meta.has_dictionary_page:
+                print(f"{i}:{j}:error = \"column chunk has PLAIN encoding with a dictionary, which is deprecated and not supported by Parcore\"", file=sys.stderr)
+                sys.exit(1)
+
 
             compression_ratio = col_meta.total_uncompressed_size / col_meta.total_compressed_size
             print(f"{i}:{j}:compression = {compression_ratio }")

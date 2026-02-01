@@ -29,23 +29,6 @@ std::ostream &operator<<(std::ostream &os, Compression c) {
   }
 }
 
-std::ostream &operator<<(std::ostream &os, Type t) {
-  switch (t) {
-  case Type::BYTE:
-    return os << "BYTE";
-  case Type::INT32:
-    return os << "INT32";
-  case Type::INT64:
-    return os << "INT64";
-  case Type::FLOAT:
-    return os << "FLOAT";
-  case Type::DOUBLE:
-    return os << "DOUBLE";
-  default:
-    throw std::runtime_error("unexpected type");
-  }
-}
-
 static void read_exact(std::istream &is, void *dst, size_t n) {
   if (!is.read(reinterpret_cast<char *>(dst), n))
     throw std::runtime_error("unexpected EOF");

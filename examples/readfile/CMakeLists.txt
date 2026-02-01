@@ -11,8 +11,12 @@ if (ENABLE_SIMULATION)
 else ()
   add_subdirectory(../../coyote/sw coyote)
 endif ()
+
+
 target_link_libraries(readfile PRIVATE Coyote)
 target_include_directories(readfile PRIVATE ${COYOTE_INCLUDE_DIRS})
+
+add_subdirectory(../../libstf/software libstf)
 
 set(PARCORE_INCLUDE_CPU ON)
 add_subdirectory(../../software parcore)

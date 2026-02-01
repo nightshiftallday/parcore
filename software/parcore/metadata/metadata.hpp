@@ -5,6 +5,8 @@
 #include <optional>
 #include <vector>
 
+#include <libstf/common.hpp>
+
 namespace parcore {
 namespace metadata {
 
@@ -13,15 +15,6 @@ std::ostream &operator<<(std::ostream &os, Encoding e);
 
 enum class Compression : uint8_t { RAW = 0, SNAPPY = 1 };
 std::ostream &operator<<(std::ostream &os, Compression c);
-
-enum class Type : uint8_t {
-  BYTE = 0,
-  INT32 = 1,
-  INT64 = 2,
-  FLOAT = 3,
-  DOUBLE = 4,
-};
-std::ostream &operator<<(std::ostream &os, Type c);
 
 struct Page {
   Encoding encoding;
@@ -32,7 +25,7 @@ struct Page {
 };
 
 struct ColumnChunk {
-  Type type;
+  libstf::type_t type;
   uint64_t num_values;
   Compression compression;
 
