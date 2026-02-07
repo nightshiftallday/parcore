@@ -37,8 +37,6 @@ public:
   void enqueue_column_chunk(size_t chunk, size_t column);
 
 private:
-  std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
-
   void send_page(const metadata::ColumnChunk &column_chunk,
                  const metadata::Page &page, PageType page_type);
 };
