@@ -12,6 +12,8 @@
 
 #include <libstf/profiling.hpp>
 
+using libstf::profiler;
+
 namespace parcore {
 namespace cpu {
 

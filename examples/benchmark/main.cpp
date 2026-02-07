@@ -17,7 +17,6 @@
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/profiling.hpp>
 #include <parcore/reader.hpp>
 #include <unistd.h>
 
