@@ -10,7 +10,7 @@
 #include <parquet/types.h>
 #include <stdexcept>
 
-#include <parcore/profiling.hpp>
+#include <libstf/profiling.hpp>
 
 namespace parcore {
 namespace cpu {

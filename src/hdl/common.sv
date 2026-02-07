@@ -1,6 +1,3 @@
-`ifndef _PARCORE_PARCORE_TYPES_H_
-`define _PARCORE_PARCORE_TYPES_H_
-
 `include "lynx_macros.svh"
 
 package parcore;
@@ -71,5 +68,3 @@ parameter int HYBRID_PAGE_DECODER_CONFIG_NUM_REGS = 2;
 parameter longint unsigned HYBRID_PAGE_DECODER_CONFIG_ID = 64'hd6736a4eef933024;
 
 endpackage
-
-`endif

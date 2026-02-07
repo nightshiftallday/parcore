@@ -28,7 +28,6 @@ target_link_libraries(parcore-metaread PRIVATE libstf)
 target_include_directories(parcore-metaread PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
-option(PARCORE_WITH_PROFILING "Include profling code around expensive calls to determine where time is being spent" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,7 +38,6 @@ set_target_properties(Parcore PROPERTIES OUTPUT_NAME "parcore")
 target_sources(Parcore PRIVATE
     parcore/configuration.cpp
     parcore/reader.cpp
-    parcore/profiling.cpp
 
     parcore/metadata/metadata.cpp
     parcore/metadata/utils.cpp
@@ -66,14 +64,6 @@ if (PARCORE_INCLUDE_CPU)
     target_include_directories(Parcore PRIVATE ${PARQUET_INCLUDE_DIRS})
 
     target_sources(Parcore PRIVATE parcore/cpu/cpu.cpp)
-endif()
-
-if (PARCORE_WITH_PROFILING)
-    find_package(caliper REQUIRED)
-    target_compile_definitions(Parcore PRIVATE PARCORE_WITH_PROFILING)
-
-    target_link_libraries(Parcore PRIVATE caliper)
-    target_include_directories(Parcore PRIVATE ${CALIPER_INCLUDE_DIR})
 endif()
 
 include(GNUInstallDirs)

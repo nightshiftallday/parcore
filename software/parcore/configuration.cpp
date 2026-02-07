@@ -1,9 +1,10 @@
 #include <cstring>
-#include <optional>
 
+#include <libstf/profiling.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
-#include <parcore/profiling.hpp>
+
+using libstf::profiler;
 
 namespace parcore {
 

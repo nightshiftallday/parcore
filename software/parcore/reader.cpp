@@ -3,11 +3,13 @@
 #include <stdexcept>
 
 #include <coyote/cThread.hpp>
+#include <libstf/profiling.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/profiling.hpp>
 #include <parcore/reader.hpp>
+
+using libstf::profiler;
 
 namespace parcore {
 
