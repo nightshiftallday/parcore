@@ -13,11 +13,10 @@ using libstf::profiler;
 
 namespace parcore {
 
-void enqueue_stream_input(coyote::cThread &cthread, libstf::TLBManager &tlb,
-                          const libstf::Buffer &buffer, uint32_t stream) {
+void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
   profiler::open_regions({"enqueue_stream_input"});
   auto byte_ptr = static_cast<const std::byte *>(buffer.ptr);
-  tlb.ensure_tlb_mapping(buffer.ptr, buffer.capacity);
+  tlb->ensure_tlb_mapping(buffer.ptr, buffer.capacity);
 
   for (size_t off = 0; off < buffer.size; off += coyote::MAX_TRANSFER_SIZE) {
     // Get the address and output_size of this chunk
@@ -33,7 +32,7 @@ void enqueue_stream_input(coyote::cThread &cthread, libstf::TLBManager &tlb,
 
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     profiler::open_regions({"local_read"});
-    cthread.invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
+    cthread->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
     profiler::close_regions({"local_read"});
   }
   profiler::close_regions({"enqueue_stream_input"});
@@ -69,7 +68,7 @@ void Reader::send_page(const metadata::ColumnChunk &chunk,
       .capacity = data->capacity - page.offset,
   };
 
-  enqueue_stream_input(*cthread, *tlb, buffer, stream);
+  enqueue_stream_input(buffer);
 
   profiler::close_regions({"send_page"});
 }

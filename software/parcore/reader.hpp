@@ -42,12 +42,12 @@ public:
    */
   std::shared_ptr<libstf::Buffer> next_column_chunk();
 
-private:
+protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
 
-  void send_command(const metadata::ColumnChunk &column_chunk,
-                    const metadata::Page &page, PageType page_type);
+  void enqueue_stream_input(const libstf::Buffer &buffer);
 
+private:
   void send_page(const metadata::ColumnChunk &column_chunk,
                  const metadata::Page &page, PageType page_type);
 };
