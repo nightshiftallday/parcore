@@ -4,16 +4,15 @@ import libstf::*;
 import parcore::compression_t;
 import parcore::page_type_t;
 import parcore::PARCORE_SYSTEM_ID;
-import parcore::PAGE_DECODER_CONFIG_NUM_REGS;
+import parcore::PAGE_DECODER_CONFIG_REGS;
 import parcore::PAGE_DECODER_CONFIG_ID;
-import parcore::HYBRID_PAGE_DECODER_CONFIG_NUM_REGS;
 import parcore::HYBRID_PAGE_DECODER_CONFIG_ID;
 
 `include "libstf_macros.svh"
 `include "config_macros.svh"
 
 module PageDecoderConfig #(
-    parameter NUM_STREAMS
+    parameter NUM_DECODERS
 ) (
     input logic clk,
     input logic rst_n,
@@ -21,17 +20,18 @@ module PageDecoderConfig #(
     write_config_i.s write_config,
     read_config_i.s  read_config,
 
-    page_decoder_config_i.m out[NUM_STREAMS]
+    page_decoder_config_i.m out[NUM_DECODERS]
 );
 
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
+localparam NUM_WRITE_REGS = PAGE_DECODER_CONFIG_REGS;
 
 `RESET_RESYNC // Reset pipelining
 
 // -- Read -----------------------------------------------------------------------------------------
 logic[AXIL_DATA_BITS - 1:0] values[2];
 assign values[0] = PAGE_DECODER_CONFIG_ID;
-assign values[1] = NUM_STREAMS
+assign values[1] = NUM_DECODERS;
 
 ConfigReadRegisterFile #(
     .NUM_REGS(2)
@@ -44,18 +44,18 @@ ConfigReadRegisterFile #(
 );
 
 // -- Write ----------------------------------------------------------------------------------------
-for (genvar I = 0; I < NUM_STREAMS; I++) begin
+for (genvar I = 0; I < NUM_DECODERS; I++) begin
     ready_valid_i #(compression_t) compression ();
-    ConfigWriteFIFO #(I*4+0, MAX_NUM_ENQUEUED_BUFFERS, compression_t) inst_compression (clk, reset_synced, write_config, compression);
+    ConfigWriteFIFO #(I*NUM_WRITE_REGS+0, MAX_NUM_ENQUEUED_BUFFERS, compression_t) inst_compression (clk, reset_synced, write_config, compression);
 
     ready_valid_i #(page_type_t) page_type ();
-    ConfigWriteFIFO #(I*4+1, MAX_NUM_ENQUEUED_BUFFERS, page_type_t) inst_page_type (clk, reset_synced, write_config, page_type);
+    ConfigWriteFIFO #(I*NUM_WRITE_REGS+1, MAX_NUM_ENQUEUED_BUFFERS, page_type_t) inst_page_type (clk, reset_synced, write_config, page_type);
 
     ready_valid_i #(data32_t) num_values ();
-    ConfigWriteFIFO #(I*4+2, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
+    ConfigWriteFIFO #(I*NUM_WRITE_REGS+2, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
     ready_valid_i #(type_t) typ ();
-    ConfigWriteFIFO #(I*4+3, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
+    ConfigWriteFIFO #(I*NUM_WRITE_REGS+3, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
 
     assign out[I].compression = compression.data;
     assign out[I].page_type = page_type.data;
@@ -84,11 +84,11 @@ module HybridPageDecoderConfig (
 `RESET_RESYNC // Reset pipelining
 
 // -- Read -----------------------------------------------------------------------------------------
-data64_t values[HYBRID_PAGE_DECODER_CONFIG_NUM_REGS];
+data64_t values[1];
 assign values[0] = HYBRID_PAGE_DECODER_CONFIG_ID;
 
 ConfigReadRegisterFile #(
-    .NUM_REGS(HYBRID_PAGE_DECODER_CONFIG_NUM_REGS)
+    .NUM_REGS(1)
 ) inst_read_regs (
     .clk(clk),
     .rst_n(reset_synced),

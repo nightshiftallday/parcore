@@ -26,7 +26,7 @@ localparam int MAX_IN_TRANSIT = 8;
 
 `RESET_RESYNC // Reset pipelining
 
-page_decoder_config_i conf ();
+page_decoder_config_i conf (.clk(clk), .rst_n(reset_synced));
 
 typedef struct {
     compression_t compression;

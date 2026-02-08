@@ -60,7 +60,7 @@ ready_valid_i #(in_selector_t) in_select ();
 ready_valid_i #(out_selector_t) out_select ();
 
 // ------ Hybrid decoder + Dictionary wiring ------
-hybrid_page_decoder_config_i hybrid_conf ();
+hybrid_page_decoder_config_i hybrid_conf (.clk(clk), .rst_n(reset_synced));
 
 ndata_i #(id_t, NUM_IDS) hybrid_out ();
 HybridPageDecoder #(

@@ -29,7 +29,7 @@ read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({HYBRID_PAGE_DECODER_CONFIG_NUM_REGS})
+    .ADDR_SPACE_SIZES({HYBRID_PAGE_DECODER_CONFIG_REGS})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),

@@ -23,7 +23,7 @@ read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({PAGE_DECODER_CONFIG_NUM_REGS})
+    .ADDR_SPACE_SIZES({PAGE_DECODER_CONFIG_REGS*1})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -34,9 +34,9 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-page_decoder_config_i conf(.*);
+page_decoder_config_i conf[1](.*);
 PageDecoderConfig #(
-    .NUM_STREAMS(1)
+    .NUM_DECODERS(1)
 ) inst_page_decoder_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -87,7 +87,7 @@ PageDecoder #(
     .clk(clk),
     .rst_n(rst_n),
 
-    .conf(conf),
+    .conf(conf[0]),
     .in(in),
     
     .out(out)
