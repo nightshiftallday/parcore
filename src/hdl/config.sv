@@ -12,29 +12,29 @@ import parcore::HYBRID_PAGE_DECODER_CONFIG_ID;
 `include "libstf_macros.svh"
 `include "config_macros.svh"
 
-module PageDecoderConfig (
+module PageDecoderConfig #(
+    parameter NUM_STREAMS
+) (
     input logic clk,
     input logic rst_n,
 
     write_config_i.s write_config,
     read_config_i.s  read_config,
 
-    page_decoder_config_i.m out
+    page_decoder_config_i.m out[NUM_STREAMS]
 );
+
+localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
 
 `RESET_RESYNC // Reset pipelining
 
 // -- Read -----------------------------------------------------------------------------------------
-logic[AXIL_DATA_BITS - 1:0] values[PAGE_DECODER_CONFIG_NUM_REGS];
+logic[AXIL_DATA_BITS - 1:0] values[2];
 assign values[0] = PAGE_DECODER_CONFIG_ID;
-generate
-for (genvar I = 1; I < PAGE_DECODER_CONFIG_NUM_REGS; I++) begin
-    assign values[I] = '0;
-end
-endgenerate
+assign values[1] = NUM_STREAMS
 
 ConfigReadRegisterFile #(
-    .NUM_REGS(PAGE_DECODER_CONFIG_NUM_REGS)
+    .NUM_REGS(2)
 ) inst_read_regs (
     .clk(clk),
     .rst_n(reset_synced),
@@ -44,28 +44,30 @@ ConfigReadRegisterFile #(
 );
 
 // -- Write ----------------------------------------------------------------------------------------
-ready_valid_i #(compression_t) compression ();
-ConfigWriteFIFO #(0, 16, compression_t) inst_compression (clk, reset_synced, write_config, compression);
+for (genvar I = 0; I < NUM_STREAMS; I++) begin
+    ready_valid_i #(compression_t) compression ();
+    ConfigWriteFIFO #(I*4+0, MAX_NUM_ENQUEUED_BUFFERS, compression_t) inst_compression (clk, reset_synced, write_config, compression);
 
-ready_valid_i #(page_type_t) page_type ();
-ConfigWriteFIFO #(1, 16, page_type_t) inst_page_type (clk, reset_synced, write_config, page_type);
+    ready_valid_i #(page_type_t) page_type ();
+    ConfigWriteFIFO #(I*4+1, MAX_NUM_ENQUEUED_BUFFERS, page_type_t) inst_page_type (clk, reset_synced, write_config, page_type);
 
-ready_valid_i #(data32_t) num_values ();
-ConfigWriteFIFO #(2, 16, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
+    ready_valid_i #(data32_t) num_values ();
+    ConfigWriteFIFO #(I*4+2, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
-ready_valid_i #(type_t) typ ();
-ConfigWriteFIFO #(3, 16, type_t) inst_typ (clk, reset_synced, write_config, typ);
+    ready_valid_i #(type_t) typ ();
+    ConfigWriteFIFO #(I*4+3, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
 
-assign out.compression = compression.data;
-assign out.page_type = page_type.data;
-assign out.num_values = num_values.data;
-assign out.typ = typ.data;
-assign out.valid = compression.valid && page_type.valid && num_values.valid && typ.valid;
+    assign out[I].compression = compression.data;
+    assign out[I].page_type = page_type.data;
+    assign out[I].num_values = num_values.data;
+    assign out[I].typ = typ.data;
+    assign out[I].valid = compression.valid && page_type.valid && num_values.valid && typ.valid;
 
-assign compression.ready = page_type.valid && num_values.valid && typ.valid && out.ready;
-assign page_type.ready = compression.valid && num_values.valid && typ.valid && out.ready;
-assign num_values.ready = compression.valid && page_type.valid && typ.valid && out.ready;
-assign typ.ready = compression.valid && page_type.valid && num_values.valid && out.ready;
+    assign compression.ready = page_type.valid && num_values.valid && typ.valid && out[I].ready;
+    assign page_type.ready = compression.valid && num_values.valid && typ.valid && out[I].ready;
+    assign num_values.ready = compression.valid && page_type.valid && typ.valid && out[I].ready;
+    assign typ.ready = compression.valid && page_type.valid && num_values.valid && out[I].ready;
+end
 
 endmodule
 

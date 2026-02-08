@@ -35,7 +35,9 @@ GlobalConfig #(
 );
 
 page_decoder_config_i conf(.*);
-PageDecoderConfig inst_page_decoder_config (
+PageDecoderConfig #(
+    .NUM_STREAMS(1)
+) inst_page_decoder_config (
     .clk(clk),
     .rst_n(rst_n),
 
