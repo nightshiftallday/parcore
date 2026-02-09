@@ -30,12 +30,6 @@ public:
              std::shared_ptr<libstf::TLBManager> tlb, PageDecoderConfig config,
              std::string path, libstf::stream_t stream = 0);
 
-  /**
-   * Submits a column chunk for parsing, which includes decompression, decoding
-   * and potentially dictionary mapping.
-   */
-  void enqueue_column_chunk(size_t chunk, size_t column);
-
 private:
   void send_page(const metadata::ColumnChunk &column_chunk,
                  const metadata::Page &page, PageType page_type);
