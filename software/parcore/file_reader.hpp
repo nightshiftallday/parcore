@@ -23,12 +23,12 @@ public:
              std::shared_ptr<libstf::MemoryPool> pool,
              std::shared_ptr<libstf::TLBManager> tlb, PageDecoderConfig config,
              const metadata::Metadata &meta, std::ifstream file,
-             uint32_t stream = 0);
+             libstf::stream_t stream = 0);
 
   FileReader(std::shared_ptr<coyote::cThread> cthread,
              std::shared_ptr<libstf::MemoryPool> pool,
              std::shared_ptr<libstf::TLBManager> tlb, PageDecoderConfig config,
-             std::string path, uint32_t stream = 0);
+             std::string path, libstf::stream_t stream = 0);
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding

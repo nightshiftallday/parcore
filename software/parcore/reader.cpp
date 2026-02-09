@@ -42,7 +42,7 @@ Reader::Reader(std::shared_ptr<coyote::cThread> cthread,
                std::shared_ptr<libstf::MemoryPool> pool,
                std::shared_ptr<libstf::TLBManager> tlb,
                PageDecoderConfig config, const metadata::Metadata &meta,
-               std::shared_ptr<libstf::Buffer> data, uint32_t stream)
+               std::shared_ptr<libstf::Buffer> data, libstf::stream_t stream)
     : cthread(cthread), pool(pool), tlb(tlb), config(config), meta(meta),
       data(data), stream(stream) {}
 
@@ -88,13 +88,13 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   auto column_chunk = group.chunks[column];
 
   if (column_chunk.dictionary != std::nullopt) {
-    config.process_page(column_chunk.compression, PageType::DICT,
+    config.process_page(stream, column_chunk.compression, PageType::DICT,
                         column_chunk.dictionary->encoding, 0,
                         column_chunk.type);
     send_page(column_chunk, *column_chunk.dictionary, PageType::DICT);
   }
 
-  config.process_page(column_chunk.compression, PageType::DATA,
+  config.process_page(stream, column_chunk.compression, PageType::DATA,
                       column_chunk.data.encoding, column_chunk.num_values,
                       column_chunk.type);
   send_page(column_chunk, column_chunk.data, PageType::DATA);

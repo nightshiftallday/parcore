@@ -3,6 +3,8 @@
 #include <libstf/profiling.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
+#include <stdexcept>
+#include <string>
 
 using libstf::profiler;
 
@@ -78,37 +80,51 @@ constexpr const uint32_t PAGE_DECODER_TYP_ADDR = 3;
 
 PageDecoderConfig::PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
                                      uint32_t addr_offset)
-    : Config(cthread, addr_offset) {}
+    : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
 
-void PageDecoderConfig::process_page(metadata::Compression compression,
+void PageDecoderConfig::process_page(libstf::stream_t decoder,
+                                     metadata::Compression compression,
                                      PageType page_type,
                                      metadata::Encoding encoding,
                                      uint64_t num_values, libstf::type_t typ) {
+  if (decoder >= num_decoders_) {
+    throw std::runtime_error("attempted to configure decoder " +
+                             std::to_string(decoder) +
+                             " (zero-based numbering), out of " +
+                             std::to_string(num_decoders_) + " decoders");
+  }
+
   profiler::open_regions({"process_page"});
+  auto offset = decoder * PAGE_DECODER_REGS;
   auto hw_page_type = page_type_to_hardware(page_type, encoding);
 
-  write_register(libstf::ConfigRegister(PAGE_DECODER_COMPRESSION_ADDR,
+  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_COMPRESSION_ADDR,
                                         compression_to_hardware(compression)));
-  write_register(
-      libstf::ConfigRegister(PAGE_DECODER_PAGE_TYPE_ADDR, hw_page_type));
-  write_register(
-      libstf::ConfigRegister(PAGE_DECODER_NUM_VALUES_ADDR, num_values));
-  write_register(libstf::ConfigRegister(PAGE_DECODER_TYP_ADDR,
+  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_PAGE_TYPE_ADDR,
+                                        hw_page_type));
+  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_NUM_VALUES_ADDR,
+                                        num_values));
+  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_TYP_ADDR,
                                         static_cast<uint64_t>(typ)));
   profiler::close_regions({"process_page"});
 }
 
-void PageDecoderConfig::process_chunk(metadata::ColumnChunk &column_chunk) {
+void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
+                                      metadata::ColumnChunk &column_chunk) {
   profiler::open_regions({"process_chunk"});
   if (column_chunk.dictionary != std::nullopt) {
-    process_page(column_chunk.compression, PageType::DICT,
+    process_page(decoder, column_chunk.compression, PageType::DICT,
                  column_chunk.dictionary->encoding, 0, column_chunk.type);
   }
 
-  process_page(column_chunk.compression, PageType::DATA,
+  process_page(decoder, column_chunk.compression, PageType::DATA,
                column_chunk.data.encoding, column_chunk.num_values,
                column_chunk.type);
   profiler::close_regions({"process_chunk"});
+}
+
+const libstf::stream_t PageDecoderConfig::num_decoders() const {
+  return num_decoders_;
 }
 
 } // namespace parcore

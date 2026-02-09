@@ -13,7 +13,7 @@ FileReader::FileReader(std::shared_ptr<coyote::cThread> cthread,
                        std::shared_ptr<libstf::MemoryPool> pool,
                        std::shared_ptr<libstf::TLBManager> tlb,
                        PageDecoderConfig config, const metadata::Metadata &meta,
-                       std::ifstream file, uint32_t stream)
+                       std::ifstream file, libstf::stream_t stream)
     : Reader(cthread, pool, tlb, config, meta, nullptr, stream),
       file(std::move(file)) {}
 
@@ -21,7 +21,7 @@ FileReader::FileReader(std::shared_ptr<coyote::cThread> cthread,
                        std::shared_ptr<libstf::MemoryPool> pool,
                        std::shared_ptr<libstf::TLBManager> tlb,
                        PageDecoderConfig config, std::string path,
-                       uint32_t stream)
+                       libstf::stream_t stream)
     : Reader(cthread, pool, tlb, config, metadata::from_file(path + ".meta"),
              nullptr, stream),
       file(path) {}

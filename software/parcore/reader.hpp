@@ -20,7 +20,7 @@ private:
   PageDecoderConfig config;
   metadata::Metadata meta;
   std::shared_ptr<libstf::Buffer> data;
-  uint32_t stream;
+  libstf::stream_t stream;
 
   std::queue<metadata::ColumnChunk> queue;
 
@@ -29,7 +29,7 @@ public:
          std::shared_ptr<libstf::MemoryPool> pool,
          std::shared_ptr<libstf::TLBManager> tlb, PageDecoderConfig config,
          const metadata::Metadata &meta, std::shared_ptr<libstf::Buffer> data,
-         uint32_t stream = 0);
+         libstf::stream_t stream = 0);
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
