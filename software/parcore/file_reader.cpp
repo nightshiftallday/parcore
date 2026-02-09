@@ -34,7 +34,7 @@ void FileReader::send_page(const metadata::ColumnChunk &chunk,
 
   auto buffer = allocate_buffer(page.size);
 
-  profiler::open_regions({file_reader_prefix + "read_page"});
+  profiler::open_regions({file_reader_prefix + "read_file"});
   if (file.seekg(page.offset).fail()) {
     throw std::runtime_error("error while seeking to page");
   }
@@ -42,7 +42,7 @@ void FileReader::send_page(const metadata::ColumnChunk &chunk,
   if (file.read(static_cast<char *>(buffer->ptr), page.size).fail()) {
     throw std::runtime_error("error while reading page");
   }
-  profiler::close_regions({file_reader_prefix + "read_page"});
+  profiler::close_regions({file_reader_prefix + "read_file"});
 
   enqueue_stream_input(*buffer.get());
 

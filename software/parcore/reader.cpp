@@ -1,4 +1,5 @@
 #include <cstring>
+#include <iterator>
 #include <optional>
 #include <stdexcept>
 
@@ -105,6 +106,8 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
+
+bool Reader::has_next_column_chunk() { return !queue.empty(); }
 
 std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
   profiler::open_regions({reader_prefix + "next_column_chunk"});

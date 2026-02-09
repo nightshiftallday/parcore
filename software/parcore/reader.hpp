@@ -38,6 +38,14 @@ public:
   void enqueue_column_chunk(size_t chunk, size_t column);
 
   /**
+   * Returns whether there is a column chunk enqueued for processing. If this
+   * function returns true, then the consumer can call `next_column_chunk` to
+   * retrieve the output data, potentially blocking on until the acceleartor
+   * is done processing.
+   */
+  bool has_next_column_chunk();
+
+  /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
   std::shared_ptr<libstf::Buffer> next_column_chunk();
