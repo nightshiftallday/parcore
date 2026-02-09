@@ -31,6 +31,8 @@ public:
          const metadata::Metadata &meta, std::shared_ptr<libstf::Buffer> data,
          libstf::stream_t stream = 0);
 
+  const metadata::Metadata &metadata() const;
+
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
    * and potentially dictionary mapping.

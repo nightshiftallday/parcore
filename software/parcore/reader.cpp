@@ -59,6 +59,8 @@ std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
   return std::move(buffer);
 }
 
+const metadata::Metadata &Reader::metadata() const { return meta; }
+
 void Reader::send_page(const metadata::ColumnChunk &chunk,
                        const metadata::Page &page, PageType page_type) {
   profiler::open_regions({reader_prefix + "send_page"});
