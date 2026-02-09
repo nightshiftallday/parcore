@@ -78,6 +78,8 @@ constexpr const uint32_t PAGE_DECODER_PAGE_TYPE_ADDR = 1;
 constexpr const uint32_t PAGE_DECODER_NUM_VALUES_ADDR = 2;
 constexpr const uint32_t PAGE_DECODER_TYP_ADDR = 3;
 
+const std::string config_prefix = "parcore::PageDecoderConfig::";
+
 PageDecoderConfig::PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
                                      uint32_t addr_offset)
     : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
@@ -94,7 +96,7 @@ void PageDecoderConfig::process_page(libstf::stream_t decoder,
                              std::to_string(num_decoders_) + " decoders");
   }
 
-  profiler::open_regions({"process_page"});
+  profiler::open_regions({config_prefix + "process_page"});
   auto offset = decoder * PAGE_DECODER_REGS;
   auto hw_page_type = page_type_to_hardware(page_type, encoding);
 
@@ -106,12 +108,12 @@ void PageDecoderConfig::process_page(libstf::stream_t decoder,
                                         num_values));
   write_register(libstf::ConfigRegister(offset + PAGE_DECODER_TYP_ADDR,
                                         static_cast<uint64_t>(typ)));
-  profiler::close_regions({"process_page"});
+  profiler::close_regions({config_prefix + "process_page"});
 }
 
 void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
                                       metadata::ColumnChunk &column_chunk) {
-  profiler::open_regions({"process_chunk"});
+  profiler::open_regions({config_prefix + "process_chunk"});
   if (column_chunk.dictionary != std::nullopt) {
     process_page(decoder, column_chunk.compression, PageType::DICT,
                  column_chunk.dictionary->encoding, 0, column_chunk.type);
@@ -120,7 +122,7 @@ void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
   process_page(decoder, column_chunk.compression, PageType::DATA,
                column_chunk.data.encoding, column_chunk.num_values,
                column_chunk.type);
-  profiler::close_regions({"process_chunk"});
+  profiler::close_regions({config_prefix + "process_chunk"});
 }
 
 const libstf::stream_t PageDecoderConfig::num_decoders() const {

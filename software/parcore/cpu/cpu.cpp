@@ -66,10 +66,14 @@ arrow::Status InMemoryRandomAccessFile::Close() {
 
 bool InMemoryRandomAccessFile::closed() const { return is_closed; }
 
+const std::string cpu_prefix = "parcore::cpu::";
+
 std::shared_ptr<arrow::ChunkedArray>
 read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
                   size_t chunk, size_t column) {
-  profiler::open_regions({"read_column_chunk", "builder"});
+  profiler::open_regions({cpu_prefix + "read_column_chunk"});
+
+  profiler::open_regions({cpu_prefix + "builder"});
   parquet::arrow::FileReaderBuilder builder;
   auto status = builder.Open(file);
   if (!status.ok()) {
@@ -85,20 +89,21 @@ read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
   if (!status.ok()) {
     throw std::runtime_error("could not build reader: " + status.message());
   }
-  profiler::close_regions({"builder"});
+  profiler::close_regions({cpu_prefix + "builder"});
 
   auto rg = reader->RowGroup(chunk);
   auto col_reader = rg->Column(column);
 
   std::shared_ptr<arrow::ChunkedArray> out;
-  profiler::open_regions({"read"});
+  profiler::open_regions({cpu_prefix + "read"});
   status = col_reader->Read(&out);
   if (!status.ok()) {
     throw std::runtime_error("could not read column chunk: " +
                              status.message());
   }
+  profiler::close_regions({cpu_prefix + "read"});
 
-  profiler::close_regions({"read_column_chunk", "read"});
+  profiler::close_regions({cpu_prefix + "read_column_chunk"});
   return std::move(out);
 }
 

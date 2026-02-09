@@ -13,8 +13,10 @@ using libstf::profiler;
 
 namespace parcore {
 
+const std::string reader_prefix = "parcore::Reader::";
+
 void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
-  profiler::open_regions({"enqueue_stream_input"});
+  profiler::open_regions({reader_prefix + "enqueue_stream_input"});
   auto byte_ptr = static_cast<const std::byte *>(buffer.ptr);
   tlb->ensure_tlb_mapping(buffer.ptr, buffer.capacity);
 
@@ -31,11 +33,11 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
     sg.dest = stream;
 
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
-    profiler::open_regions({"local_read"});
+    profiler::open_regions({reader_prefix + "local_read"});
     cthread->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
-    profiler::close_regions({"local_read"});
+    profiler::close_regions({reader_prefix + "local_read"});
   }
-  profiler::close_regions({"enqueue_stream_input"});
+  profiler::close_regions({reader_prefix + "enqueue_stream_input"});
 }
 
 Reader::Reader(std::shared_ptr<coyote::cThread> cthread,
@@ -58,7 +60,7 @@ std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
 
 void Reader::send_page(const metadata::ColumnChunk &chunk,
                        const metadata::Page &page, PageType page_type) {
-  profiler::open_regions({"send_page"});
+  profiler::open_regions({reader_prefix + "send_page"});
   auto byte_ptr = static_cast<const std::byte *>(data->ptr);
 
   auto buffer = libstf::Buffer{
@@ -70,11 +72,11 @@ void Reader::send_page(const metadata::ColumnChunk &chunk,
 
   enqueue_stream_input(buffer);
 
-  profiler::close_regions({"send_page"});
+  profiler::close_regions({reader_prefix + "send_page"});
 }
 
 void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
-  profiler::open_regions({"enqueue_column_chunk"});
+  profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
   if (chunk >= meta.groups.size()) {
     throw std::runtime_error("attempted to parse chunk which is out of bounds");
@@ -101,11 +103,11 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   queue.push(column_chunk);
 
-  profiler::close_regions({"enqueue_column_chunk"});
+  profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
 
 std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
-  profiler::open_regions({"next_column_chunk"});
+  profiler::open_regions({reader_prefix + "next_column_chunk"});
 
   auto column_chunk = queue.front();
   queue.pop();
@@ -121,14 +123,14 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
       .dest = 0,
   };
 
-  profiler::open_regions({"local_write"});
+  profiler::open_regions({reader_prefix + "local_write"});
   cthread->clearCompleted();
   cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
   while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
     ;
-  profiler::close_regions({"local_write"});
+  profiler::close_regions({reader_prefix + "local_write"});
 
-  profiler::close_regions({"next_column_chunk"});
+  profiler::close_regions({reader_prefix + "next_column_chunk"});
 
   return std::move(mem);
 }
