@@ -7,7 +7,7 @@ from thrift.transport import TTransport
 from thrift.protocol import TCompactProtocol
 import sys
 
-from metadata import Page, ColumnChunk, Encoding, Compression, Type, RowGroup, Metadata
+from metadata import Page, ColumnChunk, Encoding, Compression, Type, RowGroup, Metadata, String
 # This file has been generated with the thirft compiler from the parquet header
 # definition files
 from ttypes import PageHeader
@@ -84,6 +84,8 @@ def main(file: str):
         print(f"could not open {file} to read as binary: {e}", file=sys.stderr)
         sys.exit(1)
 
+    column_names = [String(s) for s in pf.schema_arrow.names]
+
     row_groups = []
     for i in range(pf.metadata.num_row_groups):
         chunks = []
@@ -121,7 +123,7 @@ def main(file: str):
         rg = RowGroup(chunks=tuple(chunks))
         row_groups.append(rg)
 
-    meta = Metadata(groups=tuple(row_groups))
+    meta = Metadata(column_names=tuple(column_names), groups=tuple(row_groups))
 
     out_file = f"{file}.meta"
     try:

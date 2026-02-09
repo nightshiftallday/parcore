@@ -12,6 +12,9 @@ def main(file: str):
         print(f"could not read metadata from {file}: {e}", file=sys.stderr)
         sys.exit(1)
 
+    for i, name_str in enumerate(meta.column_names):
+        print(f'{i}: {name_str.value}')
+
     for i, rg in enumerate(meta.groups):
       for j, chunk in enumerate(rg.chunks):
         print(f'{i}:{j} {chunk.num_values} {str(chunk.type)} {str(chunk.compression)}')

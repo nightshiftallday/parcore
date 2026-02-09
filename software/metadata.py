@@ -33,6 +33,21 @@ def _read_exact(f, n: int) -> bytes:
     return b
 
 @dataclass
+class String:
+    value: str
+
+    def to_file(self, f):
+        raw = self.value.encode()
+        f.write(pack("<I", len(raw)))
+        f.write(raw)
+
+    @classmethod
+    def from_file(cls, f):
+        (n,) = unpack("<I", _read_exact(f, 4))
+        raw = _read_exact(f, n)
+        return cls(raw.decode())
+
+@dataclass
 class Page:
     encoding: Encoding
     offset: int
@@ -44,6 +59,7 @@ class Page:
                              self.encoding.value,
                              self.offset,
                              self.size))
+
     @classmethod
     def from_file(cls, f):
         enc, off, sz = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
@@ -69,6 +85,7 @@ class ColumnChunk:
         if self.dictionary is not None:
             self.dictionary.to_file(f)
         self.data.to_file(f)
+
     @classmethod
     def from_file(cls, f):
         t, nv, comp = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
@@ -79,12 +96,13 @@ class ColumnChunk:
 
 @dataclass
 class RowGroup:
-    chunks: tuple[ColumnChunk]
+    chunks: tuple[ColumnChunk, ...]
 
     def to_file(self, f):
         f.write(pack("<I", len(self.chunks)))
         for c in self.chunks:
             c.to_file(f)
+
     @classmethod
     def from_file(cls, f):
         (n,) = unpack("<I", _read_exact(f, 4))
@@ -92,13 +110,24 @@ class RowGroup:
 
 @dataclass
 class Metadata:
-    groups: tuple[RowGroup]
+    column_names: tuple[String, ...]
+    groups: tuple[RowGroup, ...]
 
     def to_file(self, f):
+        f.write(pack("<I", len(self.column_names)))
+        for n in self.column_names:
+            n.to_file(f)
+
         f.write(pack("<I", len(self.groups)))
         for g in self.groups:
             g.to_file(f)
+
     @classmethod
     def from_file(cls, f):
         (n,) = unpack("<I", _read_exact(f, 4))
-        return cls(tuple(RowGroup.from_file(f) for _ in range(n)))
+        column_names = tuple(String.from_file(f) for _ in range(n))
+
+        (n,) = unpack("<I", _read_exact(f, 4))
+        groups = tuple(RowGroup.from_file(f) for _ in range(n))
+
+        return cls(column_names, groups)
