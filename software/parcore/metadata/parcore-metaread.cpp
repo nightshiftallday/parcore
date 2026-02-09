@@ -8,6 +8,11 @@
 
 void read_metadata(const std::string &file) {
   auto meta = parcore::metadata::from_file(file);
+
+  for (size_t i = 0; i < meta.column_names.size(); ++i) {
+    std::cout << i << ":" << " " << meta.column_names[i] << std::endl;
+  }
+
   for (size_t i = 0; i < meta.groups.size(); ++i) {
     auto rg = meta.groups[i];
     for (size_t j = 0; j < rg.chunks.size(); ++j) {

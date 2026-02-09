@@ -43,6 +43,15 @@ template <typename Enum> static void read_enum(std::istream &is, Enum *dst) {
   *dst = static_cast<Enum>(val);
 }
 
+std::string read_string(std::istream &is) {
+  uint32_t n;
+  read_exact(is, &n, sizeof(uint32_t));
+
+  std::string str(n, '\0');
+  read_exact(is, str.data(), n);
+  return str;
+}
+
 Page Page::from(std::istream &is) {
   Page p;
   read_enum(is, &p.encoding);
@@ -79,6 +88,12 @@ RowGroup RowGroup::from(std::istream &is) {
 Metadata Metadata::from(std::istream &is) {
   Metadata m;
   uint32_t n;
+
+  read_exact(is, &n, sizeof(uint32_t));
+  m.column_names.reserve(n);
+  for (uint32_t i = 0; i < n; ++i)
+    m.column_names.push_back(read_string(is));
+
   read_exact(is, &n, sizeof(uint32_t));
   m.groups.reserve(n);
   for (uint32_t i = 0; i < n; ++i)

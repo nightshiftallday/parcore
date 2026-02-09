@@ -121,7 +121,8 @@ int main(int argc, char *argv[]) {
       "Path to the parquet files to benchmark on")(
       "discard_reps,d",
       boost::program_options::value<size_t>(&discard_reps)->default_value(5),
-      "The number of times to decode each page for benchmarking")(
+      "The number of times to decode each page for benchmarking (will be "
+      "discarded, not accounted for in the results)")(
       "reps,r",
       boost::program_options::value<size_t>(&reps)->default_value(N_REPS),
       "The number of times to decode each page for benchmarking");

@@ -10,6 +10,8 @@
 namespace parcore {
 namespace metadata {
 
+std::string read_string(std::istream &is);
+
 enum class Encoding : uint8_t { PLAIN = 0, HYBRID = 1 };
 std::ostream &operator<<(std::ostream &os, Encoding e);
 
@@ -42,6 +44,7 @@ struct RowGroup {
 };
 
 struct Metadata {
+  std::vector<std::string> column_names;
   std::vector<RowGroup> groups;
 
   static Metadata from(std::istream &is);
