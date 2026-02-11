@@ -57,11 +57,14 @@ Page Page::from(std::istream &is) {
   read_enum(is, &p.encoding);
   read_exact(is, &p.offset, sizeof(p.offset));
   read_exact(is, &p.size, sizeof(p.size));
+  read_exact(is, &p.num_values, sizeof(p.num_values));
   return p;
 }
 
 ColumnChunk ColumnChunk::from(std::istream &is) {
   ColumnChunk c;
+  uint32_t n;
+
   read_enum(is, &c.type);
   read_exact(is, &c.num_values, sizeof(c.num_values));
   read_enum(is, &c.compression);
@@ -71,7 +74,11 @@ ColumnChunk ColumnChunk::from(std::istream &is) {
   if (has_dict)
     c.dictionary = Page::from(is);
 
-  c.data = Page::from(is);
+  read_exact(is, &n, sizeof(uint32_t));
+  c.data.reserve(n);
+  for (uint32_t i = 0; i < n; ++i)
+    c.data.push_back(Page::from(is));
+
   return c;
 }
 

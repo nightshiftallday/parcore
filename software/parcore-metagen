@@ -6,11 +6,14 @@ from pyarrow.parquet import ParquetFile
 from thrift.transport import TTransport
 from thrift.protocol import TCompactProtocol
 import sys
+import traceback
 
 from metadata import Page, ColumnChunk, Encoding, Compression, Type, RowGroup, Metadata, String
 # This file has been generated with the thirft compiler from the parquet header
 # definition files
 from ttypes import PageHeader
+
+HEADER_MAX_SIZE = 128
 
 def parse_encoding(raw: int) -> Encoding:
     match raw:
@@ -45,7 +48,7 @@ def parse_type(raw: str) -> Type:
 
     raise Exception(f'unsupported type: {raw}')
 
-def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
+def read_page(f: BufferedReader, pos: int, max_sz: int, is_dictionary: bool) -> tuple[Page, int]:
     pos = f.seek(pos)
     if pos != pos:
         raise Exception(f"attempted to seek to {pos}, only got to {pos}")
@@ -54,7 +57,7 @@ def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
     # able to tell how big the page is. We could use a TFileTransport instead,
     # but that includes buffering (+ python has its own buffering on `File`s),
     # so the readnig would not be accurate.
-    data = f.read(sz)
+    data = f.read(min(max_sz, HEADER_MAX_SIZE))
     transport = TTransport.TMemoryBuffer(data)
     protocol = TCompactProtocol.TCompactProtocol(transport)
 
@@ -64,6 +67,15 @@ def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
 
     pos = pos + header_size
     sz = header.compressed_page_size
+    bytes_read = sz + header_size
+
+    if is_dictionary:
+        num_values = 0
+    else:
+        if header.data_page_header is None:
+            raise Exception(f"header for page at {pos}+:{sz} is missing field `data_page_header`, required to extract the number of values in this page")
+
+        num_values = int(header.data_page_header.num_values)
 
     if header.dictionary_page_header is not None:
         raw_encoding = header.dictionary_page_header.encoding
@@ -73,8 +85,23 @@ def read_page(f: BufferedReader, pos: int, sz: int, compressed: bool) -> Page:
         raise Exception(f"header for page at {pos}+:{sz} is not supported (value: {header}). only dictionary or datav1 pages are supported")
 
     encoding = parse_encoding(raw_encoding)
-    return Page(encoding=encoding, offset=pos, size=sz)
+    return Page(encoding=encoding, offset=pos, size=sz, num_values=num_values), bytes_read
 
+def collect_data_pages(f: BufferedReader, pos: int, sz: int, num_values: int) -> list[Page]:
+    vals = 0
+    pages: list[Page] = []
+
+    while vals < num_values:
+        page, rd = read_page(f, pos, sz, False)
+        pages.append(page)
+
+        vals += page.num_values
+        pos += rd
+        sz -= rd
+
+    assert sz == 0
+
+    return pages
 
 def main(file: str):
     try:
@@ -92,23 +119,20 @@ def main(file: str):
         for j in range(pf.metadata.num_columns):
             col_meta = pf.metadata.row_group(i).column(j)
             compression = parse_compression(col_meta.compression)
-            compressed = compression is not Compression.RAW
 
+            dict_sz = 0
             if col_meta.has_dictionary_page:
                 pos = col_meta.dictionary_page_offset
-                sz = col_meta.data_page_offset - col_meta.dictionary_page_offset
-                dict = read_page(f, pos, sz, compressed)
+                dict_sz = col_meta.data_page_offset - col_meta.dictionary_page_offset
+                dict, bytes_read = read_page(f, pos, dict_sz, True)
+                assert bytes_read == dict_sz
 
             pos = col_meta.data_page_offset
-            sz = col_meta.total_compressed_size
-            data = read_page(f, pos, sz, compressed)
-            if data.encoding == Encoding.PLAIN and col_meta.has_dictionary_page:
-                print(f"{i}:{j}:error = \"column chunk has PLAIN encoding with a dictionary, which is deprecated and not supported by Parcore\"", file=sys.stderr)
-                sys.exit(1)
-
+            max_sz = col_meta.total_compressed_size - dict_sz
+            data_pages = collect_data_pages(f, pos, max_sz, col_meta.num_values)
 
             compression_ratio = col_meta.total_uncompressed_size / col_meta.total_compressed_size
-            print(f"{i}:{j}:compression = {compression_ratio }")
+            print(f"{i}:{j}:compression = {compression_ratio}")
 
             typ = parse_type(col_meta.physical_type)
             chunk = ColumnChunk(
@@ -116,7 +140,7 @@ def main(file: str):
                 num_values=col_meta.num_values,
                 compression=compression,
                 dictionary=dict if col_meta.has_dictionary_page else None,
-                data=data,
+                data=tuple(data_pages),
             )
             chunks.append(chunk)
 
@@ -156,6 +180,6 @@ if __name__ == "__main__":
     file = sys.argv[1]
     try:
         main(file)
-    except Exception as e:
-        print(f"could not parse file {file}: {e}", file=sys.stderr)
+    except Exception:
+        print(f"could not parse file {file}: {traceback.format_exc()}", file=sys.stderr)
         sys.exit(2)

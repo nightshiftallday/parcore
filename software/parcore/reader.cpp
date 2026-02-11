@@ -1,5 +1,5 @@
+#include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <optional>
 #include <stdexcept>
 
@@ -61,8 +61,7 @@ std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
 
 const metadata::Metadata &Reader::metadata() const { return meta; }
 
-void Reader::send_page(const metadata::ColumnChunk &chunk,
-                       const metadata::Page &page, PageType page_type) {
+void Reader::send_page(const metadata::Page &page, PageType page_type) {
   profiler::open_regions({reader_prefix + "send_page"});
   auto byte_ptr = static_cast<const std::byte *>(data->ptr);
 
@@ -96,13 +95,14 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
     config.process_page(stream, column_chunk.compression, PageType::DICT,
                         column_chunk.dictionary->encoding, 0,
                         column_chunk.type);
-    send_page(column_chunk, *column_chunk.dictionary, PageType::DICT);
+    send_page(*column_chunk.dictionary, PageType::DICT);
   }
 
-  config.process_page(stream, column_chunk.compression, PageType::DATA,
-                      column_chunk.data.encoding, column_chunk.num_values,
-                      column_chunk.type);
-  send_page(column_chunk, column_chunk.data, PageType::DATA);
+  for (auto page : column_chunk.data) {
+    config.process_page(stream, column_chunk.compression, PageType::DATA,
+                        page.encoding, page.num_values, column_chunk.type);
+    send_page(page, PageType::DATA);
+  }
 
   queue.push(column_chunk);
 
@@ -117,26 +117,34 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
   auto column_chunk = queue.front();
   queue.pop();
 
-  auto size = libstf::size_of(column_chunk.type) * column_chunk.num_values;
+  auto cell_size = libstf::size_of(column_chunk.type);
+  auto size = cell_size * column_chunk.num_values;
   auto mem = allocate_buffer(size);
   tlb->ensure_tlb_mapping(mem->ptr, mem->capacity);
 
-  coyote::localSg result_sg = {
-      .addr = mem->ptr,
-      .len = static_cast<uint32_t>(size),
-      .stream = coyote::STRM_HOST,
-      .dest = 0,
-  };
+  auto ptr = static_cast<uint8_t *>(mem->ptr);
+  for (auto page : column_chunk.data) {
+    auto sz = cell_size * page.num_values;
+    coyote::localSg result_sg = {
+        .addr = ptr,
+        .len = static_cast<uint32_t>(sz),
+        .stream = coyote::STRM_HOST,
+        .dest = 0,
+    };
 
-  profiler::open_regions({reader_prefix + "local_write"});
-  cthread->clearCompleted();
-  cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
-  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
-    ;
-  profiler::close_regions({reader_prefix + "local_write"});
+    profiler::open_regions({reader_prefix + "local_write"});
+    cthread->clearCompleted();
+    cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
+    while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
+      ;
+    profiler::close_regions({reader_prefix + "local_write"});
 
+    ptr += sz;
+  }
+
+  // Ensure the whole memory has been filled through all the transfers
+  assert(ptr == static_cast<uint8_t *>(mem->ptr) + size);
   profiler::close_regions({reader_prefix + "next_column_chunk"});
-
   return std::move(mem);
 }
 

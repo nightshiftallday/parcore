@@ -23,8 +23,8 @@ def main(file: str):
           page = chunk.dictionary
           print(f'{i}:{j}:dict {page.offset} {page.size} {str(page.encoding)}')
 
-        page = chunk.data
-        print(f'{i}:{j}:data {page.offset} {page.size} {str(page.encoding)}')
+        for k, page in enumerate(chunk.data):
+            print(f'{i}:{j}:data:{k} {page.offset} {page.size} {str(page.encoding)} {page.num_values}')
 
 
 if len(sys.argv) < 2:

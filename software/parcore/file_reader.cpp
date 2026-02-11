@@ -28,8 +28,7 @@ FileReader::FileReader(std::shared_ptr<coyote::cThread> cthread,
 
 const std::string file_reader_prefix = "parcore::FileReader::";
 
-void FileReader::send_page(const metadata::ColumnChunk &chunk,
-                           const metadata::Page &page, PageType page_type) {
+void FileReader::send_page(const metadata::Page &page, PageType page_type) {
   profiler::open_regions({file_reader_prefix + "send_page"});
 
   auto buffer = allocate_buffer(page.size);

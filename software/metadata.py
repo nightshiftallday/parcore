@@ -52,18 +52,19 @@ class Page:
     encoding: Encoding
     offset: int
     size: int
+    num_values: int
 
-    _fmt = "<BQQ"  # encoding, offset, size
+    _fmt = "<BQQQ"  # encoding, offset, size, num_values
     def to_file(self, f):
         f.write(pack(self._fmt,
                              self.encoding.value,
                              self.offset,
-                             self.size))
+                             self.size, self.num_values))
 
     @classmethod
     def from_file(cls, f):
-        enc, off, sz = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
-        return cls(Encoding(enc), off, sz)
+        enc, off, sz, num_values = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
+        return cls(Encoding(enc), off, sz, num_values)
 
 @dataclass
 class ColumnChunk:
@@ -71,7 +72,7 @@ class ColumnChunk:
     num_values: int
     compression: Compression
     dictionary: Page | None
-    data: Page
+    data: tuple[Page, ...]
 
 
     _fmt = "<BQB"  # type, num_values, compression
@@ -84,14 +85,21 @@ class ColumnChunk:
         f.write(pack("<B", 1 if self.dictionary else 0))
         if self.dictionary is not None:
             self.dictionary.to_file(f)
-        self.data.to_file(f)
+
+        f.write(pack("<I", len(self.data)))
+        for data in self.data:
+            data.to_file(f)
 
     @classmethod
     def from_file(cls, f):
         t, nv, comp = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
+
         has_dict, = unpack("<B", _read_exact(f, 1))
         dictionary = Page.from_file(f) if has_dict else None
-        data = Page.from_file(f)
+
+        (n,) = unpack("<I", _read_exact(f, 4))
+        data = tuple(Page.from_file(f) for _ in range(n))
+
         return cls(Type(t), nv, Compression(comp), dictionary, data)
 
 @dataclass

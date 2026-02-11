@@ -119,9 +119,10 @@ void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
                  column_chunk.dictionary->encoding, 0, column_chunk.type);
   }
 
-  process_page(decoder, column_chunk.compression, PageType::DATA,
-               column_chunk.data.encoding, column_chunk.num_values,
-               column_chunk.type);
+  for (auto page : column_chunk.data) {
+    process_page(decoder, column_chunk.compression, PageType::DATA,
+                 page.encoding, page.num_values, column_chunk.type);
+  }
   profiler::close_regions({config_prefix + "process_chunk"});
 }
 

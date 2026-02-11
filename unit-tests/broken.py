@@ -1,42 +1,42 @@
 from dataclasses import dataclass
-from coyote_test import fpga_test_case, fpga_stream
+from coyote_test import fpga_test_case, fpga_stream, fpga_register
+from enum import Enum
 from os.path import dirname, realpath, join
-import pickle
+
+class _PageType(Enum):
+    HYBRID = 0
+    DICT = 1
+    PLAIN = 2
 
 @dataclass
 class _Data:
     compression: bool
-    dictionary: bytearray
+    dictionary: bytearray | None
     hybrid: bytearray
     num_values: int
+    plain: bool
 
-    def _cmd(self, vaddr: int, len: int, page_type: int) -> bytearray:
-        b = bytearray([0] * 64)
+    def _registers(self, page_type: _PageType) -> list[bytearray]:
+        return [
+            bytearray(int(1 if self.compression else 0).to_bytes(1, 'big')), # compression_t
+            bytearray(page_type.value.to_bytes(1, 'big')), # page_t
+            bytearray(self.num_values.to_bytes(4, 'little')), # num_values
+            bytearray(int(2).to_bytes(1, 'big')), # type_t = int64_t
+        ]
 
-        b[-23] = page_type.to_bytes(1, 'big')[0] # page_t
-        b[-22] = int(2).to_bytes(1, 'big')[0] # type_t = INT64_T
+    def registers(self) -> list[list[bytearray]]:
+        if self.dictionary is not None:
+            first = self._registers(_PageType.DICT)
+        second = self._registers(_PageType.PLAIN if self.plain else _PageType.HYBRID)
 
-        if page_type == 0: # hybrid
-            b[-21:-17] = self.num_values.to_bytes(4, 'little')
-        # otherwise we can leave 0, it's ignored
-
-        # compression_t = SNAPPY (1) or RAW (0)
-        b[-17] = int(1 if self.compression else 0).to_bytes(1, 'big')[0] 
-
-        b[-16:-8] = len.to_bytes(8, 'little')
-       
-        # b[56-64:64] = vaddr.to_bytes(8, 'little')
-        b[-8:] = vaddr.to_bytes(8, 'little')
-
-        return b
-
-    def cmd(self, memory_offset: int) -> bytearray:
-        first = self._cmd(memory_offset, len(self.dictionary), 1)
-        second = self._cmd(memory_offset + len(self.dictionary), len(self.hybrid), 0)
-        return first + second
+        if self.dictionary is not None:
+            return [first, second]
+        return [second]
 
     def data(self) -> list[bytearray]:
-        return [self.dictionary, self.hybrid]
+        if self.dictionary is not None:
+            return [self.dictionary, self.hybrid]
+        return  [self.hybrid]
 
 def read_bytes(filename: str) -> bytearray:
     dir = dirname(realpath(__file__))
@@ -47,13 +47,21 @@ def read_data(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_compressed.bin', filename + '_chunk_compressed.bin']
     data = [read_bytes(file) for file in files]
 
-    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=True)
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=True, plain=False)
 
 def read_data_decompressed(filename: str, num_values: int) -> _Data:
     files = [filename + '_dict_decompressed.bin', filename + '_chunk_decompressed.bin']
     data = [read_bytes(file) for file in files]
 
-    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=False)
+    return _Data(dictionary=data[0], hybrid=data[1], num_values=num_values, compression=False, plain=False)
+
+def read_data_decompressed_no_dict(filename: str, num_values: int) -> _Data:
+    return _Data(
+        dictionary=None,
+        hybrid=read_bytes(filename + '_chunk_decompressed.bin'),
+        num_values=num_values,
+        compression=False, plain=False,
+    )
 
 @dataclass
 class _TestCase:
@@ -66,10 +74,13 @@ _first_input = read_data('broken/first_rg0_col0', len(_first_output))
 _second_output =  list(range(16, 32)) * (2**7)
 _second_input = read_data('broken/second_rg0_col0', len(_second_output))
 
+_third_output =  list(range(16, 32)) * (2**7)
+_third_input = read_data_decompressed_no_dict('broken/third_rg0_col0', len(_third_output))
+
 class TopHostTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "page_decoder_test.sv"
     debug_mode = True
-    # verbose_logging = True
+    verbose_logging = True
 
     def __init__(self, a) -> None:
         super().__init__(a)
@@ -81,29 +92,32 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     # Overwrite of the parent classes simulation method.
     # Can be used to implement common behavior between tests
     def simulate_fpga(self):
-        return super().simulate_fpga()
+        assert self.test_case is not None, (
+            "Cannot have host test with empty test case!"
+        )
 
-    # buffers are a list of (len, vaddr)
-    def _setup_test(self, test_case: _TestCase) -> None:
-        offset = 0
-        for input in test_case.inputs:
-            for data in input.data():
-                self.set_stream_input(1, data)
+        for input in self.test_case.inputs:
+            for register_set in input.registers():
+                for i, value in enumerate(register_set):
+                    # Configuration (offset of 3 because of GlobalConfig)
+                    self.write_register(fpga_register.vFPGARegister(3 + i, value))
 
-            cmd = input.cmd(0)
-            self.set_stream_input(0, cmd)
-            offset += len(data)
+        # Set the input data
+        for input in (data for i in self.test_case.inputs for data in i.data()):
+            self.set_stream_input(0, input)
 
-        for output in test_case.outputs:
+        # Set the expected output data
+        for output in self.test_case.outputs:
             self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, output))
-        
+
+        return super().simulate_fpga()
 
     def test_first(self):
         # Arrange
-        self._setup_test(_TestCase(
+        self.test_case = _TestCase(
             inputs=[_first_input],
             outputs=[_first_output],
-        ))
+        )
 
         # Act
         self.simulate_fpga()
@@ -113,10 +127,23 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
 
     def test_second(self):
         # Arrange
-        self._setup_test(_TestCase(
+        self.test_case = _TestCase(
             inputs=[_second_input],
             outputs=[_second_output],
-        ))
+        )
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()
+
+    def test_third(self):
+        # Arrange
+        self.test_case = _TestCase(
+            inputs=[_third_input],
+            outputs=[_third_output],
+        )
 
         # Act
         self.simulate_fpga()

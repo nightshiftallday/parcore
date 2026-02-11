@@ -26,9 +26,12 @@ void read_metadata(const std::string &file) {
                   << page.size << " " << page.encoding << std::endl;
       }
 
-      auto page = chunk.data;
-      std::cout << i << ":" << j << ":data " << page.offset << " " << page.size
-                << " " << page.encoding << std::endl;
+      for (size_t k = 0; k < chunk.data.size(); ++k) {
+        auto page = chunk.data[k];
+        std::cout << i << ":" << j << ":data:" << k << " " << page.offset << " "
+                  << page.size << " " << page.encoding << " " << page.num_values
+                  << std::endl;
+      }
     }
   }
 }

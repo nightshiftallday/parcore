@@ -24,8 +24,7 @@ public:
              std::string path, libstf::stream_t stream = 0);
 
 protected:
-  void send_page(const metadata::ColumnChunk &column_chunk,
-                 const metadata::Page &page, PageType page_type);
+  void send_page(const metadata::Page &page, PageType page_type);
 };
 
 } // namespace parcore

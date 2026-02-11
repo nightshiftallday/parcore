@@ -22,6 +22,7 @@ struct Page {
   Encoding encoding;
   uint64_t offset;
   uint64_t size;
+  uint64_t num_values;
 
   static Page from(std::istream &is);
 };
@@ -32,7 +33,7 @@ struct ColumnChunk {
   Compression compression;
 
   std::optional<Page> dictionary;
-  Page data;
+  std::vector<Page> data;
 
   static ColumnChunk from(std::istream &is);
 };
