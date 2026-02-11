@@ -2,14 +2,7 @@
 
 #include <fstream>
 #include <memory>
-#include <queue>
 
-#include <coyote/cThread.hpp>
-#include <libstf/buffer.hpp>
-#include <libstf/memory_pool.hpp>
-#include <libstf/tlb_manager.hpp>
-#include <parcore/configuration.hpp>
-#include <parcore/metadata/metadata.hpp>
 #include <parcore/reader.hpp>
 
 namespace parcore {
@@ -30,7 +23,7 @@ public:
              std::shared_ptr<libstf::TLBManager> tlb, PageDecoderConfig config,
              std::string path, libstf::stream_t stream = 0);
 
-private:
+protected:
   void send_page(const metadata::ColumnChunk &column_chunk,
                  const metadata::Page &page, PageType page_type);
 };
