@@ -71,32 +71,3 @@ interface page_decoder_config_i (
     `STF_ASSERT_NOT_UNDEFINED(ready);
 `endif
 endinterface
-
-/**
- * Interface that bundles all configuration needed to decode a hybrid encoding
- * sequence.
- */
-interface hybrid_page_decoder_config_i (
-    input logic clk,
-    input logic rst_n
-);
-    data32_t      num_values;
-    logic         valid;
-    logic         ready;
-
-    modport m (
-        output num_values, valid,
-        input ready
-    );
-
-    modport s (
-        output ready,
-        input num_values, valid
-    );
-
-`ifndef SYNTHESIS
-    `STF_ASSERT_STABLE(num_values, valid, ready);
-    `STF_ASSERT_NOT_UNDEFINED(valid);
-    `STF_ASSERT_NOT_UNDEFINED(ready);
-`endif
-endinterface

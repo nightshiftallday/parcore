@@ -58,21 +58,21 @@ NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_vhsnunzip (
 
 // ------ (De)Multiplexing -------------
 
-ready_valid_i #(compression_t) metas[1:0] ();
+ready_valid_i #(compression_t) confs[1:0] ();
 
-ReadyValidDuplicator #(2) inst_meta_duplicator (
+ReadyValidDuplicator #(2) inst_conf_duplicator (
     .clk(clk),
     .rst_n(reset_synced),
 
     .in(conf),
-    .out(metas)
+    .out(confs)
 );
 
 DataDemultiplexer #(2) inst_demultiplexer (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .select(metas[0]),
+    .select(confs[0]),
 
     .in(in),
     .out(ins)
@@ -82,7 +82,7 @@ DataMultiplexer #(data8_t, NUM_BYTES, 2) inst_multiplexer (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .select(metas[1]),
+    .select(confs[1]),
 
     .in(outs),
     .out(out)

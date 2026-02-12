@@ -27,13 +27,13 @@ assign host_in.tvalid = axis_host_recv[0].tvalid;
 
 localparam int BITS = $bits(data32_t) * 16;
 
-tagged_i #(logic [BITS - 1:0], $bits(bpe_metadata_t)) in ();
+tagged_i #(logic [BITS - 1:0], $bits(bpe_config_t)) in ();
 assign host_in.tready = in.ready;
 assign in.valid = host_in.tvalid;
 assign in.data  = host_in.tdata;
 
 bpe_count_t count = 55;
-bpe_metadata_t in_tag;
+bpe_config_t in_tag;
 assign in_tag.mask = ((1 << 7) - 1);
 assign in_tag.bit_width = 7;
 assign in_tag.count = count;

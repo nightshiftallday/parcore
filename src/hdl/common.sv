@@ -2,9 +2,7 @@
 
 package parcore;
 
-import libstf::data32_t;
-import libstf::data64_t;
-import libstf::type_t;
+import libstf::*;
 import lynxTypes::*;
 
 parameter int VARINT_NUM_BYTES = 4;
@@ -35,7 +33,7 @@ typedef struct packed {
   bit_width_t bit_width;
   logic [BPE_MASK_SIZE - 1:0] mask;
   bpe_count_t count;
-} bpe_metadata_t;
+} bpe_config_t;
 
 // Offset into the 64-byte input databeat
 // NOTE: This is intentionally one extra bit than what would be necessary to
@@ -46,7 +44,7 @@ typedef struct packed {
     bit_width_t bit_width;
     offset_t offset;
     data32_t num_values;
-} run_decoder_metadata_t;
+} run_decoder_config_t;
 
 typedef struct packed {
     logic [VARINT_NUM_BITS - 1:0] value;
@@ -62,7 +60,5 @@ typedef enum logic [1:0] {
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
 parameter longint unsigned PAGE_DECODER_CONFIG_REGS = 4;
 parameter longint unsigned PAGE_DECODER_CONFIG_ID = 64'hc0779792c320630e;
-parameter longint unsigned HYBRID_PAGE_DECODER_CONFIG_REGS = 1;
-parameter longint unsigned HYBRID_PAGE_DECODER_CONFIG_ID = 64'hd6736a4eef933024;
 
 endpackage

@@ -4,7 +4,7 @@
 `include "lynx_macros.svh"
 
 import lynxTypes::*;
-import parcore::bpe_metadata_t;
+import parcore::*;
 
 interface bpe_stage_i #(
     parameter type input_t,
@@ -40,7 +40,7 @@ module ExpandBPE #(
     input logic clk,
     input logic rst_n,
 
-    tagged_i.s in, // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_metadata_t))
+    tagged_i.s in, // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_config_t))
     ndata_i.m out  // #(data_t, NUM_ELEMENTS)
 );
 
@@ -55,22 +55,14 @@ localparam int IDX_BOUNDARIES[N_STAGES+1] = '{
 
 typedef logic [$bits(data_t) * NUM_ELEMENTS - 1:0] input_t;
 
-tagged_i #(input_t, $bits(bpe_metadata_t)) in_inner ();
+tagged_i #(input_t, $bits(bpe_config_t)) in_inner ();
 ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
-bpe_stage_i #(input_t, bpe_metadata_t, data_t, NUM_ELEMENTS) middle[N_STAGES:0] ();
-
-// TaggedSkidBuffer #(input_t, $bits(bpe_metadata_t)) inst_in_skid_buffer (
-//     .clk(clk),
-//     .rst_n(rst_n),
-//
-//     .in(in),
-//     .out(in_inner)
-// );
+bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) middle[N_STAGES:0] ();
 
 // some stages of buffering are required for full throughput in RunDecoder
 FIFO #(
     .DEPTH(MAX_IN_TRANSIT),
-    .WIDTH($bits(input_t) + $bits(bpe_metadata_t) + 1 + 1)
+    .WIDTH($bits(input_t) + $bits(bpe_config_t) + 1 + 1)
 ) inst_output_fifo (
     .i_clk(clk),
     .i_rst_n(rst_n),
@@ -112,20 +104,6 @@ generate
     end
 endgenerate
 
-// assign middle[N_STAGES].ready = out_inner.ready;
-// assign out_inner.valid = middle[N_STAGES].valid;
-// assign out_inner.data = middle[N_STAGES].data;
-// assign out_inner.keep = middle[N_STAGES].keep;
-// assign out_inner.last = middle[N_STAGES].last;
-//
-// NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_out_skid_buffer (
-//     .clk(clk),
-//     .rst_n(rst_n),
-//
-//     .in(out_inner),
-//     .out(out)
-// );
-
 assign middle[N_STAGES].ready = out.ready;
 assign out.valid = middle[N_STAGES].valid;
 assign out.data = middle[N_STAGES].data;
@@ -144,8 +122,8 @@ module ExpandBPEStage #(
     input logic clk,
     input logic rst_n,
 
-    bpe_stage_i.s in,  // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], bpe_metadata_t, data_t, NUM_ELEMENTS)
-    bpe_stage_i.m out  // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], bpe_metadata_t, data_t, NUM_ELEMENTS)
+    bpe_stage_i.s in,  // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], bpe_config_t, data_t, NUM_ELEMENTS)
+    bpe_stage_i.m out  // #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], bpe_config_t, data_t, NUM_ELEMENTS)
 );
 
 `ASSERT_ELAB(START_IDX_INCL < END_IDX_EXCL)
@@ -154,7 +132,7 @@ assign in.ready = out.ready;
 
 typedef logic [$bits(data_t) * NUM_ELEMENTS - 1:0] input_t;
 
-bpe_stage_i #(input_t, bpe_metadata_t, data_t, NUM_ELEMENTS) curr (), next ();
+bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) curr (), next ();
 
 assign out.raw = curr.raw;
 assign out.tag = curr.tag;

@@ -2,9 +2,8 @@
 
 `include "lynx_macros.svh"
 
-import parcore::run_decoder_metadata_t;
-import libstf::data8_t;
-import libstf::data32_t;
+import parcore::*;
+import libstf::*;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
@@ -35,21 +34,23 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .out(in)
 );
 
-ready_valid_i #(run_decoder_metadata_t) in_meta (.clk(clk), .rst_n(rst_n));
+ready_valid_i #(run_decoder_config_t) conf ();
 
-run_decoder_metadata_t test_metadata[2:0];
-assign test_metadata = '{
+// TODO: configure using the RunDecoderConfig module
+
+run_decoder_config_t test_conf[2:0];
+assign test_conf = '{
     '{bit_width: 8, offset: 8, num_values: 802},
     '{bit_width: 4, offset: 8, num_values: 150},
     '{bit_width: 4, offset: 8, num_values: 145}
 };
 
-ReadyValidCyclicDriver #(run_decoder_metadata_t, 3) inst_meta_driver (
+ReadyValidCyclicDriver #(run_decoder_config_t, 3) inst_conf_driver (
     .clk(clk),
     .rst_n(rst_n),
 
-    .data(test_metadata),
-    .out_data(in_meta)
+    .data(test_conf),
+    .out_data(conf)
 );
 
 /* -- OUTPUT ------------------------------------------------------------ */
@@ -73,6 +74,6 @@ RunDecoder #(data32_t, 16) inst_run_decoder (
     .rst_n(rst_n),
 
     .in(in),
-    .in_meta(in_meta),
+    .conf(conf),
     .out(out)
 );

@@ -13,7 +13,7 @@ import parcore::*;
 // obtain a databeat where the byte at n+4+2 is valid. The byte at n+4+2 is
 // parsed as the bit_width. The metadata (bit_width, offest, num_values) is
 // then piped to the RunDecoder component, along with the input (including
-// current databeat). Num values comes from the in_meta stream.
+// current databeat). Num values comes from the conf stream.
 module HybridPageDecoder #(
     parameter type data_t,
     parameter NUM_ELEMENTS,
@@ -22,9 +22,9 @@ module HybridPageDecoder #(
     input logic clk,
     input logic rst_n,
 
-    hybrid_page_decoder_config_i.s conf,
-    ndata_i.s in,            // #(data8_t, NUM_BYTES)
+    ready_valid_i.s conf,     // #(data32_t) for num_values
 
+    ndata_i.s in,            // #(data8_t, NUM_BYTES)
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
 );
 
@@ -34,31 +34,35 @@ localparam int NUM_BYTES_OFFSET = 4;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
-ndata_i #(data_t, NUM_ELEMENTS) run_decoder_out ();
+ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
 
-run_decoder_metadata_t run_decoder_in_meta_data;
-ready_valid_i #(run_decoder_metadata_t) run_decoder_in_meta ();
-assign run_decoder_in_meta.data = run_decoder_in_meta_data;
+run_decoder_config_t run_decoder_conf_data;
+ready_valid_i #(run_decoder_config_t) run_decoder_conf ();
+logic run_decoder_conf_valid;
+
+assign run_decoder_conf_data.bit_width = bit_width;
+assign run_decoder_conf_data.offset = offset;
+assign run_decoder_conf_data.num_values = num_values;
+assign run_decoder_conf.data = run_decoder_conf_data;
 
 RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .clk(clk),
     .rst_n(reset_synced),
 
     .in(run_decoder_in),
-    .in_meta(run_decoder_in_meta),
+    .conf(run_decoder_conf),
 
-    .out(run_decoder_out)
+    .out(out_inner)
 );
 
-// ------- Normalizer wiring ------
-ready_valid_i #(data64_t) normalize_size ();
-NormalizeUntil #(data_t, data32_t, NUM_ELEMENTS) inst_normalize_until (
+logic [$clog2(NUM_ELEMENTS):0] out_num_values;
+assign out_num_values = $countones(out_inner.keep);
+
+NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .size(normalize_size),
-
-    .in(run_decoder_out),
+    .in(out_inner),
     .out(out)
 );
 
@@ -78,18 +82,19 @@ offset_t offset, bit_width_offset;
 valid_i #(bit_width_t) keep_bit_width ();
 bit_width_t bit_width;
 assign bit_width = keep_bit_width.valid ? keep_bit_width.data : in.data[bit_width_offset];
-data32_t num_values;
+data32_t num_values, next_num_values;
 
 offset_t actual_offset, next_offset;
 assign actual_offset = NUM_BYTES_OFFSET + in.data[NUM_BYTES_OFFSET - 1:0];
 assign next_offset = offset - NUM_BYTES;
+assign next_num_values = num_values - out_num_values;
 
 task reset();
     state <= ST_IDLE;
     offset <= '0;
     bit_width_offset <= '0;
     keep_bit_width.valid <= 1'b0;
-    run_decoder_in_meta.valid <= 1'b0;
+    run_decoder_conf_valid <= 1'b0;
 endtask
 
 task process_first_databeat();
@@ -104,8 +109,7 @@ endtask
 task configure(offset_t offst, offset_t bit_width_offst);
     offset <= offst;
     bit_width_offset <= bit_width_offst;
-    run_decoder_in_meta.valid <= 1'b1;
-    normalize_size.valid <= 1'b1;
+    run_decoder_conf_valid <= 1'b1;
     state <= ST_PIPE;
 endtask
 
@@ -116,7 +120,7 @@ always_ff @(posedge clk) begin
         case (state)
             ST_IDLE: begin
                 if (conf.valid) begin
-                    num_values <= conf.num_values;
+                    num_values <= conf.data;
 
                     if (in.valid) begin
                         process_first_databeat();
@@ -149,17 +153,20 @@ always_ff @(posedge clk) begin
             end
 
             ST_PIPE: begin
-                if (run_decoder_in_meta.ready) begin
-                    run_decoder_in_meta.valid <= 1'b0;
+                // If in.valid then the bitwidth field is valid, thus the
+                // whole run decoder config, and as such if the handshake
+                // happens mark it as invalid to prevent it being consumed
+                // multiple times.
+                if (in.valid && run_decoder_conf.ready) begin
+                    run_decoder_conf_valid <= 1'b0;
                 end
 
-                if (normalize_size.ready) begin
-                    normalize_size.valid <= 1'b0;
-                end
+                if (out_inner.ready && out_inner.valid) begin
+                    num_values <= next_num_values;
 
-                if (out.valid && out.ready && out.last) begin
-                    // This is the last databeat for this page, we can reset
-                    reset();
+                    if (next_num_values == 0) begin
+                        reset();
+                    end
                 end
             end
         endcase
@@ -175,10 +182,6 @@ assign run_decoder_in.data = in.data;
 assign run_decoder_in.keep = in.keep;
 assign run_decoder_in.last = in.last;
 
-assign run_decoder_in_meta_data.bit_width = bit_width;
-assign run_decoder_in_meta_data.offset = offset;
-assign run_decoder_in_meta_data.num_values = num_values;
-
-assign normalize_size.data = num_values;
+assign run_decoder_conf.valid = in.valid && run_decoder_conf_valid;
 
 endmodule

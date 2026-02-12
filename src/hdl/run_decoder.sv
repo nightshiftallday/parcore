@@ -16,10 +16,10 @@ module RunDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s in_meta, // #(run_decoder_metadata_t)
-    ndata_i.s in,            // #(data8_t, NUM_BYTES)
+    ready_valid_i.s conf, // #(run_decoder_config_t)
+    ndata_i.s in,         // #(data8_t, NUM_BYTES)
 
-    ndata_i.m out            // #(data_t, NUM_ELEMENTS)
+    ndata_i.m out         // #(data_t, NUM_ELEMENTS)
 );
 
 `RESET_RESYNC // Reset pipelining
@@ -34,8 +34,8 @@ assign in_data = in.data;
 logic[NUM_BYTES - 1:0] in_keep;
 assign in_keep = in.keep;
 
-run_decoder_metadata_t in_meta_data;
-assign in_meta_data = in_meta.data;
+run_decoder_config_t conf_data;
+assign conf_data = conf.data;
 
 // ------- State declaration -----
 
@@ -108,7 +108,7 @@ typedef logic [BASE_BITS - $clog2(NUM_ELEMENTS) - 1:0] bpe_remaining_inputs_t;
 // (ignoring the LSB). This means that it'll be a multiple of 8.
 // For runs where the number of values encoded in BPE is not a multiple of 8,
 // the bpe_count is lower-bounded by the total number of values in the page,
-// which is found in in_meta_data.num_values.
+// which is found in conf_data.num_values.
 bpe_count_t bpe_count;
 bpe_remaining_inputs_t bpe_remaining_inputs; 
 
@@ -199,12 +199,12 @@ logic rle_needs_more_input;
 assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~last_received;
 
 // ------- BPE decoding
-bpe_metadata_t bpe_in_tag;
+bpe_config_t bpe_in_tag;
 assign bpe_in_tag.bit_width = bit_width;
 assign bpe_in_tag.mask = bit_width_bpe_mask;
 assign bpe_in_tag.count = bpe_count;
 
-tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_metadata_t)) bpe_in ();
+tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_config_t)) bpe_in ();
 ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
 
 ExpandBPE #(
@@ -502,20 +502,20 @@ always_ff @(posedge clk) begin
 
         case (state)
             ST_IDLE: begin
-                if (in_meta.ready && in_meta.valid) begin
-                    bit_width <= in_meta_data.bit_width;
-                    bit_width_bpe_mask <= BPE_MASK_SIZE'((1 << in_meta_data.bit_width) - 1);
-                    packed_databeat_bits <= NUM_ELEMENTS * in_meta_data.bit_width;
-                    packed_databeat_bytes <= (NUM_ELEMENTS * in_meta_data.bit_width) / 8;
-                    rle_width <= (in_meta_data.bit_width + 7) >> 3;
-                    offset <= in_meta_data.offset;
-                    varint_offset <= in_meta_data.offset;
-                    remaining_values <= in_meta_data.num_values;
+                if (conf.ready && conf.valid) begin
+                    bit_width <= conf_data.bit_width;
+                    bit_width_bpe_mask <= BPE_MASK_SIZE'((1 << conf_data.bit_width) - 1);
+                    packed_databeat_bits <= NUM_ELEMENTS * conf_data.bit_width;
+                    packed_databeat_bytes <= (NUM_ELEMENTS * conf_data.bit_width) / 8;
+                    rle_width <= (conf_data.bit_width + 7) >> 3;
+                    offset <= conf_data.offset;
+                    varint_offset <= conf_data.offset;
+                    remaining_values <= conf_data.num_values;
                     
                     if (in.valid) begin
                         state <= ST_HEADER2;
-                        update_varint_data(in.data, in_meta_data.offset);
-                        varint_in.valid <= next_varint_valid(in.keep, in.last, in_meta_data.offset);
+                        update_varint_data(in.data, conf_data.offset);
+                        varint_in.valid <= next_varint_valid(in.keep, in.last, conf_data.offset);
                     end else begin
                         state <= ST_HEADER;
                     end
@@ -570,12 +570,12 @@ end
 // ------- Driving input ---------
 always_comb begin
     // We need to provide default values to prevent latch inference
-    in_meta.ready = state == ST_IDLE; 
+    conf.ready = state == ST_IDLE; 
 
     in.ready = 0;
     case (state)
         ST_IDLE:
-            in.ready = in_meta.valid;
+            in.ready = conf.valid;
 
         ST_HEADER, ST_HEADER2:
             in.ready = ~varint_in.valid;
@@ -649,8 +649,8 @@ ila_run_decoder inst_ila_run_decoder (
     .clk(clk),
     .probe0(reset_synced),
 
-    .probe1(in_meta.ready),
-    .probe2(in_meta.valid),
+    .probe1(conf.ready),
+    .probe2(conf.valid),
 
     .probe3(in.ready),
     .probe4(in.valid),

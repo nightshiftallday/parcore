@@ -2,12 +2,9 @@
 
 `include "lynx_macros.svh"
 
-import parcore::run_decoder_metadata_t;
-import parcore::run_decoder_metadata_t;
-import libstf::data8_t;
-import libstf::data32_t;
-import libstf::INT32_T;
-import libstf::INT64_T;
+import parcore::*;
+import parcore_test::*;
+import libstf::*;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb notify.tie_off_m();
@@ -40,7 +37,7 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-hybrid_page_decoder_config_i conf(.*);
+ready_valid_i #(data32_t) conf(.*);
 HybridPageDecoderConfig inst_hybrid_page_decoder_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -81,11 +78,34 @@ NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
+ready_valid_i #(data32_t) confs[1:0] ();
+
+ReadyValidDuplicator #(2) inst_conf_duplicator (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(conf),
+    .out(confs)
+);
+
+ndata_i #(data32_t, 16) hybrid_out ();
+
 HybridPageDecoder #(data32_t, 16) inst_hybrid_page_decoder (
     .clk(clk),
     .rst_n(rst_n),
 
+    .conf(confs[0]),
+
     .in(in),
-    .conf(conf),
+    .out(hybrid_out)
+);
+
+NormalizeUntil #(data32_t, data32_t, 16) inst_normalize_until (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .size(confs[1]),
+
+    .in(hybrid_out),
     .out(out)
 );

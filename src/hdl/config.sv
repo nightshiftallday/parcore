@@ -1,12 +1,7 @@
 `timescale 1ns / 1ps
 
 import libstf::*;
-import parcore::compression_t;
-import parcore::page_type_t;
-import parcore::PARCORE_SYSTEM_ID;
-import parcore::PAGE_DECODER_CONFIG_REGS;
-import parcore::PAGE_DECODER_CONFIG_ID;
-import parcore::HYBRID_PAGE_DECODER_CONFIG_ID;
+import parcore::*;
 
 `include "libstf_macros.svh"
 `include "config_macros.svh"
@@ -71,38 +66,3 @@ end
 
 endmodule
 
-module HybridPageDecoderConfig (
-    input logic clk,
-    input logic rst_n,
-
-    write_config_i.s write_config,
-    read_config_i.s  read_config,
-
-    hybrid_page_decoder_config_i.m out
-);
-
-`RESET_RESYNC // Reset pipelining
-
-// -- Read -----------------------------------------------------------------------------------------
-data64_t values[1];
-assign values[0] = HYBRID_PAGE_DECODER_CONFIG_ID;
-
-ConfigReadRegisterFile #(
-    .NUM_REGS(1)
-) inst_read_regs (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .in(read_config),
-    .values(values)
-);
-
-// -- Write ----------------------------------------------------------------------------------------
-ready_valid_i #(data32_t) num_values ();
-ConfigWriteFIFO #(0, 8, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
-
-assign out.num_values = num_values.data;
-assign out.valid = num_values.valid;
-assign num_values.ready = out.ready;
-
-endmodule
