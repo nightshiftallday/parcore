@@ -67,6 +67,7 @@ ColumnChunk ColumnChunk::from(std::istream &is) {
 
   read_enum(is, &c.type);
   read_exact(is, &c.num_values, sizeof(c.num_values));
+  read_exact(is, &c.hybrid_num_values, sizeof(c.hybrid_num_values));
   read_enum(is, &c.compression);
 
   bool has_dict;

@@ -22,7 +22,20 @@ private:
   std::shared_ptr<libstf::Buffer> data;
   libstf::stream_t stream;
 
-  std::queue<metadata::ColumnChunk> queue;
+  class ColumnChunkData {
+  public:
+    std::shared_ptr<libstf::Buffer> buffer;
+    std::vector<std::tuple<size_t, size_t>> allocations;
+    size_t next_allocation;
+
+    ColumnChunkData(std::shared_ptr<libstf::Buffer> buffer,
+                    const metadata::ColumnChunk &cc);
+
+    bool is_full();
+  };
+
+  std::queue<ColumnChunkData> queue;
+  std::shared_ptr<ColumnChunkData> in_flight_page;
 
 public:
   Reader(std::shared_ptr<coyote::cThread> cthread,
@@ -56,6 +69,13 @@ protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
 
   void enqueue_stream_input(const libstf::Buffer &buffer);
+
+  void ensure_last_column_chunk_was_collected();
+
+  // Collects the output resulting from the previously sent data page
+  void collect_output(ColumnChunkData &ccd);
+
+  // Sends a dictionary or data pge to be processed by the accelerator
   void send_page(const metadata::Page &page, PageType page_type);
 };
 

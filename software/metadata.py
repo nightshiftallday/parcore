@@ -70,16 +70,18 @@ class Page:
 class ColumnChunk:
     type: Type
     num_values: int
+    hybrid_num_values: int
     compression: Compression
     dictionary: Page | None
     data: tuple[Page, ...]
 
 
-    _fmt = "<BQB"  # type, num_values, compression
+    _fmt = "<BQQB"  # type, num_values, hybrid_num_values, compression
     def to_file(self, f):
         f.write(pack(self._fmt,
                              self.type.value,
                              self.num_values,
+                             self.hybrid_num_values,
                              self.compression.value))
         # optional dictionary
         f.write(pack("<B", 1 if self.dictionary else 0))
@@ -92,7 +94,7 @@ class ColumnChunk:
 
     @classmethod
     def from_file(cls, f):
-        t, nv, comp = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
+        t, nv, hnv, comp = unpack(cls._fmt, _read_exact(f, calcsize(cls._fmt)))
 
         has_dict, = unpack("<B", _read_exact(f, 1))
         dictionary = Page.from_file(f) if has_dict else None
@@ -100,7 +102,7 @@ class ColumnChunk:
         (n,) = unpack("<I", _read_exact(f, 4))
         data = tuple(Page.from_file(f) for _ in range(n))
 
-        return cls(Type(t), nv, Compression(comp), dictionary, data)
+        return cls(Type(t), nv, hnv, Compression(comp), dictionary, data)
 
 @dataclass
 class RowGroup:

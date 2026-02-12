@@ -20,7 +20,7 @@
 #include <parcore/metadata/utils.hpp>
 #include <parcore/reader.hpp>
 
-using libstf::profiler;
+using libstf::Profiler;
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
 // is the only possible value
@@ -43,7 +43,7 @@ void diff(const void *d1, const void *d2, size_t size) {
 }
 
 int main(int argc, char *argv[]) {
-  profiler::init();
+  Profiler::init();
 
   std::string parquet_file;
   size_t start, end;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
       command_line_arguments);
   boost::program_options::notify(command_line_arguments);
 
-  profiler::start();
+  Profiler::start();
 
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
   if (start > meta.groups.size() || start > end || end > meta.groups.size())
@@ -160,6 +160,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  profiler::flush();
+  Profiler::flush();
   return EXIT_SUCCESS;
 }

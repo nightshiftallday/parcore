@@ -12,7 +12,7 @@
 
 #include <libstf/profiling.hpp>
 
-using libstf::profiler;
+using libstf::Profiler;
 
 namespace parcore {
 namespace cpu {
@@ -71,9 +71,9 @@ const std::string cpu_prefix = "parcore::cpu::";
 std::shared_ptr<arrow::ChunkedArray>
 read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
                   size_t chunk, size_t column) {
-  profiler::open_regions({cpu_prefix + "read_column_chunk"});
+  Profiler::open_regions({cpu_prefix + "read_column_chunk"});
 
-  profiler::open_regions({cpu_prefix + "builder"});
+  Profiler::open_regions({cpu_prefix + "builder"});
   parquet::arrow::FileReaderBuilder builder;
   auto status = builder.Open(file);
   if (!status.ok()) {
@@ -89,21 +89,21 @@ read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
   if (!status.ok()) {
     throw std::runtime_error("could not build reader: " + status.message());
   }
-  profiler::close_regions({cpu_prefix + "builder"});
+  Profiler::close_regions({cpu_prefix + "builder"});
 
   auto rg = reader->RowGroup(chunk);
   auto col_reader = rg->Column(column);
 
   std::shared_ptr<arrow::ChunkedArray> out;
-  profiler::open_regions({cpu_prefix + "read"});
+  Profiler::open_regions({cpu_prefix + "read"});
   status = col_reader->Read(&out);
   if (!status.ok()) {
     throw std::runtime_error("could not read column chunk: " +
                              status.message());
   }
-  profiler::close_regions({cpu_prefix + "read"});
+  Profiler::close_regions({cpu_prefix + "read"});
 
-  profiler::close_regions({cpu_prefix + "read_column_chunk"});
+  Profiler::close_regions({cpu_prefix + "read_column_chunk"});
   return std::move(out);
 }
 

@@ -17,8 +17,9 @@ void read_metadata(const std::string &file) {
     auto rg = meta.groups[i];
     for (size_t j = 0; j < rg.chunks.size(); ++j) {
       auto chunk = rg.chunks[j];
-      std::cout << i << ":" << j << " " << chunk.num_values << " " << chunk.type
-                << " " << chunk.compression << std::endl;
+      std::cout << i << ":" << j << " " << chunk.num_values << " "
+                << chunk.hybrid_num_values << " " << chunk.type << " "
+                << chunk.compression << std::endl;
 
       if (chunk.dictionary != std::nullopt) {
         auto page = *chunk.dictionary;

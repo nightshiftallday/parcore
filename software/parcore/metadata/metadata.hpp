@@ -30,6 +30,7 @@ struct Page {
 struct ColumnChunk {
   libstf::type_t type;
   uint64_t num_values;
+  uint64_t hybrid_num_values;
   Compression compression;
 
   std::optional<Page> dictionary;

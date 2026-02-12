@@ -17,7 +17,7 @@ def main(file: str):
 
     for i, rg in enumerate(meta.groups):
       for j, chunk in enumerate(rg.chunks):
-        print(f'{i}:{j} {chunk.num_values} {str(chunk.type)} {str(chunk.compression)}')
+        print(f'{i}:{j} {chunk.num_values} {chunk.hybrid_num_values} {str(chunk.type)} {str(chunk.compression)}')
 
         if chunk.dictionary is not None:
           page = chunk.dictionary

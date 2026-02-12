@@ -103,13 +103,32 @@ def collect_data_pages(f: BufferedReader, pos: int, sz: int, num_values: int) ->
 
     return pages
 
+def are_pages_ordered(pages: list[Page]) -> bool:
+    plain_seen = False
+
+    for page in pages:
+        if page.encoding == Encoding.PLAIN:
+            plain_seen = True
+        elif page.encoding == Encoding.HYBRID and plain_seen:
+            return False
+
+    return True
+
+def count_hybrid_values(pages: list[Page]) -> int:
+    count = False
+
+    for page in pages:
+        if page.encoding == Encoding.HYBRID:
+            count += page.num_values
+
+    return count
+
 def main(file: str):
     try:
         pf = ParquetFile(file)
         f = open(file, "rb")
     except Exception as e:
-        print(f"could not open {file} to read as binary: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise Exception(f"could not open {file} to read as binary: {e}")
 
     column_names = [String(s) for s in pf.schema_arrow.names]
 
@@ -134,10 +153,15 @@ def main(file: str):
             compression_ratio = col_meta.total_uncompressed_size / col_meta.total_compressed_size
             print(f"{i}:{j}:compression = {compression_ratio}")
 
+            if not are_pages_ordered(data_pages):
+                raise Exception(f"column chunk {i}:{j} contains data pages that are not ordered (namely, HYBRID,...,HYBRID,PLAIN,...,PLAIN)")
+            hybrid_num_values = count_hybrid_values(data_pages)
+
             typ = parse_type(col_meta.physical_type)
             chunk = ColumnChunk(
                 type=typ,
                 num_values=col_meta.num_values,
+                hybrid_num_values=hybrid_num_values,
                 compression=compression,
                 dictionary=dict if col_meta.has_dictionary_page else None,
                 data=tuple(data_pages),
@@ -153,22 +177,19 @@ def main(file: str):
     try:
         f = open(out_file, "wb")
     except Exception as e:
-        print(f"could not open {out_file} to write as binary: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise Exception(f"could not open {out_file} to write as binary: {e}")
 
     try:
         meta.to_file(f)
         f.flush()
     except Exception as e:
-        print(f"could not write metadata to {out_file}: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise Exception(f"could not write metadata to {out_file}: {e}")
 
     try:
         f = open(out_file, "rb")
         written_meta = Metadata.from_file(f)
     except Exception as e:
-        print(f"error while reading written meta to check if it matches: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise Exception(f"error while reading written meta to check if it matches: {e}")
 
     assert written_meta == meta
 

@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-using libstf::profiler;
+using libstf::Profiler;
 
 namespace parcore {
 
@@ -96,7 +96,7 @@ void PageDecoderConfig::process_page(libstf::stream_t decoder,
                              std::to_string(num_decoders_) + " decoders");
   }
 
-  profiler::open_regions({config_prefix + "process_page"});
+  Profiler::open_regions({config_prefix + "process_page"});
   auto offset = decoder * PAGE_DECODER_REGS;
   auto hw_page_type = page_type_to_hardware(page_type, encoding);
 
@@ -108,12 +108,12 @@ void PageDecoderConfig::process_page(libstf::stream_t decoder,
                                         num_values));
   write_register(libstf::ConfigRegister(offset + PAGE_DECODER_TYP_ADDR,
                                         static_cast<uint64_t>(typ)));
-  profiler::close_regions({config_prefix + "process_page"});
+  Profiler::close_regions({config_prefix + "process_page"});
 }
 
 void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
                                       metadata::ColumnChunk &column_chunk) {
-  profiler::open_regions({config_prefix + "process_chunk"});
+  Profiler::open_regions({config_prefix + "process_chunk"});
   if (column_chunk.dictionary != std::nullopt) {
     process_page(decoder, column_chunk.compression, PageType::DICT,
                  column_chunk.dictionary->encoding, 0, column_chunk.type);
@@ -123,7 +123,7 @@ void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
     process_page(decoder, column_chunk.compression, PageType::DATA,
                  page.encoding, page.num_values, column_chunk.type);
   }
-  profiler::close_regions({config_prefix + "process_chunk"});
+  Profiler::close_regions({config_prefix + "process_chunk"});
 }
 
 const libstf::stream_t PageDecoderConfig::num_decoders() const {

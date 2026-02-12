@@ -34,7 +34,7 @@ localparam int NUM_BYTES_OFFSET = 4;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
-ndata_i #(data_t, NUM_ELEMENTS) run_decoder_out_inner (), run_decoder_out ();
+ndata_i #(data_t, NUM_ELEMENTS) run_decoder_out ();
 
 run_decoder_metadata_t run_decoder_in_meta_data;
 ready_valid_i #(run_decoder_metadata_t) run_decoder_in_meta ();
@@ -47,32 +47,18 @@ RunDecoder #(data_t, NUM_ELEMENTS, NUM_BYTES) inst_run_decoder (
     .in(run_decoder_in),
     .in_meta(run_decoder_in_meta),
 
-    .out(run_decoder_out_inner)
-);
-
-NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer_decoder (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .in(run_decoder_out_inner),
     .out(run_decoder_out)
 );
 
 // ------- Normalizer wiring ------
-ndata_i #(data_t, NUM_ELEMENTS) normalizer_in ();
-// This is on purpose 1 bit wider to account for the case where keep is 0xf..f
-logic [$clog2(NUM_ELEMENTS):0] normalizer_in_num_values;
-assign normalizer_in_num_values = $countones(run_decoder_out.keep);
-
-DataNormalizer #(
-    .data_t(data_t),
-    .NUM_ELEMENTS(NUM_ELEMENTS),
-    .ENABLE_COMPACTOR(0)
-) data_normalizer_inst (
+ready_valid_i #(data64_t) normalize_size ();
+NormalizeUntil #(data_t, data32_t, NUM_ELEMENTS) inst_normalize_until (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(normalizer_in),
+    .size(normalize_size),
+
+    .in(run_decoder_out),
     .out(out)
 );
 
@@ -93,7 +79,6 @@ valid_i #(bit_width_t) keep_bit_width ();
 bit_width_t bit_width;
 assign bit_width = keep_bit_width.valid ? keep_bit_width.data : in.data[bit_width_offset];
 data32_t num_values;
-logic should_send_meta;
 
 offset_t actual_offset, next_offset;
 assign actual_offset = NUM_BYTES_OFFSET + in.data[NUM_BYTES_OFFSET - 1:0];
@@ -101,10 +86,10 @@ assign next_offset = offset - NUM_BYTES;
 
 task reset();
     state <= ST_IDLE;
-    offset <= 0;
-    bit_width_offset <= 0;
-    keep_bit_width.valid <= 0;
-    should_send_meta <= 0;
+    offset <= '0;
+    bit_width_offset <= '0;
+    keep_bit_width.valid <= 1'b0;
+    run_decoder_in_meta.valid <= 1'b0;
 endtask
 
 task process_first_databeat();
@@ -119,7 +104,8 @@ endtask
 task configure(offset_t offst, offset_t bit_width_offst);
     offset <= offst;
     bit_width_offset <= bit_width_offst;
-    should_send_meta <= 1;
+    run_decoder_in_meta.valid <= 1'b1;
+    normalize_size.valid <= 1'b1;
     state <= ST_PIPE;
 endtask
 
@@ -163,19 +149,12 @@ always_ff @(posedge clk) begin
             end
 
             ST_PIPE: begin
-                if (run_decoder_in_meta.valid && run_decoder_in_meta.ready) begin
-                    should_send_meta <= 0;
+                if (run_decoder_in_meta.ready) begin
+                    run_decoder_in_meta.valid <= 1'b0;
                 end
 
-                if(normalizer_in.valid && normalizer_in.ready) begin
-                    // NOTE: it is safe to tamper with num_values here, which is
-                    // used in the otuput for run_decoder_in_meta, as we're
-                    // assuming that the transaction with the run decoder has
-                    // already happened (or is happening in this cycle) when we
-                    // start receiving output.
-                    if (num_values >= normalizer_in_num_values) begin
-                        num_values <= num_values - normalizer_in_num_values;
-                    end
+                if (normalize_size.ready) begin
+                    normalize_size.valid <= 1'b0;
                 end
 
                 if (out.valid && out.ready && out.last) begin
@@ -196,16 +175,10 @@ assign run_decoder_in.data = in.data;
 assign run_decoder_in.keep = in.keep;
 assign run_decoder_in.last = in.last;
 
-assign run_decoder_in_meta.valid = state == ST_PIPE && should_send_meta && in.valid;
 assign run_decoder_in_meta_data.bit_width = bit_width;
 assign run_decoder_in_meta_data.offset = offset;
 assign run_decoder_in_meta_data.num_values = num_values;
 
-// ------- Mapping run decoder output to normalizer ---------
-assign run_decoder_out.ready = normalizer_in.ready;
-assign normalizer_in.valid = run_decoder_out.valid;
-assign normalizer_in.data = run_decoder_out.data;
-assign normalizer_in.keep = run_decoder_out.keep;
-assign normalizer_in.last = run_decoder_out.last && num_values <= normalizer_in_num_values;
+assign normalize_size.data = num_values;
 
 endmodule
