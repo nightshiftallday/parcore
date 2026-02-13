@@ -16,8 +16,8 @@ module Decompressor #(
     input logic rst_n,
 
     ready_valid_i.s conf,     // #(compression_t)
-    ndata_i.s in,             // #(data8_t, NUM_BYTES)
 
+    ndata_i.s in,             // #(data8_t, NUM_BYTES)
     ndata_i.m out             // #(data8_t, NUM_BYTES)
 );
 

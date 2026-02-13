@@ -58,7 +58,11 @@ typedef enum logic [1:0] {
 } page_type_t;
 
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
-parameter longint unsigned PAGE_DECODER_CONFIG_REGS = 4;
+
+parameter longint unsigned COLUMN_CHUNK_DECODER_CONFIG_REGS = 4;
+parameter longint unsigned COLUMN_CHUNK_DECODER_CONFIG_ID = 64'h5c19f934407065bd;
+
+parameter longint unsigned PAGE_DECODER_CONFIG_REGS = 3;
 parameter longint unsigned PAGE_DECODER_CONFIG_ID = 64'hc0779792c320630e;
 
 endpackage

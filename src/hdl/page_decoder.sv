@@ -7,15 +7,16 @@ import libstf::data8_t;
 import libstf::data32_t;
 import parcore::*;
 
-module PageDecoder #(
+module ColumnChunkDecoder #(
     parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
 ) (
     input logic clk,
     input logic rst_n,
 
-    page_decoder_config_i.s conf,
-    ndata_i.s in,            // #(data8_t, DATABEAT_SIZE)
+    column_chunk_decoder_config_i.s column_chunk_conf,
+    page_decoder_config_i.s         page_conf,
 
+    ndata_i.s       in,      // #(data8_t, DATABEAT_SIZE)
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
@@ -24,16 +25,15 @@ module PageDecoder #(
 parameter NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
-page_decoder_config_i decompressor_conf (.clk(clk), .rst_n(reset_synced));
+ready_valid_i #(compression_t) decompressor_conf ();
 ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in_conf(conf),
-    .in(in),
+    .conf(decompressor_conf),
 
-    .out_conf(decompressor_conf),
+    .in(in),
     .out(decompressor_out)
 );
 
@@ -60,7 +60,7 @@ ready_valid_i #(in_selector_t) in_select ();
 ready_valid_i #(out_selector_t) out_select ();
 
 // ------ Hybrid decoder + Dictionary wiring ------
-hybrid_page_decoder_config_i hybrid_conf (.clk(clk), .rst_n(reset_synced));
+ready_valid_i #(data32_t) hybrid_conf ();
 
 ndata_i #(id_t, NUM_IDS) hybrid_out ();
 HybridPageDecoder #(
@@ -78,9 +78,12 @@ HybridPageDecoder #(
 );
 
 ndata_i #(id_t, NUM_IDS) dict_ids ();
-NDataSkidBuffer #(id_t, NUM_IDS) inst_skid_buffer_hybrid (
+ready_valid_i #(data32_t) hybrid_num_values ();
+NormalizeUntil #(id_t, data32_t, NUM_IDS) inst_normalize_until_hybrid (
     .clk(clk),
     .rst_n(reset_synced),
+
+    .size(hybrid_num_values),
 
     .in(hybrid_out),
     .out(dict_ids)
@@ -97,6 +100,7 @@ NDataToTypedNData #(DATABEAT_SIZE) inst_dict_typed_conversion (
 
     .out(dict_values)
 );
+
 TypedDictionary #(
     .id_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -154,77 +158,119 @@ TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
     .out(inner_out)
 );
 
-TypedNDataSkidBuffer #(DATABEAT_SIZE) inst_skid_buffer_out (
+// Numebr of values in bytes, so if typ == INT32_T this will be num_values * 4
+ready_valid_i #(data64_t) num_values ();
+TypedNormalizeUntil #(data64_t, DATABEAT_SIZE) inst_normalize_until_out (
     .clk(clk),
     .rst_n(reset_synced),
+
+    .size(num_values),
 
     .in(inner_out),
     .out(out)
 );
-
 
 // ------------------------------------------------
 // ------ Design wiring ---------------------------
 // ------------------------------------------------
 
 // ------ Preserve+forward metadata ---------------
-typedef enum logic {
+typedef enum logic [1:0] {
     ST_IDLE,
-    ST_CONFIGURED
+    ST_CONFIGURED,
+    ST_PROCESS_PAGE
 } state_t;
 state_t state;
 
+type_t typ;
+logic last_page;
+
+task reset();
+    decompressor_conf.valid <= 1'b0;
+    num_values.valid <= 1'b0;
+    hybrid_num_values.valid <= 1'b0;
+
+    hybrid_conf.valid <= 1'b0;
+    dict_type.valid <= 1'b0;
+    plain_type.valid <= 1'b0;
+    in_select.valid <= 1'b0;
+    out_select.valid <= 1'b0;
+
+    typ <= 'x;
+    last_page <= 1'b0;
+    state <= ST_IDLE;
+endtask
+
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        hybrid_conf.valid <= 1'b0;
-        dict_type.valid <= 1'b0;
-        plain_type.valid <= 1'b0;
-        in_select.valid <= 1'b0;
-        out_select.valid <= 1'b0;
-        state <= ST_IDLE;
+        reset();
     end else begin
         case (state)
             ST_IDLE: begin
-                if (decompressor_conf.valid) begin
+                if (column_chunk_conf.valid) begin
+                    decompressor_conf.data <= column_chunk_conf.compression;
+
+                    num_values.data <= column_chunk_conf.num_values * (GET_TYPE_WIDTH(column_chunk_conf.typ) / 8);
+                    num_values.valid <= 1'b1;
+
+                    hybrid_num_values.data <= column_chunk_conf.hybrid_num_values;
+                    hybrid_num_values.valid <= 1'b1;
+
+                    typ <= column_chunk_conf.typ;
+                    state <= ST_CONFIGURED;
+                end
+            end
+
+            ST_CONFIGURED: begin
+                if (page_conf.valid) begin
+                    decompressor_conf.valid <= 1'b1;
+
                     // In each switch case we:
                     // 1. Route input from the decompressor
                     // 2. Configure the module that will transform/consume the input
                     // 3. Configure the output multiplexing any
-                    case (decompressor_conf.page_type)
+                    case (page_conf.page_type)
                         PAGE_TYPE_HYBRID: begin
                             in_select.data <= IN_HYBRID;
 
-                            hybrid_conf.valid = 1'b1;
-                            hybrid_conf.num_values <= decompressor_conf.num_values;
+                            hybrid_conf.valid <= 1'b1;
+                            hybrid_conf.data <= page_conf.num_values;
 
                             out_select.valid <= 1'b1;
                             out_select.data <= OUT_HYBRID;
                         end
+
                         PAGE_TYPE_DICT: begin
                             in_select.data <= IN_DICT;
 
                             dict_type.valid <= 1'b1;
-                            dict_type.data <= decompressor_conf.typ;
+                            dict_type.data <= typ;
                         end
+
                         PAGE_TYPE_PLAIN: begin
                             in_select.data <= IN_PLAIN;
 
                             plain_type.valid <= 1'b1;
-                            plain_type.data <= decompressor_conf.typ;
+                            plain_type.data <= typ;
 
                             out_select.valid <= 1'b1;
                             out_select.data <= OUT_PLAIN;
                         end
                     endcase
 
-                    // Input is always consumed
+                    // Input is always consumed, thus always configured
                     in_select.valid <= 1'b1;
 
-                    state <= ST_CONFIGURED;
+                    last_page <= page_conf.last;
+                    state <= ST_PROCESS_PAGE;
                 end
             end
 
-            ST_CONFIGURED: begin
+            ST_PROCESS_PAGE: begin
+                if (decompressor_conf.ready) begin
+                    decompressor_conf.valid <= 1'b0;
+                end
+
                 if (hybrid_conf.ready) begin
                     hybrid_conf.valid <= 1'b0;
                 end
@@ -248,16 +294,36 @@ always_ff @(posedge clk) begin
                 // If all configurations/selectors are invalid, it means they
                 // have been successfully consumed by the multiplexers/decoders
                 // (or not been set in the first place) and thus we can move
-                // back to the IDLE state, to receive further configuration.
-                if (hybrid_conf.valid == 1'b0 && dict_type.valid == 1'b0 && plain_type.valid == 1'b0 && in_select.valid == 1'b0 && out_select.valid == 1'b0) begin
-                    state <= ST_IDLE;
+                // back to either state:
+                // - IDLE if this was the last page, thus we're expecting
+                //   a new column chunk configuration next.
+                // - CONFIGURED if this was not the last page and this column
+                //   chunk has more pages to be fully decoded.
+                if (~decompressor_conf.valid && ~hybrid_conf.valid && ~dict_type.valid && ~plain_type.valid && ~in_select.valid && ~out_select.valid) begin
+                    if (last_page) begin
+                        state <= ST_IDLE;
+                    end else begin
+                        state <= ST_CONFIGURED;
+                    end
                 end
             end
         endcase
+
+        if (state != ST_IDLE) begin
+
+            if (num_values.ready) begin
+                num_values.valid <= 1'b0;
+            end
+
+            if (hybrid_num_values.ready) begin
+                hybrid_num_values.valid <= 1'b0;
+            end
+        end
     end
 end
 
-assign decompressor_conf.ready = state == ST_IDLE;
+assign column_chunk_conf.ready = state == ST_IDLE;
+assign page_conf.ready = state == ST_CONFIGURED;
 
 `ifdef SYNTHESIS
 ila_page_decoder inst_ila_page_decoder (

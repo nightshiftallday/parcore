@@ -51,22 +51,24 @@ interface page_decoder_config_i (
 );
     page_type_t   page_type;
     data32_t      num_values;
+    logic         last;
     logic         valid;
     logic         ready;
 
     modport m (
-        output page_type, num_values, valid,
+        output page_type, num_values, last, valid,
         input ready
     );
 
     modport s (
         output ready,
-        input page_type, num_values, valid
+        input page_type, num_values, last, valid
     );
 
 `ifndef SYNTHESIS
     `STF_ASSERT_STABLE(page_type, valid, ready);
     `STF_ASSERT_STABLE(num_values, valid, ready);
+    `STF_ASSERT_STABLE(last, valid, ready);
     `STF_ASSERT_NOT_UNDEFINED(valid);
     `STF_ASSERT_NOT_UNDEFINED(ready);
 `endif

@@ -90,3 +90,54 @@ assign normalizer_in.keep = in_inner.keep;
 assign normalizer_in.last = in_inner.last && next_remaining == 0;
 
 endmodule
+
+module TypedNormalizeUntil #(
+    type size_t,
+    parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
+) (
+    input logic clk,
+    input logic rst_n,
+
+    ready_valid_i.s size, // #(size_t)
+
+    typed_ndata_i.s in,         // #(DATABEAT_SIZE)
+    typed_ndata_i.m out         // #(DATABEAT_SIZE)
+);
+
+valid_i #(type_t) keep_typ ();
+type_t typ;
+assign typ = keep_typ.valid ? keep_typ.data : in.typ;
+
+ndata_i #(data8_t, DATABEAT_SIZE) in_inner (), out_inner ();
+
+`DATA_ASSIGN(in, in_inner);
+
+NormalizeUntil #(data8_t, size_t, DATABEAT_SIZE) inst_normalize_until (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .size(size),
+
+    .in(in_inner),
+    .out(out_inner)
+);
+
+`DATA_ASSIGN(out_inner, out);
+assign out.typ = typ;
+
+always_ff @(posedge clk) begin
+    if (rst_n == 1'b0) begin
+        keep_typ.valid <= 1'b0;
+    end else begin
+        if (~keep_typ.valid && in.valid) begin
+            keep_typ.data <= in.typ;
+            keep_typ.valid <= 1'b1;
+        end
+
+        if (out.ready && out.valid && out.last) begin
+            keep_typ.valid <= 1'b0;
+        end
+    end
+end
+
+endmodule
