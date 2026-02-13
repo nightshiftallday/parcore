@@ -12,18 +12,22 @@ namespace parcore {
 FileReader::FileReader(std::shared_ptr<coyote::cThread> cthread,
                        std::shared_ptr<libstf::MemoryPool> pool,
                        std::shared_ptr<libstf::TLBManager> tlb,
-                       PageDecoderConfig config, const metadata::Metadata &meta,
-                       std::ifstream file, libstf::stream_t stream)
-    : Reader(cthread, pool, tlb, config, meta, nullptr, stream),
+                       ColumnChunkDecoderConfig column_chunk_config,
+                       PageDecoderConfig page_config,
+                       const metadata::Metadata &meta, std::ifstream file,
+                       libstf::stream_t stream)
+    : Reader(cthread, pool, tlb, column_chunk_config, page_config, meta,
+             nullptr, stream),
       file(std::move(file)) {}
 
 FileReader::FileReader(std::shared_ptr<coyote::cThread> cthread,
                        std::shared_ptr<libstf::MemoryPool> pool,
                        std::shared_ptr<libstf::TLBManager> tlb,
-                       PageDecoderConfig config, std::string path,
+                       ColumnChunkDecoderConfig column_chunk_config,
+                       PageDecoderConfig page_config, std::string path,
                        libstf::stream_t stream)
-    : Reader(cthread, pool, tlb, config, metadata::from_file(path + ".meta"),
-             nullptr, stream),
+    : Reader(cthread, pool, tlb, column_chunk_config, page_config,
+             metadata::from_file(path + ".meta"), nullptr, stream),
       file(path) {}
 
 const std::string file_reader_prefix = "parcore::FileReader::";

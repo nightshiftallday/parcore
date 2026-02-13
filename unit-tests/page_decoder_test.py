@@ -73,13 +73,25 @@ def read_data_decompressed(filename: str, num_values: int) -> _ColumnChunk:
 
     return _ColumnChunk(compression=False, num_values=num_values, hybrid_num_values=num_values, pages=pages)
 
-def make_plain_data(items: list[int]) -> _ColumnChunk:
+def plain_page(items: list[int]) -> _Page:
     stream = fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, items)
     data = stream.data_to_bytearray()
-    num_values = len(items)
-    page = _Page(page_type=_PageType.PLAIN, data=data, num_values=num_values, last=True)
+    return _Page(page_type=_PageType.PLAIN, data=data, num_values=len(items), last=True)
 
+def make_plain_data(items: list[int]) -> _ColumnChunk:
+    page = plain_page(items)
+    page.last = True
+    num_values = len(items)
     return _ColumnChunk(compression=False, num_values=num_values, hybrid_num_values=num_values, pages=[page])
+
+def make_tricky(filename: str, num_values: int, items: list[int], factor: int) -> _ColumnChunk:
+    files = [(filename + '_dict_decompressed.bin', _PageType.DICT)] + [(filename + '_chunk_decompressed.bin', _PageType.HYBRID)] * factor
+    pages = [read_page(file, pt, num_values) for file, pt in files]
+    pp = plain_page(items)
+    pp.last = True
+    pages.append(pp)
+
+    return _ColumnChunk(compression=False, num_values=num_values * factor + len(items), hybrid_num_values=num_values * factor, pages=pages)
 
 @dataclass
 class _TestCase:
@@ -113,6 +125,11 @@ _huge_two_input = read_data_decompressed('test', len(_huge_two_output))
 _mixed_output_plain = list(range(0,256))
 _mixed_input_plain = make_plain_data(_mixed_output_plain)
 
+_tricky_factor = 3
+_tricky_output_plain = list(range(0,256))
+_tricky_output = _rle_output * _tricky_factor + list(range(0,256))
+_tricky_input= make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
+
 _test_cases = (
     _TestCase(
         inputs=[_rle_input],
@@ -145,6 +162,10 @@ _test_cases = (
     _TestCase(
         inputs=[_mixed_input_plain],
         outputs=[_mixed_output_plain],
+    ),
+    _TestCase(
+        inputs=[_tricky_input, _rle_input],
+        outputs=[_tricky_output, _rle_output],
     )
 )
 
@@ -243,22 +264,12 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
         # Assert
         self.assert_simulation_output()
 
-    # def test_one_huge_page(self):
-    #     # Arrange
-    #     self.test_case = (_test_cases[5])
-    #
-    #     # Act
-    #     self.simulate_fpga()
-    #
-    #     # Assert
-    #     self.assert_simulation_output()
-    #
-    # def test_huge_two_page(self):
-    #     # Arrange
-    #     self.test_case = (_test_cases[6])
-    #
-    #     # Act
-    #     self.simulate_fpga()
-    #
-    #     # Assert
-    #     self.assert_simulation_output()
+    def test_tricky_page(self):
+        # Arrange
+        self.test_case = (_test_cases[8])
+
+        # Act
+        self.simulate_fpga()
+
+        # Assert
+        self.assert_simulation_output()

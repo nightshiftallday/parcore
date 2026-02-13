@@ -22,7 +22,7 @@ module ColumnChunkDecoder #(
 
 `RESET_RESYNC // Reset pipelining
 
-parameter NUM_IDS = 16;
+localparam NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
 ready_valid_i #(compression_t) decompressor_conf ();
@@ -185,6 +185,15 @@ state_t state;
 type_t typ;
 logic last_page;
 
+// This is used to track how many values the hybrid pages received so far have
+// provided. When this matches the number in hybrid_num_values, then the data
+// normalizer should be re-configured for the next series of plain decodings.
+data64_t received_hybrid_num_values;
+logic has_received_any_hybrid_page;
+logic is_last_hybrid_page;
+
+assign is_last_hybrid_page = received_hybrid_num_values == hybrid_num_values.data;
+
 task reset();
     decompressor_conf.valid <= 1'b0;
     num_values.valid <= 1'b0;
@@ -196,8 +205,10 @@ task reset();
     in_select.valid <= 1'b0;
     out_select.valid <= 1'b0;
 
-    typ <= 'x;
+    typ <= BYTE_T;
     last_page <= 1'b0;
+    received_hybrid_num_values <= '0;
+    has_received_any_hybrid_page <= 1'b0;
     state <= ST_IDLE;
 endtask
 
@@ -236,8 +247,15 @@ always_ff @(posedge clk) begin
                             hybrid_conf.valid <= 1'b1;
                             hybrid_conf.data <= page_conf.num_values;
 
-                            out_select.valid <= 1'b1;
-                            out_select.data <= OUT_HYBRID;
+                            if (~has_received_any_hybrid_page) begin
+                                // Only configure the output once for the first
+                                // hybrid page.
+                                out_select.valid <= 1'b1;
+                                out_select.data <= OUT_HYBRID;
+                            end
+
+                            has_received_any_hybrid_page <= 1'b1;
+                            received_hybrid_num_values <= received_hybrid_num_values + page_conf.num_values;
                         end
 
                         PAGE_TYPE_DICT: begin
@@ -299,9 +317,9 @@ always_ff @(posedge clk) begin
                 //   a new column chunk configuration next.
                 // - CONFIGURED if this was not the last page and this column
                 //   chunk has more pages to be fully decoded.
-                if (~decompressor_conf.valid && ~hybrid_conf.valid && ~dict_type.valid && ~plain_type.valid && ~in_select.valid && ~out_select.valid) begin
+                if (~decompressor_conf.valid && ~hybrid_conf.valid && ~dict_type.valid && ~plain_type.valid && ~in_select.valid && (~is_last_hybrid_page || ~out_select.valid)) begin
                     if (last_page) begin
-                        state <= ST_IDLE;
+                        reset();
                     end else begin
                         state <= ST_CONFIGURED;
                     end
@@ -310,7 +328,6 @@ always_ff @(posedge clk) begin
         endcase
 
         if (state != ST_IDLE) begin
-
             if (num_values.ready) begin
                 num_values.valid <= 1'b0;
             end
@@ -324,31 +341,5 @@ end
 
 assign column_chunk_conf.ready = state == ST_IDLE;
 assign page_conf.ready = state == ST_CONFIGURED;
-
-`ifdef SYNTHESIS
-ila_page_decoder inst_ila_page_decoder (
-    .clk(clk),
-    .probe0(reset_resync),
-
-    .probe1(conf.ready),
-    .probe2(conf.valid),
-
-    .probe3(in.ready),
-    .probe4(in.valid),
-    .probe5(in.last),
-
-    .probe6(out.ready),
-    .probe7(out.valid),
-    .probe8(out.last),
-
-    .probe9(dict_values.ready),
-    .probe10(dict_values.valid),
-    .probe11(dict_values.last),
-
-    .probe12(dict_ids.ready),
-    .probe13(dict_ids.valid),
-    .probe14(dict_ids.last)
-);
-`endif
 
 endmodule

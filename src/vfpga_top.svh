@@ -1,6 +1,7 @@
 `include "lynx_macros.svh"
 `include "libstf_macros.svh"
 
+import parcore::*;
 import libstf::data8_t;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
@@ -18,12 +19,12 @@ assign clk   = aclk;
 assign rst_n = aresetn;
 
 /* -- CONFIG ------------------------------------------------------------ */
-write_config_i write_configs[1](.*);
-read_config_i  read_configs [1](.*);
+write_config_i write_configs[2](.*);
+read_config_i  read_configs [2](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
-    .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({PAGE_DECODER_CONFIG_REGS*1})
+    .NUM_CONFIGS(2),
+    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_CONFIG_REGS*1, PAGE_DECODER_CONFIG_REGS*1})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -34,17 +35,30 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-page_decoder_config_i conf[1](.*);
-PageDecoderConfig #(
+column_chunk_decoder_config_i column_chunk_conf[1](.*);
+ColumnChunkDecoderConfig #(
     .NUM_DECODERS(1)
-) inst_page_decoder_config (
+) inst_column_chunk_decoder_config (
     .clk(clk),
     .rst_n(rst_n),
 
     .write_config(write_configs[0]),
     .read_config(read_configs[0]),
 
-    .out(conf)
+    .out(column_chunk_conf)
+);
+
+page_decoder_config_i page_conf[1](.*);
+PageDecoderConfig #(
+    .NUM_DECODERS(1)
+) inst_page_decoder_config (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .write_config(write_configs[1]),
+    .read_config(read_configs[1]),
+
+    .out(page_conf)
 );
 
 /* -- INPUT ------------------------------------------------------------- */
@@ -81,14 +95,15 @@ typed_ndata_i #(64) out();
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-PageDecoder #(
+ColumnChunkDecoder #(
     .DATABEAT_SIZE(64)
-) inst_page_decoder (
+) inst_column_chunk_decoder (
     .clk(clk),
     .rst_n(rst_n),
 
-    .conf(conf[0]),
+    .column_chunk_conf(column_chunk_conf[0]),
+    .page_conf(page_conf[0]),
+
     .in(in),
-    
     .out(out)
 );

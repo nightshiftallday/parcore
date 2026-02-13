@@ -42,6 +42,20 @@ void diff(const void *d1, const void *d2, size_t size) {
   std::cout << "\t" << size << " bytes match" << std::endl;
 }
 
+template <typename T>
+T get_config(std::shared_ptr<coyote::cThread> &cthread,
+             libstf::GlobalConfig &global_config) {
+  if (!global_config.has_config(T::ID)) {
+    auto name = std::string(typeid(T).name());
+    throw std::runtime_error("flashed design doesn't have " + name);
+  }
+
+  auto addr_offset = std::get<0>(global_config.get_config_bounds(T::ID));
+  T config(cthread, addr_offset);
+
+  return config;
+}
+
 int main(int argc, char *argv[]) {
   Profiler::init();
 
@@ -105,14 +119,13 @@ int main(int argc, char *argv[]) {
       std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
 
   libstf::GlobalConfig global_config(cthread);
-  if (!global_config.has_config(parcore::PageDecoderConfig::ID)) {
-    throw std::runtime_error("flashed design doesn't have PageDecoderConfig");
-  }
-  auto addr_offset = std::get<0>(
-      global_config.get_config_bounds(parcore::PageDecoderConfig::ID));
-  parcore::PageDecoderConfig decoder_config(cthread, addr_offset);
+  auto column_chunk_config =
+      get_config<parcore::ColumnChunkDecoderConfig>(cthread, global_config);
+  auto page_config =
+      get_config<parcore::PageDecoderConfig>(cthread, global_config);
 
-  parcore::Reader reader(cthread, pool, tlb, decoder_config, meta, data);
+  parcore::Reader reader(cthread, pool, tlb, column_chunk_config, page_config,
+                         meta, data);
 
   for (size_t i = start; i < end; ++i) {
     auto group = meta.groups[i];

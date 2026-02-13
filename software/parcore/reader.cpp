@@ -32,7 +32,7 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
     sg.addr = curr_ptr;
     sg.len = input_size;
     sg.stream = coyote::STRM_HOST;
-    sg.dest = stream;
+    sg.dest = decoder;
 
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
@@ -44,29 +44,42 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
 
 Reader::ColumnChunkData::ColumnChunkData(std::shared_ptr<libstf::Buffer> buffer,
                                          const metadata::ColumnChunk &cc)
-    : buffer(std::move(buffer)), next_allocation(0) {
-  allocations.reserve(cc.data.size());
+    : buffer(std::move(buffer)), full(false) {}
 
-  auto cell_size = libstf::size_of(cc.type);
-  size_t offset = 0;
-  for (auto page : cc.data) {
-    auto size = cell_size * page.num_values;
-    allocations.push_back({offset, size});
-    offset += size;
-  }
-}
+bool Reader::ColumnChunkData::is_full() { return full; }
 
-bool Reader::ColumnChunkData::is_full() {
-  return next_allocation >= allocations.size();
+void Reader::ColumnChunkData::collect(std::shared_ptr<coyote::cThread> cthread,
+                                      libstf::stream_t decoder) {
+  Profiler::open_regions({reader_prefix + "collect_output"});
+
+  std::cout << "collecting output at " << std::hex << buffer->ptr << " "
+            << std::dec << buffer->size << std::endl;
+  coyote::localSg result_sg = {
+      .addr = buffer->ptr,
+      .len = static_cast<uint32_t>(buffer->size),
+      .stream = coyote::STRM_HOST,
+      .dest = decoder,
+  };
+
+  Profiler::open_regions({reader_prefix + "local_write"});
+  cthread->clearCompleted();
+  cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
+  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
+    ;
+  Profiler::close_regions({reader_prefix + "local_write"});
+
+  Profiler::close_regions({reader_prefix + "collect_output"});
 }
 
 Reader::Reader(std::shared_ptr<coyote::cThread> cthread,
                std::shared_ptr<libstf::MemoryPool> pool,
                std::shared_ptr<libstf::TLBManager> tlb,
-               PageDecoderConfig config, const metadata::Metadata &meta,
+               ColumnChunkDecoderConfig column_chunk_config,
+               PageDecoderConfig page_config, const metadata::Metadata &meta,
                std::shared_ptr<libstf::Buffer> data, libstf::stream_t stream)
-    : cthread(cthread), pool(pool), tlb(tlb), config(config), meta(meta),
-      data(data), stream(stream) {}
+    : cthread(cthread), pool(pool), tlb(tlb),
+      column_chunk_config(column_chunk_config), page_config(page_config),
+      meta(meta), data(data), decoder(stream) {}
 
 std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
   void *ptr;
@@ -99,39 +112,6 @@ void Reader::send_page(const metadata::Page &page, PageType page_type) {
   Profiler::close_regions({reader_prefix + "send_page"});
 }
 
-void Reader::ensure_last_column_chunk_was_collected() {
-  if (queue.size() <= 0)
-    return;
-
-  auto &ccd = queue.front();
-  if (!ccd.is_full())
-    collect_output(ccd);
-}
-
-void Reader::collect_output(ColumnChunkData &ccd) {
-  Profiler::open_regions({reader_prefix + "collect_output"});
-
-  auto alloc = ccd.allocations[ccd.next_allocation];
-  std::cout << "collecting output at " << std::get<0>(alloc) << " "
-            << std::get<1>(alloc) << std::endl;
-  coyote::localSg result_sg = {
-      .addr = static_cast<uint8_t *>(ccd.buffer->ptr) + std::get<0>(alloc),
-      .len = static_cast<uint32_t>(std::get<1>(alloc)),
-      .stream = coyote::STRM_HOST,
-      .dest = stream,
-  };
-
-  Profiler::open_regions({reader_prefix + "local_write"});
-  cthread->clearCompleted();
-  cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
-  while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
-    ;
-  Profiler::close_regions({reader_prefix + "local_write"});
-
-  ++ccd.next_allocation;
-  Profiler::close_regions({reader_prefix + "collect_output"});
-}
-
 void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
@@ -146,14 +126,15 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   }
   auto column_chunk = group.chunks[column];
 
+  column_chunk_config.process_column_chunk(
+      decoder, column_chunk.compression, column_chunk.num_values,
+      column_chunk.hybrid_num_values, column_chunk.type);
+
   if (column_chunk.dictionary != std::nullopt) {
-    config.process_page(stream, column_chunk.compression, PageType::DICT,
-                        column_chunk.dictionary->encoding, 0,
-                        column_chunk.type);
+    page_config.process_page(decoder, PageType::DICT,
+                             column_chunk.dictionary->encoding, 0, false);
     send_page(*column_chunk.dictionary, PageType::DICT);
   }
-
-  ensure_last_column_chunk_was_collected();
 
   auto cell_size = libstf::size_of(column_chunk.type);
   auto size = cell_size * column_chunk.num_values;
@@ -161,12 +142,10 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   size_t i = 0;
   for (auto page : column_chunk.data) {
-    if (i > 0 && !ccd.is_full()) {
-      collect_output(ccd);
-    }
+    bool last = i == column_chunk.data.size() - 1;
 
-    config.process_page(stream, column_chunk.compression, PageType::DATA,
-                        page.encoding, page.num_values, column_chunk.type);
+    page_config.process_page(decoder, PageType::DATA, page.encoding,
+                             page.num_values, last);
     send_page(page, PageType::DATA);
 
     ++i;
@@ -186,7 +165,7 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
   queue.pop();
 
   if (!ccd.is_full())
-    collect_output(ccd);
+    ccd.collect(cthread, decoder);
 
   Profiler::close_regions({reader_prefix + "next_column_chunk"});
 

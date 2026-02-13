@@ -73,57 +73,85 @@ inline uint64_t compression_to_hardware(metadata::Compression compression) {
   }
 }
 
-constexpr const uint32_t PAGE_DECODER_COMPRESSION_ADDR = 0;
-constexpr const uint32_t PAGE_DECODER_PAGE_TYPE_ADDR = 1;
-constexpr const uint32_t PAGE_DECODER_NUM_VALUES_ADDR = 2;
-constexpr const uint32_t PAGE_DECODER_TYP_ADDR = 3;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_COMPRESSION_ADDR = 0;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_NUM_VALUES_ADDR = 1;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_HYBRID_NUM_VALUES_ADDR = 2;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_TYP_ADDR = 3;
 
-const std::string config_prefix = "parcore::PageDecoderConfig::";
+constexpr const uint32_t PAGE_DECODER_PAGE_TYPE_ADDR = 0;
+constexpr const uint32_t PAGE_DECODER_NUM_VALUES_ADDR = 1;
+constexpr const uint32_t PAGE_DECODER_LAST_ADDR = 2;
+
+const std::string column_config_prefix = "parcore::ColumnChunkDecoderConfig::";
+
+ColumnChunkDecoderConfig::ColumnChunkDecoderConfig(
+    std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset)
+    : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
+
+void ColumnChunkDecoderConfig::process_column_chunk(
+    libstf::stream_t decoder, metadata::Compression compression,
+    uint64_t num_values, uint64_t hybrid_num_values, libstf::type_t typ) {
+  if (decoder >= num_decoders_) {
+    throw std::runtime_error("attempted to configure ColumnChunkDecoder " +
+                             std::to_string(decoder) +
+                             " (zero-based numbering), out of " +
+                             std::to_string(num_decoders_) + " decoders");
+  }
+
+  Profiler::open_regions({column_config_prefix + "process_column_chunk"});
+  auto offset = decoder * COLUMN_CHUNK_DECODER_REGS;
+  write_register(
+      libstf::ConfigRegister(offset + COLUMN_CHUNK_DECODER_COMPRESSION_ADDR,
+                             compression_to_hardware(compression)));
+  write_register(libstf::ConfigRegister(
+      offset + COLUMN_CHUNK_DECODER_NUM_VALUES_ADDR, num_values));
+  write_register(libstf::ConfigRegister(
+      offset + COLUMN_CHUNK_DECODER_HYBRID_NUM_VALUES_ADDR, hybrid_num_values));
+  write_register(libstf::ConfigRegister(offset + COLUMN_CHUNK_DECODER_TYP_ADDR,
+                                        static_cast<uint64_t>(typ)));
+  Profiler::close_regions({column_config_prefix + "process_column_chunk"});
+}
+
+const libstf::stream_t ColumnChunkDecoderConfig::num_decoders() const {
+  return num_decoders_;
+}
+
+inline uint64_t last_to_hardware(bool last) {
+  if (last) {
+    return 1;
+  }
+
+  return 0;
+}
+
+const std::string page_config_prefix = "parcore::PageDecoderConfig::";
 
 PageDecoderConfig::PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
                                      uint32_t addr_offset)
     : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
 
 void PageDecoderConfig::process_page(libstf::stream_t decoder,
-                                     metadata::Compression compression,
                                      PageType page_type,
                                      metadata::Encoding encoding,
-                                     uint64_t num_values, libstf::type_t typ) {
+                                     uint64_t num_values, bool last) {
   if (decoder >= num_decoders_) {
-    throw std::runtime_error("attempted to configure decoder " +
+    throw std::runtime_error("attempted to configure PageDecoder " +
                              std::to_string(decoder) +
                              " (zero-based numbering), out of " +
                              std::to_string(num_decoders_) + " decoders");
   }
 
-  Profiler::open_regions({config_prefix + "process_page"});
+  Profiler::open_regions({page_config_prefix + "process_page"});
   auto offset = decoder * PAGE_DECODER_REGS;
   auto hw_page_type = page_type_to_hardware(page_type, encoding);
 
-  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_COMPRESSION_ADDR,
-                                        compression_to_hardware(compression)));
   write_register(libstf::ConfigRegister(offset + PAGE_DECODER_PAGE_TYPE_ADDR,
                                         hw_page_type));
   write_register(libstf::ConfigRegister(offset + PAGE_DECODER_NUM_VALUES_ADDR,
                                         num_values));
-  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_TYP_ADDR,
-                                        static_cast<uint64_t>(typ)));
-  Profiler::close_regions({config_prefix + "process_page"});
-}
-
-void PageDecoderConfig::process_chunk(libstf::stream_t decoder,
-                                      metadata::ColumnChunk &column_chunk) {
-  Profiler::open_regions({config_prefix + "process_chunk"});
-  if (column_chunk.dictionary != std::nullopt) {
-    process_page(decoder, column_chunk.compression, PageType::DICT,
-                 column_chunk.dictionary->encoding, 0, column_chunk.type);
-  }
-
-  for (auto page : column_chunk.data) {
-    process_page(decoder, column_chunk.compression, PageType::DATA,
-                 page.encoding, page.num_values, column_chunk.type);
-  }
-  Profiler::close_regions({config_prefix + "process_chunk"});
+  write_register(libstf::ConfigRegister(offset + PAGE_DECODER_LAST_ADDR,
+                                        last_to_hardware(last)));
+  Profiler::close_regions({page_config_prefix + "process_page"});
 }
 
 const libstf::stream_t PageDecoderConfig::num_decoders() const {
