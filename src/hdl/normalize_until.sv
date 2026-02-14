@@ -104,40 +104,149 @@ module TypedNormalizeUntil #(
     typed_ndata_i.m out         // #(DATABEAT_SIZE)
 );
 
-valid_i #(type_t) keep_typ ();
-type_t typ;
-assign typ = keep_typ.valid ? keep_typ.data : in.typ;
+// This should match the maximum latency of this module end-to-end, as in the
+// worse case one databeat with last=1 is repeataedly entered in this module,
+// each time with a different type. Thus, we need to store an amount of types
+// in the FIFO equal to the end-to-end latency.
+localparam int MAX_IN_TRANSIT = 8;
 
-ndata_i #(data8_t, DATABEAT_SIZE) in_inner (), out_inner ();
+`RESET_RESYNC // Reset pipelining
 
-`DATA_ASSIGN(in, in_inner);
+size_t remaining;
+ready_valid_i #(type_t) fifo_typ ();
+valid_i #(type_t) in_typ (), out_typ ();
 
-NormalizeUntil #(data8_t, size_t, DATABEAT_SIZE) inst_normalize_until (
-    .clk(clk),
-    .rst_n(rst_n),
+logic unconfigured;
+assign unconfigured = remaining == 0;
 
-    .size(size),
+assign size.ready = unconfigured && in.valid;
 
-    .in(in_inner),
-    .out(out_inner)
-);
+ndata_i #(data8_t, DATABEAT_SIZE) untyped_in (), in_inner (), normalizer_in (), out_inner (), untyped_out ();
 
-`DATA_ASSIGN(out_inner, out);
-assign out.typ = typ;
+// This is on purpose 1 bit wider to account for the case where keep is 0xf..f
+logic [$clog2(DATABEAT_SIZE):0] in_num_values;
+assign in_num_values = $countones(in_inner.keep);
+
+size_t next_remaining;
+always_comb begin
+    if (in_typ.valid) begin
+        // This is required as simply using:
+        //
+        // logic [$clog2(DATABEAT_SIZE):0] typ_scale_factor;
+        // assign typ_scale_factor = GET_TYPE_WIDTH(out_typ.data) / 8;
+        // assign next_remaining = remaining - (in_num_values / typ_scale_factor);
+        //
+        // results in a delayed signal, which is 0 when it shouldn't be, thus
+        // resulting in malformed next_remaining data.
+        case (in_typ.data)
+            BYTE_T: begin
+                next_remaining = remaining - in_num_values;
+            end
+            INT32_T, FLOAT_T: begin
+                next_remaining = remaining - (in_num_values / 4);
+            end
+            INT64_T, DOUBLE_T: begin
+                next_remaining = remaining - (in_num_values / 8);
+            end
+            default: begin
+                $fatal(1, "Unexpected type %d in TypedNormalizeUntil", in_typ.data);
+            end
+        endcase
+    end else begin
+        next_remaining = remaining;
+    end
+end
 
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin
-        keep_typ.valid <= 1'b0;
+        remaining <= '0;
+        in_typ.valid <= 1'b0;
+        fifo_typ.valid <= 1'b0;
     end else begin
-        if (~keep_typ.valid && in.valid) begin
-            keep_typ.data <= in.typ;
-            keep_typ.valid <= 1'b1;
-        end
+        if (unconfigured) begin
+            if (in.valid && size.valid) begin
+                remaining <= size.data;
+                in_typ.data  <= in.typ;
+                in_typ.valid <= 1'b1;
+                fifo_typ.data  <= in.typ;
+                fifo_typ.valid <= 1'b1;
+            end
+        end else begin
+            if (fifo_typ.ready) begin
+                fifo_typ.valid <= 1'b0;
+            end
 
-        if (out.ready && out.valid && out.last) begin
-            keep_typ.valid <= 1'b0;
+            if (normalizer_in.ready && in_inner.valid) begin
+                remaining <= next_remaining;
+
+                if (normalizer_in.last) begin
+                    in_typ.valid <= 1'b0;
+                end
+            end
         end
     end
 end
+
+FIFO #(
+    .DEPTH(MAX_IN_TRANSIT),
+    .WIDTH($bits(type_t))
+) inst_type_fifo (
+    .i_clk(clk),
+    .i_rst_n(reset_synced),
+
+    .i_data(fifo_typ.data),
+    .i_valid(fifo_typ.valid),
+    .i_ready(fifo_typ.ready),
+
+    .o_data(out_typ.data),
+    .o_valid(out_typ.valid),
+    .o_ready(out.ready && untyped_out.valid && out.last),
+
+    .o_filling_level()
+);
+
+`DATA_ASSIGN(in, untyped_in);
+
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_in_skid_buffer  (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(untyped_in),
+    .out(in_inner)
+);
+
+assign in_inner.ready = normalizer_in.ready && ~unconfigured;
+assign normalizer_in.valid = in_inner.valid && ~unconfigured;
+assign normalizer_in.data = in_inner.data;
+assign normalizer_in.keep = in_inner.keep;
+assign normalizer_in.last = in_inner.last && next_remaining == 0;
+
+DataNormalizer #(
+    .data_t(data8_t),
+    .NUM_ELEMENTS(DATABEAT_SIZE),
+    .ENABLE_COMPACTOR(0)
+) inst_data_normalizer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(normalizer_in),
+    .out(out_inner)
+);
+
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_out_skid_buffer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(out_inner),
+    .out(untyped_out)
+);
+
+assign untyped_out.ready = out.ready && out_typ.valid;
+assign out.valid = untyped_out.valid && out_typ.valid;
+assign out.data = untyped_out.data;
+assign out.keep = untyped_out.keep;
+assign out.last = untyped_out.last;
+assign out.last = untyped_out.last;
+assign out.typ = out_typ.data;
 
 endmodule

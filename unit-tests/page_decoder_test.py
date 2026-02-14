@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from coyote_test import fpga_test_case, fpga_stream, fpga_register
+from coyote_test import fpga_test_case, fpga_stream, fpga_register, simulation_time
 from os.path import dirname, realpath, join
 import pickle
 
@@ -127,7 +127,7 @@ _mixed_input_plain = make_plain_data(_mixed_output_plain)
 
 _tricky_factor = 3
 _tricky_output_plain = list(range(0,256))
-_tricky_output = _rle_output * _tricky_factor + list(range(0,256))
+_tricky_output = _rle_output * _tricky_factor + _tricky_output_plain 
 _tricky_input= make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
 
 _test_cases = (
@@ -169,7 +169,7 @@ _test_cases = (
     )
 )
 
-class TopHostTestCase(fpga_test_case.FPGATestCase):
+class PageDecoderTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "page_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
@@ -247,6 +247,8 @@ class TopHostTestCase(fpga_test_case.FPGATestCase):
     def test_all_pages(self):
         # Arrange
         self.test_case = (_test_cases[4])
+
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
 
         # Act
         self.simulate_fpga()

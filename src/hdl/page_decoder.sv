@@ -158,9 +158,8 @@ TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
     .out(inner_out)
 );
 
-// Numebr of values in bytes, so if typ == INT32_T this will be num_values * 4
-ready_valid_i #(data64_t) num_values ();
-TypedNormalizeUntil #(data64_t, DATABEAT_SIZE) inst_normalize_until_out (
+ready_valid_i #(data32_t) num_values ();
+TypedNormalizeUntil #(data32_t, DATABEAT_SIZE) inst_normalize_until_out (
     .clk(clk),
     .rst_n(reset_synced),
 
@@ -188,7 +187,7 @@ logic last_page;
 // This is used to track how many values the hybrid pages received so far have
 // provided. When this matches the number in hybrid_num_values, then the data
 // normalizer should be re-configured for the next series of plain decodings.
-data64_t received_hybrid_num_values;
+data32_t received_hybrid_num_values;
 logic has_received_any_hybrid_page;
 logic is_last_hybrid_page;
 
@@ -221,7 +220,7 @@ always_ff @(posedge clk) begin
                 if (column_chunk_conf.valid) begin
                     decompressor_conf.data <= column_chunk_conf.compression;
 
-                    num_values.data <= column_chunk_conf.num_values * (GET_TYPE_WIDTH(column_chunk_conf.typ) / 8);
+                    num_values.data <= column_chunk_conf.num_values;
                     num_values.valid <= 1'b1;
 
                     hybrid_num_values.data <= column_chunk_conf.hybrid_num_values;
