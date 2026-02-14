@@ -4,8 +4,7 @@
 `include "lynx_macros.svh"
 
 import lynxTypes::*;
-import libstf::data8_t;
-import libstf::data32_t;
+import libstf::*;
 import parcore::*;
 
 module RunDecoder #(
@@ -95,7 +94,6 @@ end
 logic [3:0] rle_width;
 rle_count_t rle_count;
 
-// TODO: figure out proper size. Likely $bits(data_t)-1 + ceil($bits(data_t)/8) - log2(16)
 // Assuming worse case: 0...2**$bits(data_t)-1 repeated twice.
 // In that case, each elements takes ceil($bits(data_t)/8) bytes to be
 // encoded. Subtract by log2(NUM_ELEMNETS) for number of BPE inputs.
@@ -379,16 +377,17 @@ task goto_decode_bpe(
     state <= ST_DECODE_BPE;
 endtask
 
-logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
-logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - $clog2(8):0] next_bpe_offset_bytes;
-assign next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
-assign next_bpe_offset_bytes = next_bpe_offset_bits / 8;
-
 task advance_bpe();
+    logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
+    logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - $clog2(8):0] next_bpe_offset_bytes;
+
     bpe_count_t next_bpe_count;
     bpe_offset_t next_bpe_offset;
     bpe_remaining_inputs_t  next_bpe_remaining_inputs;
     offset_t next_offset;
+
+    next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
+    next_bpe_offset_bytes = next_bpe_offset_bits / 8;
 
     next_bpe_count = bpe_count - NUM_ELEMENTS;
     next_bpe_offset = next_bpe_offset_bits % 8;
@@ -407,18 +406,28 @@ task advance_bpe();
     end
     `endif
 
-    if (bpe_remaining_inputs <= 1) begin
-        offset_t next_next_offset;
+    if (bpe_remaining_inputs == 1) begin
+        logic [$bits(offset_t):0] next_next_offset;
+        logic increment_varint_offset;
         offset_t actual_varint_offset;
         logic next_varint_in_valid;
 
-        next_next_offset = next_offset + (next_bpe_offset + packed_databeat_bits / 8);
-        actual_varint_offset = next_offset > varint_offset && next_next_offset >= NUM_BYTES ? NUM_BYTES + varint_offset : varint_offset;
+        next_next_offset = next_offset + next_bpe_offset + packed_databeat_bytes;
+        // The varint offset for the next next cycle, when the next and final
+        // bpe encoded chunks will have been decoded, depends on whether we're
+        // moving the next_offset beyond NUM_BYTES (and thus shifting the
+        // value in `data` by 512 bits) or not. If that's the case we want to
+        // use a +64byte offest as in the current cycle the shift has not
+        // happened yet.
+        //
+        // TODO: comment on why `next_offset > varint_offset` is needed.
+        increment_varint_offset = next_offset > varint_offset && next_next_offset >= NUM_BYTES;
+        actual_varint_offset = increment_varint_offset ? varint_offset + NUM_BYTES : varint_offset;
         next_varint_in_valid = next_varint_valid(keep, last_received, actual_varint_offset);
 
-        // varint_offset <= actual_varint_offset;
         update_varint_data(data, actual_varint_offset);
         varint_in.valid <= next_varint_in_valid;
+
         // We only want to store the offset if we haven't trimmed the input in
         // this cycle and if we haven't set a valid varint input already.
         // Note that if we have just trimmed the output, the varint_offset is
