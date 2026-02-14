@@ -76,6 +76,7 @@ def read_data_decompressed(filename: str, num_values: int) -> _ColumnChunk:
 def plain_page(items: list[int]) -> _Page:
     stream = fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, items)
     data = stream.data_to_bytearray()
+    data = bytearray(int(4).to_bytes(4, 'little')) + bytearray(bytes(4)) + data
     return _Page(page_type=_PageType.PLAIN, data=data, num_values=len(items), last=True)
 
 def make_plain_data(items: list[int]) -> _ColumnChunk:
@@ -128,7 +129,7 @@ _mixed_input_plain = make_plain_data(_mixed_output_plain)
 _tricky_factor = 3
 _tricky_output_plain = list(range(0,256))
 _tricky_output = _rle_output * _tricky_factor + _tricky_output_plain 
-_tricky_input= make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
+_tricky_input = make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
 
 _test_cases = (
     _TestCase(

@@ -124,38 +124,42 @@ assign size.ready = unconfigured && in.valid;
 ndata_i #(data8_t, DATABEAT_SIZE) untyped_in (), in_inner (), normalizer_in (), out_inner (), untyped_out ();
 
 // This is on purpose 1 bit wider to account for the case where keep is 0xf..f
-logic [$clog2(DATABEAT_SIZE):0] in_num_values;
-assign in_num_values = $countones(in_inner.keep);
+logic [$clog2(DATABEAT_SIZE):0] in_num_bytes;
+assign in_num_bytes = $countones(in_inner.keep);
 
-size_t next_remaining;
+logic [$clog2(DATABEAT_SIZE):0] in_num_values;
+
 always_comb begin
     if (in_typ.valid) begin
         // This is required as simply using:
         //
         // logic [$clog2(DATABEAT_SIZE):0] typ_scale_factor;
         // assign typ_scale_factor = GET_TYPE_WIDTH(out_typ.data) / 8;
-        // assign next_remaining = remaining - (in_num_values / typ_scale_factor);
+        // assign next_remaining = remaining - (in_num_bytes / typ_scale_factor);
         //
         // results in a delayed signal, which is 0 when it shouldn't be, thus
         // resulting in malformed next_remaining data.
         case (in_typ.data)
             BYTE_T: begin
-                next_remaining = remaining - in_num_values;
+                in_num_values = in_num_bytes;
             end
             INT32_T, FLOAT_T: begin
-                next_remaining = remaining - (in_num_values / 4);
+                in_num_values = in_num_bytes / 4;
             end
             INT64_T, DOUBLE_T: begin
-                next_remaining = remaining - (in_num_values / 8);
+                in_num_values = in_num_bytes / 8;
             end
             default: begin
                 $fatal(1, "Unexpected type %d in TypedNormalizeUntil", in_typ.data);
             end
         endcase
     end else begin
-        next_remaining = remaining;
+        in_num_values = '0;
     end
 end
+
+size_t next_remaining;
+assign next_remaining = remaining - in_num_values;
 
 always_ff @(posedge clk) begin
     if (rst_n == 1'b0) begin

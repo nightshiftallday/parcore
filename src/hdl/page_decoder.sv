@@ -67,7 +67,7 @@ HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
     .NUM_BYTES(DATABEAT_SIZE)
-) inst_hybrid (
+) inst_hybrid_page_decoder (
     .clk(clk),
     .rst_n(reset_synced),
 
@@ -117,22 +117,34 @@ TypedDictionary #(
 
 // ------ Plain wiring ----------------------------
 ready_valid_i #(type_t) plain_type ();
-typed_ndata_i #(DATABEAT_SIZE) plain_out ();
+ndata_i #(data8_t, DATABEAT_SIZE) plain_inner (), plain_out ();
+
+StripLevels #(
+    .NUM_BYTES(DATABEAT_SIZE)
+) inst_strip_levels (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(ins[IN_PLAIN]),
+
+    .out(plain_inner)
+);
+
+DataCompactor #(data8_t, DATABEAT_SIZE) inst_compactor_plain (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(plain_inner),
+    .out(plain_out)
+);
+
 NDataToTypedNData #(DATABEAT_SIZE) inst_plain_typed_conversion (
     .clk(clk),
     .rst_n(reset_synced),
 
     .in_type(plain_type),
-    .in(ins[IN_PLAIN]),
-
-    .out(plain_out)
-);
-
-TypedNDataSkidBuffer #(DATABEAT_SIZE) inst_plain_skid_buffer (
-    .clk(clk),
-    .rst_n(reset_synced),
-
     .in(plain_out),
+
     .out(outs[OUT_PLAIN])
 );
 
