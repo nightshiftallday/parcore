@@ -141,8 +141,12 @@ VarintDecoder inst_varint_decoder (
 
 data8_t[3:0] expected_varint_data;
 assign expected_varint_data = data[varint_offset +: 4];
+
 assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (expected_varint_data ==? varint_in.data))
 else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%x), got 0b%b (%x)", state, varint_offset, offset, expected_varint_data, expected_varint_data, varint_in.data, varint_in.data);
+
+assert property (@(posedge clk) disable iff (!rst_n) varint_offset < NUM_BYTES)
+else $fatal(1, "varint_offset cannot be in the second half of the input");
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -377,23 +381,25 @@ task goto_decode_bpe(
     state <= ST_DECODE_BPE;
 endtask
 
+// START BPE ADVANCEMENT LOGIC
+logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
+logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - $clog2(8):0] next_bpe_offset_bytes;
+
+bpe_count_t next_bpe_count;
+bpe_offset_t next_bpe_offset;
+bpe_remaining_inputs_t  next_bpe_remaining_inputs;
+offset_t next_offset;
+
+assign next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
+assign next_bpe_offset_bytes = next_bpe_offset_bits / 8;
+
+assign next_bpe_count = bpe_count - NUM_ELEMENTS;
+assign next_bpe_offset = next_bpe_offset_bits % 8;
+assign next_bpe_remaining_inputs = bpe_remaining_inputs - 1;
+assign next_offset = offset + next_bpe_offset_bytes;
+// END BPE ADVANCEMENT LOGIC
+
 task advance_bpe();
-    logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
-    logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - $clog2(8):0] next_bpe_offset_bytes;
-
-    bpe_count_t next_bpe_count;
-    bpe_offset_t next_bpe_offset;
-    bpe_remaining_inputs_t  next_bpe_remaining_inputs;
-    offset_t next_offset;
-
-    next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
-    next_bpe_offset_bytes = next_bpe_offset_bits / 8;
-
-    next_bpe_count = bpe_count - NUM_ELEMENTS;
-    next_bpe_offset = next_bpe_offset_bits % 8;
-    next_bpe_remaining_inputs = bpe_remaining_inputs - 1;
-    next_offset = offset + next_bpe_offset_bytes;
-
     bpe_count <= next_bpe_count;
     bpe_offset <= next_bpe_offset;
     remaining_values <= remaining_values - NUM_ELEMENTS;
@@ -412,7 +418,7 @@ task advance_bpe();
         offset_t actual_varint_offset;
         logic next_varint_in_valid;
 
-        next_next_offset = next_offset + next_bpe_offset + packed_databeat_bytes;
+        next_next_offset = next_offset + ((next_bpe_offset + packed_databeat_bits) / 8);
         // The varint offset for the next next cycle, when the next and final
         // bpe encoded chunks will have been decoded, depends on whether we're
         // moving the next_offset beyond NUM_BYTES (and thus shifting the
@@ -420,7 +426,10 @@ task advance_bpe();
         // use a +64byte offest as in the current cycle the shift has not
         // happened yet.
         //
-        // TODO: comment on why `next_offset > varint_offset` is needed.
+        // The `next_offset > varint_offset` condition ensures that we're only
+        // looking into the second input half if the next offset is beyond the
+        // varint_offset, meaning that it is in the second half of the stream.
+        // The varint offset shall never be > 64.
         increment_varint_offset = next_offset > varint_offset && next_next_offset >= NUM_BYTES;
         actual_varint_offset = increment_varint_offset ? varint_offset + NUM_BYTES : varint_offset;
         next_varint_in_valid = next_varint_valid(keep, last_received, actual_varint_offset);
@@ -451,9 +460,12 @@ task finish_bpe();
         // which we're trying to decode and move to a state waiting for more input).
         goto_decode(next_remaining_values);
     end else begin
+        // NOTE: this update here is needed as this last BPE decoding might
+        // have involved receiving more input, meaning that the varint may now
+        // be valid.
         update_varint_data(data, varint_offset);
         varint_in.valid <= next_varint_valid(keep, last_received, varint_offset);
-        update_offset(varint_offset);
+        update_offset(next_offset);
 
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
@@ -698,7 +710,16 @@ ila_run_decoder inst_ila_run_decoder (
 
     .probe31(rle_out.ready),
     .probe32(rle_out.valid),
-    .probe33(rle_out.last)
+    .probe33(rle_out.last),
+
+    .probe34(data),
+    .probe35(keep),
+
+    .probe36(next_data),
+    .probe37(next_keep),
+
+    .probe38(in.data),
+    .probe39(in.keep)
 );
 `endif
 

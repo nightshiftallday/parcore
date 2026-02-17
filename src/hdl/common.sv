@@ -10,7 +10,6 @@ parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 7;
 parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES);
 parameter int ID_BITS = 19;
 parameter int BPE_MASK_SIZE = ID_BITS;
-// parameter int BPE_MASK_SIZE = 18;
 
 // We want to have 1MiB dictionaries. That would take 20 bits to index fully.
 // Since the TypedDictionary uses 32bit elements (4 bytes), we take 2 bits of (log2(4)).
