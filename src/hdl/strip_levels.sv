@@ -117,6 +117,10 @@ end
 assign in_inner.ready = state == ST_CONSUME || (state == ST_PIPE && out_inner.ready);
 
 always_comb begin
+    out_inner.data = '{default: 'x};
+    out_inner.keep = 'x;
+    out_inner.last = 'x;
+
     case (state)
         ST_PIPE: begin
             out_inner.data  = in_inner.data;

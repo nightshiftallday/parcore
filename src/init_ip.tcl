@@ -1,6 +1,6 @@
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_run_decoder
 set_property -dict [list \
-    CONFIG.C_NUM_OF_PROBES {38} \
+    CONFIG.C_NUM_OF_PROBES {40} \
     CONFIG.C_EN_STRG_QUAL {1} \
     CONFIG.C_PROBE0_WIDTH {1} \
     CONFIG.C_PROBE1_WIDTH {1} \
@@ -40,6 +40,6 @@ set_property -dict [list \
     CONFIG.C_PROBE35_WIDTH {128} \
     CONFIG.C_PROBE36_WIDTH {1024} \
     CONFIG.C_PROBE37_WIDTH {128} \
-    CONFIG.C_PROBE37_WIDTH {512} \
-    CONFIG.C_PROBE37_WIDTH {64} \
+    CONFIG.C_PROBE38_WIDTH {512} \
+    CONFIG.C_PROBE39_WIDTH {64} \
 ] [get_ips ila_run_decoder]

@@ -23,6 +23,15 @@ module RunDecoder #(
 
 `RESET_RESYNC // Reset pipelining
 
+// This is a simplification made to have better timing closure. Under this
+// assumption, all bitpacking encodings are bit_width * NUM_ELEMENTS bits
+// long. Because NUM_ELEMENTS is divisible by 8, then so is the number of bits
+// of each BPE run. Thanks to that, there is never any bit-level offset
+// between BPE sections, and we can thus avoid keeping track of that,
+// simplifying indexing and avoiding some divisions (which would in turn
+// require DSPs on the critical path).
+`ASSERT_ELAB(NUM_ELEMENTS % 8 == 0);
+
 localparam int MAX_IN_TRANSIT = 8;
 localparam int DATA_SIZE = ($bits(data_t) + 7) / 8;
 localparam int VARINT_OFFSET_COMPUTATION_WIDTH = 18;
@@ -110,11 +119,6 @@ typedef logic [BASE_BITS - $clog2(NUM_ELEMENTS) - 1:0] bpe_remaining_inputs_t;
 bpe_count_t bpe_count;
 bpe_remaining_inputs_t bpe_remaining_inputs; 
 
-// bpe_offset is the number of offset bits to add on top of the byte offset
-// global to the decoder.
-typedef logic[$clog2(NUM_ELEMENTS) * $bits(bit_width_t) - 1:0] bpe_offset_t;
-bpe_offset_t bpe_offset;
-
 
 // ------- Combinatorial state (decoders) ---
 // This is a bit-level view of the data
@@ -144,9 +148,6 @@ assign expected_varint_data = data[varint_offset +: 4];
 
 assert property (@(posedge clk) disable iff (!rst_n) !varint_in.valid || (expected_varint_data ==? varint_in.data))
 else $fatal(1, "Varint input data does not match the data at the current offset. In state %d, at varint_offset 0x%x, offset 0x%x, expected 0b%b (%x), got 0b%b (%x)", state, varint_offset, offset, expected_varint_data, expected_varint_data, varint_in.data, varint_in.data);
-
-assert property (@(posedge clk) disable iff (!rst_n) varint_offset < NUM_BYTES)
-else $fatal(1, "varint_offset cannot be in the second half of the input");
 
 // Combinatorial shift values from the varint value used to compute rle_count
 // and bpe_count.
@@ -222,7 +223,7 @@ ExpandBPE #(
 );
 
 // NOTE: ExpandBPE doesn't look at the keep signals.
-assign bpe_in.data = bpe_data[offset * 8 + bpe_offset +: $bits(data_t) * NUM_ELEMENTS];
+assign bpe_in.data = bpe_data[offset * 8 +: $bits(data_t) * NUM_ELEMENTS];
 assign bpe_in.last = bpe_count <= NUM_ELEMENTS;
 assign bpe_in.tag = bpe_in_tag;
 // OPTIMIZATION: here we're only checking for the first and last bit of the
@@ -315,7 +316,6 @@ task reset();
 
     rle_width <= '0;
     rle_count <= '0;
-    bpe_offset <= '0;
     bpe_count <= '0;
 endtask
 
@@ -338,10 +338,9 @@ task goto_decode(input data32_t remaining_values);
         state <= ST_DECODE_BPE;
 
         // Compute BPE properties
-        bpe_offset <= 0;
         bpe_count <= next_bpe_count;
 
-        goto_decode_bpe(bpe_offset, next_bpe_padded_count, offset_after_varint);
+        goto_decode_bpe(next_bpe_padded_count, offset_after_varint);
     end else begin
         // Compute RLE properties
         rle_count <= varint_no_encoding;
@@ -351,7 +350,6 @@ task goto_decode(input data32_t remaining_values);
 endtask
 
 task goto_decode_bpe(
-    input bpe_offset_t bpe_offst,
     input bpe_count_t bpe_padded_cnt,
     input offset_t offst
 );
@@ -381,27 +379,16 @@ task goto_decode_bpe(
     state <= ST_DECODE_BPE;
 endtask
 
-// START BPE ADVANCEMENT LOGIC
-logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t):0] next_bpe_offset_bits;
-logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - $clog2(8):0] next_bpe_offset_bytes;
-
-bpe_count_t next_bpe_count;
-bpe_offset_t next_bpe_offset;
-bpe_remaining_inputs_t  next_bpe_remaining_inputs;
-offset_t next_offset;
-
-assign next_bpe_offset_bits = bpe_offset + packed_databeat_bits;
-assign next_bpe_offset_bytes = next_bpe_offset_bits / 8;
-
-assign next_bpe_count = bpe_count - NUM_ELEMENTS;
-assign next_bpe_offset = next_bpe_offset_bits % 8;
-assign next_bpe_remaining_inputs = bpe_remaining_inputs - 1;
-assign next_offset = offset + next_bpe_offset_bytes;
-// END BPE ADVANCEMENT LOGIC
-
 task advance_bpe();
+    bpe_count_t next_bpe_count;
+    bpe_remaining_inputs_t  next_bpe_remaining_inputs;
+    offset_t next_offset;
+
+    next_bpe_count = bpe_count - NUM_ELEMENTS;
+    next_bpe_remaining_inputs = bpe_remaining_inputs - 1;
+    next_offset = offset + packed_databeat_bytes;
+
     bpe_count <= next_bpe_count;
-    bpe_offset <= next_bpe_offset;
     remaining_values <= remaining_values - NUM_ELEMENTS;
     bpe_remaining_inputs <= next_bpe_remaining_inputs;
     update_offset(next_offset);
@@ -418,7 +405,7 @@ task advance_bpe();
         offset_t actual_varint_offset;
         logic next_varint_in_valid;
 
-        next_next_offset = next_offset + ((next_bpe_offset + packed_databeat_bits) / 8);
+        next_next_offset = next_offset + packed_databeat_bytes;
         // The varint offset for the next next cycle, when the next and final
         // bpe encoded chunks will have been decoded, depends on whether we're
         // moving the next_offset beyond NUM_BYTES (and thus shifting the
@@ -465,7 +452,7 @@ task finish_bpe();
         // be valid.
         update_varint_data(data, varint_offset);
         varint_in.valid <= next_varint_valid(keep, last_received, varint_offset);
-        update_offset(next_offset);
+        update_offset(varint_offset);
 
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
@@ -691,7 +678,7 @@ ila_run_decoder inst_ila_run_decoder (
 
     .probe16(remaining_values),
     .probe17(bpe_count),
-    .probe18(bpe_offset),
+    .probe18('0),
     .probe19(bpe_remaining_inputs),
     .probe20(rle_width),
     .probe21(rle_count),

@@ -130,6 +130,8 @@ assign in_num_bytes = $countones(in_inner.keep);
 logic [$clog2(DATABEAT_SIZE):0] in_num_values;
 
 always_comb begin
+    in_num_values = '0;
+
     if (in_typ.valid) begin
         // This is required as simply using:
         //
@@ -153,8 +155,6 @@ always_comb begin
                 $fatal(1, "Unexpected type %d in TypedNormalizeUntil", in_typ.data);
             end
         endcase
-    end else begin
-        in_num_values = '0;
     end
 end
 

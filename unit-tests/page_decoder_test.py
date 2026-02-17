@@ -83,7 +83,7 @@ def make_plain_data(items: list[int]) -> _ColumnChunk:
     page = plain_page(items)
     page.last = True
     num_values = len(items)
-    return _ColumnChunk(compression=False, num_values=num_values, hybrid_num_values=num_values, pages=[page])
+    return _ColumnChunk(compression=False, num_values=num_values, hybrid_num_values=0, pages=[page])
 
 def make_tricky(filename: str, num_values: int, items: list[int], factor: int) -> _ColumnChunk:
     files = [(filename + '_dict_decompressed.bin', _PageType.DICT)] + [(filename + '_chunk_decompressed.bin', _PageType.HYBRID)] * factor
