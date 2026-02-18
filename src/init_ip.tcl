@@ -43,3 +43,84 @@ set_property -dict [list \
     CONFIG.C_PROBE38_WIDTH {512} \
     CONFIG.C_PROBE39_WIDTH {64} \
 ] [get_ips ila_run_decoder]
+
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_page_decoder
+set_property -dict [list \
+    CONFIG.C_NUM_OF_PROBES {20} \
+    CONFIG.C_EN_STRG_QUAL {1} \
+    CONFIG.C_PROBE0_WIDTH {1} \
+    CONFIG.C_PROBE1_WIDTH {2} \
+    CONFIG.C_PROBE2_WIDTH {1} \
+    CONFIG.C_PROBE3_WIDTH {1} \
+    CONFIG.C_PROBE4_WIDTH {1} \
+    CONFIG.C_PROBE5_WIDTH {2} \
+    CONFIG.C_PROBE6_WIDTH {1} \
+    CONFIG.C_PROBE7_WIDTH {1} \
+    CONFIG.C_PROBE8_WIDTH {1} \
+    CONFIG.C_PROBE9_WIDTH {1} \
+    CONFIG.C_PROBE10_WIDTH {1} \
+    CONFIG.C_PROBE11_WIDTH {32} \
+    CONFIG.C_PROBE11_WIDTH {1} \
+    CONFIG.C_PROBE13_WIDTH {1} \
+    CONFIG.C_PROBE14_WIDTH {1} \
+    CONFIG.C_PROBE15_WIDTH {64} \
+    CONFIG.C_PROBE16_WIDTH {1} \
+    CONFIG.C_PROBE17_WIDTH {1} \
+    CONFIG.C_PROBE18_WIDTH {1} \
+    CONFIG.C_PROBE19_WIDTH {64} \
+] [get_ips ila_page_decoder]
+
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_hybrid_page_decoder
+set_property -dict [list \
+    CONFIG.C_NUM_OF_PROBES {10} \
+    CONFIG.C_EN_STRG_QUAL {1} \
+    CONFIG.C_PROBE0_WIDTH {1} \
+    CONFIG.C_PROBE1_WIDTH {2} \
+    CONFIG.C_PROBE2_WIDTH {1} \
+    CONFIG.C_PROBE3_WIDTH {1} \
+    CONFIG.C_PROBE4_WIDTH {1} \
+    CONFIG.C_PROBE5_WIDTH {64} \
+    CONFIG.C_PROBE6_WIDTH {1} \
+    CONFIG.C_PROBE7_WIDTH {1} \
+    CONFIG.C_PROBE8_WIDTH {1} \
+    CONFIG.C_PROBE9_WIDTH {64} \
+] [get_ips ila_hybrid_page_decoder]
+
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_decompressor
+set_property -dict [list \
+    CONFIG.C_NUM_OF_PROBES {18} \
+    CONFIG.C_EN_STRG_QUAL {1} \
+    CONFIG.C_PROBE0_WIDTH {1} \
+    CONFIG.C_PROBE1_WIDTH {1} \
+    CONFIG.C_PROBE2_WIDTH {1} \
+    CONFIG.C_PROBE3_WIDTH {1} \
+    CONFIG.C_PROBE4_WIDTH {1} \
+    CONFIG.C_PROBE5_WIDTH {1} \
+    CONFIG.C_PROBE6_WIDTH {1} \
+    CONFIG.C_PROBE7_WIDTH {1} \
+    CONFIG.C_PROBE8_WIDTH {1} \
+    CONFIG.C_PROBE9_WIDTH {1} \
+    CONFIG.C_PROBE10_WIDTH {1} \
+    CONFIG.C_PROBE11_WIDTH {1} \
+    CONFIG.C_PROBE12_WIDTH {1} \
+    CONFIG.C_PROBE13_WIDTH {64} \
+    CONFIG.C_PROBE14_WIDTH {1} \
+    CONFIG.C_PROBE15_WIDTH {1} \
+    CONFIG.C_PROBE16_WIDTH {1} \
+    CONFIG.C_PROBE17_WIDTH {64} \
+] [get_ips ila_decompressor]
+
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_top
+set_property -dict [list \
+    CONFIG.C_NUM_OF_PROBES {9} \
+    CONFIG.C_EN_STRG_QUAL {1} \
+    CONFIG.C_PROBE0_WIDTH {1} \
+    CONFIG.C_PROBE1_WIDTH {1} \
+    CONFIG.C_PROBE2_WIDTH {1} \
+    CONFIG.C_PROBE3_WIDTH {1} \
+    CONFIG.C_PROBE4_WIDTH {64} \
+    CONFIG.C_PROBE5_WIDTH {1} \
+    CONFIG.C_PROBE6_WIDTH {1} \
+    CONFIG.C_PROBE7_WIDTH {1} \
+    CONFIG.C_PROBE8_WIDTH {64} \
+] [get_ips ila_top]

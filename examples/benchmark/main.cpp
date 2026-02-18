@@ -57,6 +57,20 @@ void time(std::string file_path, parcore::Reader &reader,
               << fpga_us << "," << cpu_us << std::endl;
 }
 
+template <typename T>
+T get_config(std::shared_ptr<coyote::cThread> &cthread,
+             libstf::GlobalConfig &global_config) {
+  if (!global_config.has_config(T::ID)) {
+    auto name = std::string(typeid(T).name());
+    throw std::runtime_error("flashed design doesn't have " + name);
+  }
+
+  auto addr_offset = std::get<0>(global_config.get_config_bounds(T::ID));
+  T config(cthread, addr_offset);
+
+  return config;
+}
+
 void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
@@ -98,7 +112,13 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
       global_config.get_config_bounds(parcore::PageDecoderConfig::ID));
   parcore::PageDecoderConfig decoder_config(cthread, addr_offset);
 
-  parcore::Reader reader(cthread, pool, tlb, decoder_config, meta, data);
+  auto column_chunk_config =
+      get_config<parcore::ColumnChunkDecoderConfig>(cthread, global_config);
+  auto page_config =
+      get_config<parcore::PageDecoderConfig>(cthread, global_config);
+
+  parcore::Reader reader(cthread, pool, tlb, column_chunk_config, page_config,
+                         meta, data);
 
   for (size_t i = 0; i < meta.groups.size(); ++i) {
     auto group = meta.groups[i];

@@ -353,4 +353,36 @@ end
 assign column_chunk_conf.ready = state == ST_IDLE;
 assign page_conf.ready = state == ST_CONFIGURED;
 
+`ifdef SYNTHESIS
+ila_page_decoder inst_ila_page_decoder (
+    .clk(clk),
+    .probe0(reset_synced),
+
+    .probe1(state),
+    .probe2(last_page),
+
+    .probe3(in_select.ready),
+    .probe4(in_select.valid),
+    .probe5(in_select.data),
+
+    .probe6(out_select.ready),
+    .probe7(out_select.valid),
+    .probe8(out_select.data),
+
+    .probe9(hybrid_conf.ready),
+    .probe10(hybrid_conf.valid),
+    .probe11(hybrid_conf.data),
+
+    .probe12(decompressor_out.ready),
+    .probe13(decompressor_out.valid),
+    .probe14(decompressor_out.last),
+    .probe15(decompressor_out.keep),
+
+    .probe16(ins[IN_HYBRID].ready),
+    .probe17(ins[IN_HYBRID].valid),
+    .probe18(decompressor_out.last),
+    .probe19(ins[IN_HYBRID].keep)
+);
+`endif
+
 endmodule

@@ -107,3 +107,18 @@ ColumnChunkDecoder #(
     .in(in),
     .out(out)
 );
+
+ila_top inst_ila_top (
+    .clk(clk),
+    .probe0(rst_n),
+
+    .probe1(axi_host_recv_0.tready),
+    .probe2(axi_host_recv_0.tvalid),
+    .probe3(axi_host_recv_0.tlast),
+    .probe4(axi_host_recv_0.tkeep),
+
+    .probe5(in.ready),
+    .probe6(in.valid),
+    .probe7(in.last),
+    .probe8(in.keep)
+);

@@ -28,8 +28,9 @@ private:
     std::shared_ptr<libstf::Buffer> buffer;
     bool full;
 
-    ColumnChunkData(std::shared_ptr<libstf::Buffer> buffer,
-                    const metadata::ColumnChunk &cc);
+    ColumnChunkData(std::shared_ptr<coyote::cThread> cthread,
+                    std::shared_ptr<libstf::Buffer> buffer,
+                    const metadata::ColumnChunk &cc, libstf::stream_t decoder);
 
     bool is_full();
 

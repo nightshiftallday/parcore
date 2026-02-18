@@ -34,17 +34,40 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
     sg.stream = coyote::STRM_HOST;
     sg.dest = decoder;
 
+    std::cout << "sending data at " << std::hex << curr_ptr << " " << std::dec
+              << input_size << std::endl;
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
+    cthread->clearCompleted();
     cthread->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
+    std::cout << "waiting to send input" << std::endl;
+    while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
+      ;
+    std::cout << "sent" << std::endl;
     Profiler::close_regions({reader_prefix + "local_read"});
   }
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
 }
 
-Reader::ColumnChunkData::ColumnChunkData(std::shared_ptr<libstf::Buffer> buffer,
-                                         const metadata::ColumnChunk &cc)
-    : buffer(std::move(buffer)), full(false) {}
+Reader::ColumnChunkData::ColumnChunkData(
+    std::shared_ptr<coyote::cThread> cthread,
+    std::shared_ptr<libstf::Buffer> buffer, const metadata::ColumnChunk &cc,
+    libstf::stream_t decoder)
+    : buffer(std::move(buffer)), full(false) {
+  std::cout << "collecting output at " << std::hex << this->buffer->ptr << " "
+            << std::dec << this->buffer->size << std::endl;
+  coyote::localSg result_sg = {
+      .addr = this->buffer->ptr,
+      .len = static_cast<uint32_t>(this->buffer->size),
+      .stream = coyote::STRM_HOST,
+      .dest = decoder,
+  };
+
+  cthread->clearCompleted();
+  Profiler::open_regions({reader_prefix + "local_write (invoke)"});
+  cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
+  Profiler::close_regions({reader_prefix + "local_write (invoke)"});
+}
 
 bool Reader::ColumnChunkData::is_full() { return full; }
 
@@ -52,22 +75,14 @@ void Reader::ColumnChunkData::collect(std::shared_ptr<coyote::cThread> cthread,
                                       libstf::stream_t decoder) {
   Profiler::open_regions({reader_prefix + "collect_output"});
 
-  std::cout << "collecting output at " << std::hex << buffer->ptr << " "
-            << std::dec << buffer->size << std::endl;
-  coyote::localSg result_sg = {
-      .addr = buffer->ptr,
-      .len = static_cast<uint32_t>(buffer->size),
-      .stream = coyote::STRM_HOST,
-      .dest = decoder,
-  };
-
-  Profiler::open_regions({reader_prefix + "local_write"});
-  cthread->clearCompleted();
-  cthread->invoke(coyote::CoyoteOper::LOCAL_WRITE, result_sg);
+  Profiler::open_regions({reader_prefix + "local_write (complete)"});
+  std::cout << "waiting to receive output " << std::endl;
   while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
     ;
-  Profiler::close_regions({reader_prefix + "local_write"});
+  std::cout << "received" << std::endl;
+  Profiler::close_regions({reader_prefix + "local_write (complete)"});
 
+  full = true;
   Profiler::close_regions({reader_prefix + "collect_output"});
 }
 
@@ -126,9 +141,19 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   }
   auto column_chunk = group.chunks[column];
 
+  std::cout << "configuring column chunk compression = "
+            << column_chunk.compression
+            << ", num_values = " << column_chunk.num_values
+            << ", hybrid_num_values = " << column_chunk.hybrid_num_values
+            << std::endl;
   column_chunk_config.process_column_chunk(
       decoder, column_chunk.compression, column_chunk.num_values,
       column_chunk.hybrid_num_values, column_chunk.type);
+
+  // Storing the result handle in the queue
+  auto cell_size = libstf::size_of(column_chunk.type);
+  auto size = cell_size * column_chunk.num_values;
+  ColumnChunkData ccd(cthread, allocate_buffer(size), column_chunk, decoder);
 
   if (column_chunk.dictionary != std::nullopt) {
     page_config.process_page(decoder, PageType::DICT,
@@ -136,18 +161,12 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
     send_page(*column_chunk.dictionary, PageType::DICT);
   }
 
-  auto cell_size = libstf::size_of(column_chunk.type);
-  auto size = cell_size * column_chunk.num_values;
-  ColumnChunkData ccd(allocate_buffer(size), column_chunk);
-
   size_t i = 0;
   for (auto page : column_chunk.data) {
     bool last = i == column_chunk.data.size() - 1;
-
     page_config.process_page(decoder, PageType::DATA, page.encoding,
                              page.num_values, last);
     send_page(page, PageType::DATA);
-
     ++i;
   }
 

@@ -27,8 +27,6 @@ using libstf::Profiler;
 // is the only possible value
 #define DEFAULT_VFPGA_ID 0
 
-const std::string separator = std::string(80, '-');
-
 void diff(const void *d1, const void *d2, size_t size) {
   auto d1b = reinterpret_cast<const uint8_t *>(d1);
   auto d2b = reinterpret_cast<const uint8_t *>(d2);
@@ -76,18 +74,18 @@ int main(int argc, char *argv[]) {
   Profiler::init();
 
   std::string parquet_file;
-  size_t start, end;
+  size_t i, j;
 
   boost::program_options::options_description runtime_options(
-      "Parcore readfile");
+      "Read a single column chunk from a parquet file");
   runtime_options.add_options()(
-      "file,f", boost::program_options::value<std::string>(&parquet_file),
+      "file,f",
+      boost::program_options::value<std::string>(&parquet_file)->required(),
       "Path to the parquet file to parse")(
-      "start,s",
-      boost::program_options::value<size_t>(&start)->default_value(0),
-      "The first page to process")(
-      "end,e", boost::program_options::value<size_t>(&end)->default_value(0),
-      "The last page to process. 0 means to process all");
+      "group,i", boost::program_options::value<size_t>(&i)->default_value(0),
+      "The group index (the i-th chunk will be loaded)")(
+      "column,j", boost::program_options::value<size_t>(&j)->default_value(0),
+      "The column index (the j-th column will be loaded)");
   boost::program_options::variables_map command_line_arguments;
   boost::program_options::store(
       boost::program_options::parse_command_line(argc, argv, runtime_options),
@@ -97,10 +95,6 @@ int main(int argc, char *argv[]) {
   Profiler::start();
 
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
-  if (end <= 0)
-    end = meta.groups.size();
-  if (start > meta.groups.size() || start > end || end > meta.groups.size())
-    throw std::runtime_error("invalid start/end bounds");
 
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
 #ifdef ENABLE_SIMULATION
@@ -142,53 +136,50 @@ int main(int argc, char *argv[]) {
   parcore::Reader reader(cthread, pool, tlb, column_chunk_config, page_config,
                          meta, data);
 
-  for (size_t i = start; i < end; ++i) {
-    auto group = meta.groups[i];
-    for (size_t j = 0; j < group.chunks.size(); ++j) {
-      if (j == 0)
-        continue;
-      auto chunk = group.chunks[j];
+  if (i < 0 || i > meta.groups.size())
+    throw std::runtime_error("invalid group (i)");
+  auto group = meta.groups[i];
 
-      std::cout << separator << std::endl;
-      std::cout << "Decoding column chunk " << i << ":" << j << ":"
-                << std::endl;
-      std::cout << "\tcompression: " << chunk.compression << std::endl;
-      std::cout << "\ttype: " << chunk.type << std::endl;
-      std::cout << "\tdictionary: " << (chunk.dictionary != std::nullopt)
-                << std::endl;
+  if (j < 0 || j > group.chunks.size())
+    throw std::runtime_error("invalid column (j)");
+  auto chunk = group.chunks[j];
 
-      auto start = std::chrono::high_resolution_clock::now();
+  std::cout << "Decoding column chunk " << i << ":" << j << ":" << std::endl;
+  std::cout << "\tcompression: " << chunk.compression << std::endl;
+  std::cout << "\ttype: " << chunk.type << std::endl;
+  std::cout << "\tdictionary: " << (chunk.dictionary != std::nullopt)
+            << std::endl;
 
-      reader.enqueue_column_chunk(i, j);
-      auto fpga_data = reader.next_column_chunk();
+  auto start = std::chrono::high_resolution_clock::now();
 
-      auto end = std::chrono::high_resolution_clock::now();
-      auto fpga_us =
-          std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-              .count();
+  reader.enqueue_column_chunk(i, j);
+  auto fpga_data = reader.next_column_chunk();
 
-      start = std::chrono::high_resolution_clock::now();
+  auto end = std::chrono::high_resolution_clock::now();
+  auto fpga_us =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+          .count();
 
-      auto cpu_data_raw = parcore::cpu::read_column_chunk(file, i, j);
+  start = std::chrono::high_resolution_clock::now();
 
-      end = std::chrono::high_resolution_clock::now();
-      auto cpu_us =
-          std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-              .count();
-      std::cout << "\tcompleted! FPGA took " << fpga_us << "us, CPU took "
-                << cpu_us << "us" << std::endl;
+  auto cpu_data_raw = parcore::cpu::read_column_chunk(file, i, j);
 
-      std::vector<uint8_t> cpu_data;
-      for (const auto &cc : cpu_data_raw->chunks()) {
-        auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
-        const uint8_t *data = arr->data()->GetValues<uint8_t>(1);
-        size_t byte_size = arr->length() * libstf::size_of(chunk.type);
-        cpu_data.insert(cpu_data.end(), data, data + byte_size);
-      }
+  end = std::chrono::high_resolution_clock::now();
+  auto cpu_us =
+      std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+          .count();
+  std::cout << "\tcompleted! FPGA took " << fpga_us << "us, CPU took " << cpu_us
+            << "us" << std::endl;
 
-      diff(cpu_data.data(), fpga_data->ptr, fpga_data->size);
-    }
+  std::vector<uint8_t> cpu_data;
+  for (const auto &cc : cpu_data_raw->chunks()) {
+    auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
+    const uint8_t *data = arr->data()->GetValues<uint8_t>(1);
+    size_t byte_size = arr->length() * libstf::size_of(chunk.type);
+    cpu_data.insert(cpu_data.end(), data, data + byte_size);
   }
+
+  diff(cpu_data.data(), fpga_data->ptr, fpga_data->size);
 
   Profiler::flush();
   return EXIT_SUCCESS;

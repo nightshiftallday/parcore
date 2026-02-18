@@ -67,7 +67,7 @@ NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (
 );
 
 // ------- State machine ---------
-typedef enum logic [2:0] {
+typedef enum logic [1:0] {
     ST_IDLE,
     ST_WAIT,
     ST_CONSUME,
@@ -183,5 +183,24 @@ assign run_decoder_in.keep = in.keep;
 assign run_decoder_in.last = in.last;
 
 assign run_decoder_conf.valid = in.valid && run_decoder_conf_valid;
+
+`ifdef SYNTHESIS
+ila_hybrid_page_decoder inst_hybrid_ila_page_decoder (
+    .clk(clk),
+    .probe0(reset_synced),
+
+    .probe1(state),
+
+    .probe2(in.ready),
+    .probe3(in.valid),
+    .probe4(in.last),
+    .probe5(in.keep),
+
+    .probe6(run_decoder_in.ready),
+    .probe7(run_decoder_in.valid),
+    .probe8(run_decoder_in.last),
+    .probe9(run_decoder_in.keep)
+);
+`endif
 
 endmodule

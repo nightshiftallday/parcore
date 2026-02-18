@@ -21,8 +21,6 @@ module Decompressor #(
     ndata_i.m out             // #(data8_t, NUM_BYTES)
 );
 
-localparam int MAX_IN_TRANSIT = 8;
-
 `RESET_RESYNC // Reset pipelining
 
 ndata_i #(data8_t, NUM_BYTES) ins[1:0] ();
@@ -87,5 +85,34 @@ DataMultiplexer #(data8_t, NUM_BYTES, 2) inst_multiplexer (
     .in(outs),
     .out(out)
 );
+
+`ifdef SYNTHESIS
+ila_decompressor inst_ila_decompressor (
+    .clk(clk),
+    .probe0(reset_synced),
+
+    .probe1(conf.ready),
+    .probe2(conf.valid),
+    .probe3(conf.data),
+
+    .probe4(confs[0].ready),
+    .probe5(confs[0].valid),
+    .probe6(confs[0].data),
+
+    .probe7(confs[0].ready),
+    .probe8(confs[0].valid),
+    .probe9(confs[0].data),
+
+    .probe10(in.ready),
+    .probe11(in.valid),
+    .probe12(in.last),
+    .probe13(in.keep),
+
+    .probe14(outs[1].ready),
+    .probe15(outs[1].valid),
+    .probe16(outs[1].last),
+    .probe17(outs[1].keep)
+);
+`endif
 
 endmodule
