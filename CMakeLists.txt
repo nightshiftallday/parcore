@@ -10,7 +10,7 @@ set(COMP_CORES 32)
 set(N_REGIONS 1)
 set(BUILD_OPT 1)
 set(EN_STRM 1)
-set(N_STRM_AXI 1)
+set(N_STRM_AXI 4)
 set(FDEV_NAME u55c)
 set(DEBUG 1)
 
