@@ -11,7 +11,8 @@ import libstf::data8_t;
 module NormalizeUntil #(
     type data_t,
     type size_t,
-    parameter NUM_ELEMENTS = AXI_DATA_BITS / 8
+    parameter NUM_ELEMENTS = AXI_DATA_BITS / 8,
+    parameter ENABLE_COMPACTOR = 0
 ) (
     input logic clk,
     input logic rst_n,
@@ -66,7 +67,7 @@ NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_in_skid_buffer  (
 DataNormalizer #(
     .data_t(data_t),
     .NUM_ELEMENTS(NUM_ELEMENTS),
-    .ENABLE_COMPACTOR(0)
+    .ENABLE_COMPACTOR(ENABLE_COMPACTOR)
 ) inst_data_normalizer (
     .clk(clk),
     .rst_n(reset_synced),
@@ -93,7 +94,8 @@ endmodule
 
 module TypedNormalizeUntil #(
     type size_t,
-    parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
+    parameter DATABEAT_SIZE = AXI_DATA_BITS / 8,
+    parameter ENABLE_COMPACTOR = 0
 ) (
     input logic clk,
     input logic rst_n,
@@ -228,7 +230,7 @@ assign normalizer_in.last = in_inner.last && next_remaining == 0;
 DataNormalizer #(
     .data_t(data8_t),
     .NUM_ELEMENTS(DATABEAT_SIZE),
-    .ENABLE_COMPACTOR(0)
+    .ENABLE_COMPACTOR(ENABLE_COMPACTOR)
 ) inst_data_normalizer (
     .clk(clk),
     .rst_n(reset_synced),
@@ -249,7 +251,6 @@ assign untyped_out.ready = out.ready && out_typ.valid;
 assign out.valid = untyped_out.valid && out_typ.valid;
 assign out.data = untyped_out.data;
 assign out.keep = untyped_out.keep;
-assign out.last = untyped_out.last;
 assign out.last = untyped_out.last;
 assign out.typ = out_typ.data;
 

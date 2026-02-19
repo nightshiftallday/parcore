@@ -10,7 +10,7 @@ import parcore::*;
 
 // This module strips the repetition and definition levels from the start of
 // a page. NOTE: this module produces transfers with invalid keeps, and should be
-// followed by a data compactor.
+// followed by a data normalizer with compactor.
 module StripLevels #(
     parameter NUM_BYTES = AXI_DATA_BITS / 8
 ) (
