@@ -16,8 +16,8 @@
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
+#include <parcore/file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/reader.hpp>
 #include <unistd.h>
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
@@ -84,25 +84,11 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
 #endif
 
-  std::ifstream in(parquet_file, std::ios::binary);
-  if (!in) {
-    throw std::runtime_error("could not open file at: " + parquet_file);
+  auto maybe_file = arrow::io::ReadableFile::Open(parquet_file);
+  if (!maybe_file.ok()) {
+    throw std::runtime_error(maybe_file.status().ToString());
   }
-  auto data_vector = std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                          std::istreambuf_iterator<char>());
-
-  void *data_ptr;
-  auto status = pool->allocate(data_vector.size(), &data_ptr);
-  if (!status.ok()) {
-    throw std::runtime_error(
-        "could not allocate memory for parquet file data: " + status.message());
-  }
-  auto data = libstf::make_buffer(pool, data_ptr, data_vector.size(),
-                                  data_vector.size());
-  std::memcpy(data->ptr, data_vector.data(), data_vector.size());
-
-  auto file =
-      std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
+  std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
 
   libstf::GlobalConfig global_config(cthread);
   if (!global_config.has_config(parcore::PageDecoderConfig::ID)) {
@@ -117,8 +103,8 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   auto page_config =
       get_config<parcore::PageDecoderConfig>(cthread, global_config);
 
-  parcore::Reader reader(cthread, pool, tlb, column_chunk_config, page_config,
-                         meta, data);
+  parcore::FileReader reader(cthread, pool, tlb, column_chunk_config,
+                             page_config, parquet_file);
 
   for (size_t i = 0; i < meta.groups.size(); ++i) {
     auto group = meta.groups[i];

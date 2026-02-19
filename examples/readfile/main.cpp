@@ -18,8 +18,8 @@
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
+#include <parcore/file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/reader.hpp>
 
 using libstf::Profiler;
 
@@ -113,25 +113,11 @@ int main(int argc, char *argv[]) {
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
 #endif
 
-  std::ifstream in(parquet_file, std::ios::binary);
-  if (!in) {
-    throw std::runtime_error("could not open file at: " + parquet_file);
+  auto maybe_file = arrow::io::ReadableFile::Open(parquet_file);
+  if (!maybe_file.ok()) {
+    throw std::runtime_error(maybe_file.status().ToString());
   }
-  auto data_vector = std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                          std::istreambuf_iterator<char>());
-
-  void *data_ptr;
-  auto status = pool->allocate(data_vector.size(), &data_ptr);
-  if (!status.ok()) {
-    throw std::runtime_error(
-        "could not allocate memory for parquet file data: " + status.message());
-  }
-  auto data = libstf::make_buffer(pool, data_ptr, data_vector.size(),
-                                  data_vector.size());
-  std::memcpy(data->ptr, data_vector.data(), data_vector.size());
-
-  auto file =
-      std::make_shared<parcore::cpu::InMemoryRandomAccessFile>(data_vector);
+  std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
 
   libstf::GlobalConfig global_config(cthread);
   auto column_chunk_config =
@@ -139,8 +125,8 @@ int main(int argc, char *argv[]) {
   auto page_config =
       get_config<parcore::PageDecoderConfig>(cthread, global_config);
 
-  parcore::Reader reader(cthread, pool, tlb, column_chunk_config, page_config,
-                         meta, data);
+  parcore::FileReader reader(cthread, pool, tlb, column_chunk_config,
+                             page_config, parquet_file);
 
   for (size_t i = start; i < end; ++i) {
     auto group = meta.groups[i];

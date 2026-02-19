@@ -76,7 +76,7 @@ protected:
   void enqueue_stream_input(const libstf::Buffer &buffer);
 
   // Sends a dictionary or data pge to be processed by the accelerator
-  void send_page(const metadata::Page &page, PageType page_type);
+  virtual void send_page(const metadata::Page &page, PageType page_type);
 };
 
 } // namespace parcore

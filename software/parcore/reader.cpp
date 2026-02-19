@@ -35,15 +35,14 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
     sg.dest = decoder;
 
     std::cout << "sending data at " << std::hex << curr_ptr << " " << std::dec
-              << input_size << std::endl;
+              << input_size << "..." << std::flush;
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
     cthread->clearCompleted();
     cthread->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
-    std::cout << "waiting to send input" << std::endl;
     while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
       ;
-    std::cout << "sent" << std::endl;
+    std::cout << "done" << std::endl;
     Profiler::close_regions({reader_prefix + "local_read"});
   }
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
@@ -54,8 +53,8 @@ Reader::ColumnChunkData::ColumnChunkData(
     std::shared_ptr<libstf::Buffer> buffer, const metadata::ColumnChunk &cc,
     libstf::stream_t decoder)
     : buffer(std::move(buffer)), full(false) {
-  std::cout << "collecting output at " << std::hex << this->buffer->ptr << " "
-            << std::dec << this->buffer->size << std::endl;
+  // std::cout << "collecting output at " << std::hex << this->buffer->ptr << "
+  // " << std::dec << this->buffer->size << std::endl;
   coyote::localSg result_sg = {
       .addr = this->buffer->ptr,
       .len = static_cast<uint32_t>(this->buffer->size),
@@ -75,12 +74,12 @@ void Reader::ColumnChunkData::collect(std::shared_ptr<coyote::cThread> cthread,
                                       libstf::stream_t decoder) {
   Profiler::open_regions({reader_prefix + "collect_output"});
 
-  Profiler::open_regions({reader_prefix + "local_write (complete)"});
-  std::cout << "waiting to receive output " << std::endl;
+  Profiler::open_regions({reader_prefix + "local_write_complete"});
+  std::cout << "waiting on output..." << std::flush;
   while (cthread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) < 1)
     ;
-  std::cout << "received" << std::endl;
-  Profiler::close_regions({reader_prefix + "local_write (complete)"});
+  std::cout << "done" << std::endl;
+  Profiler::close_regions({reader_prefix + "local_write_complete"});
 
   full = true;
   Profiler::close_regions({reader_prefix + "collect_output"});
@@ -141,11 +140,9 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   }
   auto column_chunk = group.chunks[column];
 
-  std::cout << "configuring column chunk compression = "
-            << column_chunk.compression
-            << ", num_values = " << column_chunk.num_values
-            << ", hybrid_num_values = " << column_chunk.hybrid_num_values
-            << std::endl;
+  // std::cout << "configuring column chunk compression = " <<
+  // column_chunk.compression << ", num_values = " << column_chunk.num_values <<
+  // ", hybrid_num_values = " << column_chunk.hybrid_num_values << std::endl;
   column_chunk_config.process_column_chunk(
       decoder, column_chunk.compression, column_chunk.num_values,
       column_chunk.hybrid_num_values, column_chunk.type);
@@ -172,6 +169,7 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   queue.push(ccd);
 
+  std::cout << "enqueue_column_chunk over" << std::endl;
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
 
@@ -179,6 +177,7 @@ bool Reader::has_next_column_chunk() { return !queue.empty(); }
 
 std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
   Profiler::open_regions({reader_prefix + "next_column_chunk"});
+  std::cout << "next_column_chunk start" << std::endl;
 
   auto ccd = queue.front();
   queue.pop();
@@ -188,6 +187,7 @@ std::shared_ptr<libstf::Buffer> Reader::next_column_chunk() {
 
   Profiler::close_regions({reader_prefix + "next_column_chunk"});
 
+  std::cout << "next_column_chunk over" << std::endl;
   return std::move(ccd.buffer);
 }
 
