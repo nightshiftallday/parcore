@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 import lynxTypes::*;
-import libstf::data8_t;
+import libstf::*;
 
 module VHSNUnzipWrapper #(
     parameter NUM_BYTES = AXI_DATA_BITS / 8
@@ -17,11 +17,21 @@ module VHSNUnzipWrapper #(
 reg decompressor_input_paused;
 reg [1:0] decompressor_reset_counter;
 
+ndata_i #(data8_t, NUM_BYTES) out_inner ();
+
 VHSNUnzipWrapperInternal #(NUM_BYTES) inst_vhsnunzip_wrapper_internal (
     .clk(clk),
     .rst_n(rst_n && decompressor_reset_counter == 3'd0),
 
     .in(in),
+    .out(out_inner)
+);
+
+VHSNUnzipWrapperFixLast #(NUM_BYTES) inst_vhsnunzip_wrapper_fix_last (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(out_inner),
     .out(out)
 );
 
@@ -266,4 +276,44 @@ module VHSNUnzipWrapperInternal #(
         .de_cnt(de_cnt),
         .de_last(de_last)
     );
+endmodule
+
+module VHSNUnzipWrapperFixLast #(
+    parameter NUM_BYTES = AXI_DATA_BITS / 8
+) (
+    input logic clk,
+    input logic rst_n,
+
+    ndata_i.s in, // #(data8_t, NUM_BYTES)
+    ndata_i.m out // #(data8_t, NUM_BYTES)
+);
+
+ndata_i #(data8_t, NUM_BYTES) tmp();
+logic is_ghost;
+// A "ghost" databeat is a valid beat which carries no data but the last
+// signal.
+assign is_ghost = in.valid && in.last && in.keep == '0;
+
+always_ff @(posedge clk) begin
+    if (!rst_n) begin
+        tmp.valid  <= 1'b0;
+    end else begin
+        if (in.valid && in.ready) begin
+            tmp.valid <= in.valid;
+            tmp.data <= in.data;
+            tmp.keep <= in.keep;
+            tmp.last <= in.last;
+        end else if (out.ready && out.valid) begin
+            tmp.valid <= 1'b0;
+        end
+    end
+end
+
+assign out.valid = tmp.valid && (tmp.last || in.valid);
+assign out.data  = tmp.data;
+assign out.keep  = tmp.keep;
+assign out.last  = tmp.last || is_ghost;
+
+assign in.ready = ~tmp.valid || out.ready;
+
 endmodule
