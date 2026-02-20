@@ -6,48 +6,36 @@
 #include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
 #include <libstf/memory_pool.hpp>
+#include <libstf/output_buffer_manager.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
 
 namespace parcore {
 
+// class ColumnChunkOutput {
+// public:
+//   ColumnChunkOutput(metadata::ColumnChunk column_chunk,
+//                     libstf::OutputHandle output_handle);
+//
+//   const metadata::ColumnChunk &column_chunk() const;
+//
+//   const libstf::OutputHandle &output_handle() const;
+//
+// private:
+//   metadata::ColumnChunk column_chunk_;
+//   libstf::OutputHandle output_handle_;
+// };
+
 class Reader {
-private:
-  std::shared_ptr<coyote::cThread> cthread;
-  std::shared_ptr<libstf::MemoryPool> pool;
-  std::shared_ptr<libstf::TLBManager> tlb;
-  ColumnChunkDecoderConfig column_chunk_config;
-  PageDecoderConfig page_config;
-  metadata::Metadata meta;
-  std::shared_ptr<libstf::Buffer> data;
-  libstf::stream_t decoder;
-
-  class ColumnChunkData {
-  public:
-    std::shared_ptr<libstf::Buffer> buffer;
-    bool full;
-
-    ColumnChunkData(std::shared_ptr<coyote::cThread> cthread,
-                    std::shared_ptr<libstf::Buffer> buffer,
-                    const metadata::ColumnChunk &cc, libstf::stream_t decoder);
-
-    bool is_full();
-
-    void collect(std::shared_ptr<coyote::cThread> cthread,
-                 libstf::stream_t decoder);
-  };
-
-  std::queue<ColumnChunkData> queue;
-  std::shared_ptr<ColumnChunkData> in_flight_page;
-
 public:
   Reader(std::shared_ptr<coyote::cThread> cthread,
-         std::shared_ptr<libstf::MemoryPool> pool,
-         std::shared_ptr<libstf::TLBManager> tlb,
+         std::shared_ptr<libstf::MemoryPool> memory_pool,
+         std::shared_ptr<libstf::TLBManager> tlb_manager,
+         std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
          ColumnChunkDecoderConfig column_chunk_config,
          PageDecoderConfig page_config, const metadata::Metadata &meta,
-         std::shared_ptr<libstf::Buffer> data, libstf::stream_t decoder = 0);
+         libstf::stream_t decoder = 0);
 
   const metadata::Metadata &metadata() const;
 
@@ -72,11 +60,26 @@ public:
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
+  libstf::stream_mask_t decoder_mask() const;
 
   void enqueue_stream_input(const libstf::Buffer &buffer);
 
   // Sends a dictionary or data pge to be processed by the accelerator
-  virtual void send_page(const metadata::Page &page, PageType page_type);
+  virtual void send_page(const metadata::Page &page, PageType page_type) = 0;
+
+private:
+  std::shared_ptr<coyote::cThread> cthread_;
+  std::shared_ptr<libstf::MemoryPool> memory_pool_;
+  std::shared_ptr<libstf::TLBManager> tlb_manager_;
+  std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager_;
+
+  ColumnChunkDecoderConfig column_chunk_config_;
+  PageDecoderConfig page_config_;
+
+  metadata::Metadata meta_;
+  libstf::stream_t decoder_;
+
+  std::queue<std::shared_ptr<libstf::OutputHandle>> queue_;
 };
 
 } // namespace parcore
