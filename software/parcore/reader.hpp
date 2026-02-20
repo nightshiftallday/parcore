@@ -43,7 +43,7 @@ public:
    * Submits a column chunk for parsing, which includes decompression, decoding
    * and potentially dictionary mapping.
    */
-  void enqueue_column_chunk(size_t chunk, size_t column);
+  virtual void enqueue_column_chunk(size_t chunk, size_t column);
 
   /**
    * Returns whether there is a column chunk enqueued for processing. If this
@@ -51,12 +51,12 @@ public:
    * retrieve the output data, potentially blocking on until the acceleartor
    * is done processing.
    */
-  bool has_next_column_chunk();
+  virtual bool has_next_column_chunk();
 
   /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
-  std::shared_ptr<libstf::Buffer> next_column_chunk();
+  virtual std::shared_ptr<libstf::Buffer> next_column_chunk();
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);

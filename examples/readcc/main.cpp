@@ -14,7 +14,9 @@
 #include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
 #include <libstf/common.hpp>
+#include <libstf/configuration.hpp>
 #include <libstf/memory_pool.hpp>
+#include <libstf/output_buffer_manager.hpp>
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
@@ -70,6 +72,27 @@ T get_config(std::shared_ptr<coyote::cThread> &cthread,
   return config;
 }
 
+std::shared_ptr<libstf::OutputBufferManager> obm;
+
+static void handle_fpga_interrupt(int value) {
+  // The nullptr is a bit ugly but this function is private any can only be
+  // called from the cthread, which means the private constructor was executed
+  // and the context has been initialized!
+  //
+  // Note that we needed to implement the "handle_fpga_interrupt" function as a
+  // static function due to a limitation in Coyote. The reason is that we need
+  // to register a function pointer with Coyote to call when an interrupt is
+  // triggered on the FPGA. However, Coyote only accepts a raw function pointer.
+  // Raw function points can only be created in C++ from static methods. See
+  // https://isocpp.org/wiki/faq/pointers-to-members#fnptr-vs-memfnptr-types In
+  // particular, they cannot be created from what's called a
+  // pointer-to-member-function: > NOTE: do not attempt to “cast” a poi
+  // ter-to-member-function into a pointer-to-function; > the result is
+  // undefined and probably disastrous.
+  //   (From above link)
+  obm->handle_fpga_interrupt(value);
+}
+
 int main(int argc, char *argv[]) {
   Profiler::init();
 
@@ -96,7 +119,8 @@ int main(int argc, char *argv[]) {
 
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
 
-  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
+  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
+                                                   0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
   auto pool = std::make_shared<libstf::SimpleMemoryPool>();
 #else
@@ -114,12 +138,16 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
 
   libstf::GlobalConfig global_config(cthread);
+  auto mem_config = get_config<libstf::MemConfig>(cthread, global_config);
   auto column_chunk_config =
       get_config<parcore::ColumnChunkDecoderConfig>(cthread, global_config);
   auto page_config =
       get_config<parcore::PageDecoderConfig>(cthread, global_config);
 
-  parcore::FileReader reader(cthread, pool, tlb, column_chunk_config,
+  obm = std::make_shared<libstf::OutputBufferManager>(cthread, mem_config, pool,
+                                                      tlb);
+
+  parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
                              page_config, parquet_file);
 
   if (i < 0 || i > meta.groups.size())

@@ -49,10 +49,10 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
               << input_size << "..." << std::flush;
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
-    cthread_->clearCompleted();
+    // cthread_->clearCompleted();
     cthread_->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
-    while (cthread_->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
-      ;
+    // while (cthread_->checkCompleted(coyote::CoyoteOper::LOCAL_READ) < 1)
+    //   ;
     std::cout << "done" << std::endl;
     Profiler::close_regions({reader_prefix + "local_read"});
   }

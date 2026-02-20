@@ -5,11 +5,8 @@ import parcore::*;
 import libstf::*;
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
-always_comb notify.tie_off_m();
 always_comb sq_rd.tie_off_m();
-always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
-always_comb cq_wr.tie_off_s();
 
 localparam N_STREAMS = N_STRM_AXI;
 localparam DATABEAT_SIZE = 64;
@@ -146,6 +143,10 @@ endgenerate
 OutputWriter inst_output_writer (
     .clk(clk),
     .rst_n(rst_n),
+
+    .sq_wr(sq_wr),
+    .cq_wr(cq_wr),
+    .notify(notify),
 
     .mem_config(mem_conf),
 
