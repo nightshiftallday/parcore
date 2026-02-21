@@ -87,7 +87,7 @@ assign middle[0].keep = 'x;
 assign middle[0].last = in_inner.last;
 
 generate
-    for (genvar i = 1; i <= N_STAGES; i++) begin : gen_dedup_stages
+    for (genvar i = 1; i <= N_STAGES; i++) begin : gen_expand_bpe_stages
         ExpandBPEStage #(
             .ID(i-1),
             .data_t(data_t),

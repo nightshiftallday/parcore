@@ -74,6 +74,7 @@ logic next_last_received;
 // as this value is the result of bit_width * NUM_ELEMENTS;
 logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - 1:0] packed_databeat_bits;
 logic[$clog2(NUM_ELEMENTS) + $bits(bit_width_t) - 1 - $clog2(8):0] packed_databeat_bytes;
+logic[$clog2(8) + $bits(bit_width_t) - 1 - $clog2(8):0] eight_packed_databeat_bytes;
 offset_t varint_offset;
 
 // ------- Output declaration -----
@@ -82,6 +83,10 @@ typedef enum logic {
   OUTPUT_BPE
 } output_t;
 valid_i #(output_t) next_out (), curr_out ();
+// This signal is used to apply backpressure from the output queue. In case
+// the queue gets full, this signal will be low and the next decoding will be
+// paused until there's space in the queue to store it.
+logic can_decode_next;
 
 always_comb begin
     next_out.valid = 0;
@@ -197,7 +202,7 @@ for (genvar i = 0; i < DATA_SIZE; i++) begin
     assign rle_needs_to_buffer_bits[i] = (i < rle_width && ~keep[offset+i]);
 end
 endgenerate
-assign rle_in.valid = &rle_in_valid_bits && state == ST_DECODE_RLE;
+assign rle_in.valid = can_decode_next &&state == ST_DECODE_RLE && &rle_in_valid_bits;
 logic rle_needs_more_input;
 assign rle_needs_more_input = |rle_needs_to_buffer_bits && ~last_received;
 
@@ -233,7 +238,7 @@ assign bpe_valid_bytes_lo = keep[offset];
 assign bpe_valid_bytes_hi = keep[offset + packed_databeat_bytes - 1];
 assign bpe_valid_bytes = bpe_valid_bytes_lo && bpe_valid_bytes_hi;
 
-assign bpe_in.valid = state == ST_DECODE_BPE && (bpe_valid_bytes || last_received) && bpe_count > 0;
+assign bpe_in.valid = can_decode_next && state == ST_DECODE_BPE && (bpe_valid_bytes || last_received) && bpe_count > 0;
 
 // We want to take more input if some of the keep bytes are not high, and
 // only if we haven't already consumed the last databeat.
@@ -305,18 +310,19 @@ task reset();
     last_received <= '0;
     store_in_second_half <= 0;
 
-    bit_width <= '0;
-    bit_width_bpe_mask <= '0;
-    packed_databeat_bits <= '0;
-    packed_databeat_bytes <= '0;
-    varint_offset <= '0;
+    bit_width <= 'x;
+    bit_width_bpe_mask <= 'x;
+    packed_databeat_bits <= 'x;
+    packed_databeat_bytes <= 'x;
+    eight_packed_databeat_bytes <= 'x;
+    varint_offset <= 'x;
     varint_in.valid <= 0;
-    offset <= '0;
-    remaining_values <= '0;
+    offset <= 'x;
+    remaining_values <= 'x;
 
-    rle_width <= '0;
-    rle_count <= '0;
-    bpe_count <= '0;
+    rle_width <= 'x;
+    rle_count <= 'x;
+    bpe_count <= 'x;
 endtask
 
 task goto_decode(input data32_t remaining_values);
@@ -353,17 +359,36 @@ task goto_decode_bpe(
     input bpe_count_t bpe_padded_cnt,
     input offset_t offst
 );
-    offset_t next_varint_offset;
     bpe_remaining_inputs_t next_bpe_remaining_inputs; 
+    logic [$clog2(NUM_ELEMENTS) - 1:0] values_in_extra_input;
+    offset_t next_varint_offset_increment_extra, next_varint_offset_increment, next_varint_offset;
 
-    next_varint_offset = offst + ((bpe_padded_cnt * bit_width) / 8);
     next_bpe_remaining_inputs = bpe_padded_cnt / NUM_ELEMENTS;
+    values_in_extra_input = bpe_padded_cnt % NUM_ELEMENTS;
+    next_varint_offset_increment_extra = values_in_extra_input > 0 ? eight_packed_databeat_bytes : 0;
+    next_varint_offset_increment = (next_bpe_remaining_inputs * packed_databeat_bytes) + next_varint_offset_increment_extra;
+    next_varint_offset = offst + next_varint_offset_increment;
+
+    `ifndef SYNTHESIS
+    if (next_varint_offset_increment != offset_t'((bpe_padded_cnt * bit_width) / 8)) begin
+        $fatal(1, "goto_decode_bpe() computed the wrong next_varint_offset_increment, expected %d, got %d", offset_t'((bpe_padded_cnt * bit_width) / 8), next_varint_offset_increment);
+    end
+    `endif
+
+    `ifndef SYNTHESIS
+    if (next_varint_offset != offset_t'(offst + ((bpe_padded_cnt * bit_width) / 8))) begin
+        $fatal(1, "goto_decode_bpe() computed the wrong next_varint_offset, expected %d, got %d", offset_t'(offst + ((bpe_padded_cnt * bit_width) / 8)), next_varint_offset);
+    end
+    `endif
+
+    `ASSERT_ELAB(next_varint_offset == (offst + ((bpe_padded_cnt * bit_width) / 8)));
 
     // BPE could contain so many values that the offset would go beyond two
     // databeats, in that case, we set the varint position but we don't make
     // it valid.
     varint_offset <= trim_offset(next_varint_offset);
     bpe_remaining_inputs <= next_bpe_remaining_inputs;
+
     if (next_bpe_remaining_inputs <= 1) begin
         // Here we use next_varint_offset (which may be > NUM_BYTES) as if
         // that's the case, in this databeat we also moved the offset forward
@@ -515,6 +540,7 @@ always_ff @(posedge clk) begin
                     bit_width_bpe_mask <= BPE_MASK_SIZE'((1 << conf_data.bit_width) - 1);
                     packed_databeat_bits <= NUM_ELEMENTS * conf_data.bit_width;
                     packed_databeat_bytes <= (NUM_ELEMENTS * conf_data.bit_width) / 8;
+                    eight_packed_databeat_bytes <= conf_data.bit_width; // equivalent to (8 * conf_data.bit_width) / 8;
                     rle_width <= (conf_data.bit_width + 7) >> 3;
                     offset <= conf_data.offset;
                     varint_offset <= conf_data.offset;
@@ -598,9 +624,10 @@ end
 
 // ------- Driving output --------
 
-logic fifo_in_ready, fifo_out_ready;
+logic fifo_out_ready;
+data32_t filling_level;
 FIFO #(
-    .DEPTH(MAX_IN_TRANSIT*2),
+    .DEPTH(MAX_IN_TRANSIT*8),
     .WIDTH($bits(output_t))
 ) inst_output_fifo (
     .i_clk(clk),
@@ -608,17 +635,14 @@ FIFO #(
 
     .i_data(next_out.data),
     .i_valid(next_out.valid),
-    .i_ready(fifo_in_ready),
+    .i_ready(can_decode_next),
 
     .o_data(curr_out.data),
     .o_valid(curr_out.valid),
     .o_ready(fifo_out_ready),
 
-    .o_filling_level()
+    .o_filling_level(filling_level)
 );
-
-assert property (@(posedge clk) disable iff (!rst_n) fifo_in_ready || !next_out.valid)
-else $fatal(1, "Output FIFO is not ready to take input but next_out is valid");
 
 always_comb begin
     rle_out.ready = 0;
@@ -678,35 +702,35 @@ ila_run_decoder inst_ila_run_decoder (
 
     .probe16(remaining_values),
     .probe17(bpe_count),
-    .probe18('0),
-    .probe19(bpe_remaining_inputs),
-    .probe20(rle_width),
-    .probe21(rle_count),
+    .probe18(bpe_remaining_inputs),
+    .probe19(rle_width),
+    .probe20(rle_count),
 
-    .probe22(bpe_in.ready),
-    .probe23(bpe_in.valid),
-    .probe24(bpe_in.last),
+    .probe21(bpe_in.ready),
+    .probe22(bpe_in.valid),
+    .probe23(bpe_in.last),
 
-    .probe25(rle_in.ready),
-    .probe26(rle_in.valid),
-    .probe27(rle_in.last),
+    .probe24(rle_in.ready),
+    .probe25(rle_in.valid),
+    .probe26(rle_in.last),
 
-    .probe28(bpe_out.ready),
-    .probe29(bpe_out.valid),
-    .probe30(bpe_out.last),
+    .probe27(bpe_out.ready),
+    .probe28(bpe_out.valid),
+    .probe29(bpe_out.last),
 
-    .probe31(rle_out.ready),
-    .probe32(rle_out.valid),
-    .probe33(rle_out.last),
+    .probe30(rle_out.ready),
+    .probe31(rle_out.valid),
+    .probe32(rle_out.last),
 
-    .probe34(data),
-    .probe35(keep),
+    .probe33(next_out.valid),
+    .probe34(next_out.data),
+    .probe35(can_decode_next),
 
-    .probe36(next_data),
-    .probe37(next_keep),
+    .probe36(curr_out.valid),
+    .probe37(curr_out.data),
+    .probe38(fifo_out_ready),
 
-    .probe38(in.data),
-    .probe39(in.keep)
+    .probe39(filling_level)
 );
 `endif
 

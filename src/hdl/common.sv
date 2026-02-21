@@ -9,6 +9,16 @@ parameter int VARINT_NUM_BYTES = 4;
 parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 7;
 parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES);
 parameter int ID_BITS = 19;
+// Theoretically, a page could have more than 1Mi values inside. The
+// dictionary is usually capped around 1MiB, limiting the number of unique
+// values, but that does not matter. Consider a page where the dioctionary has
+// just one value, but the data page contains a single RLE encoding. The RLE
+// count could easily be 2 million.
+// While theoretically thus there's no bound for number of values, and we
+// should use 32 or 64 bits, realistically all writer implemenations cap the
+// number of values in a row to 1Mi, so the number of values in a page will be
+// that in the worse case. Thus, 20 bits are enough.
+parameter int VALUES_BITS = 20;
 parameter int BPE_MASK_SIZE = ID_BITS;
 
 // We want to have 1MiB dictionaries. That would take 20 bits to index fully.
@@ -22,13 +32,16 @@ typedef enum logic {
 
 // Number of bits in RLE/BPE encodings
 // "the bit width used to encode the entry ids stored as 1 byte (max bit width = 32)"
-// NOTE: This does not allow bit-width of 32!!
-// This is a limitation of the design. Nevertheless, bit_width=32 is unlikely.
-typedef logic [$clog2(32) - 1:0] bit_width_t; 
+// This is what the specification says. In pratice, this design only supports
+// ~2MiB dictionary pages, so the bit width won't be greater than 19 bits
+// (which are needed to index all values at the 32bit level over 2MiB).
+// In practice this is enough to support any realistic real-world parquet file,
+// which tend to stick to slighly over 1MiB.
+typedef logic [ID_BITS - 1:0] bit_width_t; 
 
-typedef data32_t rle_count_t;
+typedef logic [VALUES_BITS - 1:0] rle_count_t;
 
-typedef data32_t bpe_count_t;
+typedef logic [VALUES_BITS - 1:0] bpe_count_t;
 
 typedef struct packed {
   bit_width_t bit_width;

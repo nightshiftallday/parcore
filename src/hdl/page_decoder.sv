@@ -381,7 +381,10 @@ ila_page_decoder inst_ila_page_decoder (
     .probe16(ins[IN_HYBRID].ready),
     .probe17(ins[IN_HYBRID].valid),
     .probe18(decompressor_out.last),
-    .probe19(ins[IN_HYBRID].keep)
+    .probe19(ins[IN_HYBRID].keep),
+
+    .probe20(hybrid_out.ready),
+    .probe21(hybrid_out.valid)
 );
 `endif
 

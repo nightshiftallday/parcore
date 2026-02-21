@@ -123,20 +123,20 @@ generate
             .out(out)
         );
 
-        ila_top inst_ila_top (
-            .clk(clk),
-            .probe0(rst_n),
-
-            .probe1(axi_host_recv.tready),
-            .probe2(axi_host_recv.tvalid),
-            .probe3(axi_host_recv.tlast),
-            .probe4(axi_host_recv.tkeep),
-
-            .probe5(in.ready),
-            .probe6(in.valid),
-            .probe7(in.last),
-            .probe8(in.keep)
-        );
+        // ila_top inst_ila_top (
+        //     .clk(clk),
+        //     .probe0(rst_n),
+        //
+        //     .probe1(axi_host_recv.tready),
+        //     .probe2(axi_host_recv.tvalid),
+        //     .probe3(axi_host_recv.tlast),
+        //     .probe4(axi_host_recv.tkeep),
+        //
+        //     .probe5(in.ready),
+        //     .probe6(in.valid),
+        //     .probe7(in.last),
+        //     .probe8(in.keep)
+        // );
     end
 endgenerate
 

@@ -20,10 +20,10 @@ set_property -dict [list \
     CONFIG.C_PROBE15_WIDTH {28} \
     CONFIG.C_PROBE16_WIDTH {32} \
     CONFIG.C_PROBE17_WIDTH {32} \
-    CONFIG.C_PROBE18_WIDTH {10} \
-    CONFIG.C_PROBE19_WIDTH {17} \
-    CONFIG.C_PROBE20_WIDTH {4} \
-    CONFIG.C_PROBE21_WIDTH {32} \
+    CONFIG.C_PROBE18_WIDTH {17} \
+    CONFIG.C_PROBE19_WIDTH {4} \
+    CONFIG.C_PROBE20_WIDTH {32} \
+    CONFIG.C_PROBE21_WIDTH {1} \
     CONFIG.C_PROBE22_WIDTH {1} \
     CONFIG.C_PROBE23_WIDTH {1} \
     CONFIG.C_PROBE24_WIDTH {1} \
@@ -36,17 +36,17 @@ set_property -dict [list \
     CONFIG.C_PROBE31_WIDTH {1} \
     CONFIG.C_PROBE32_WIDTH {1} \
     CONFIG.C_PROBE33_WIDTH {1} \
-    CONFIG.C_PROBE34_WIDTH {1024} \
-    CONFIG.C_PROBE35_WIDTH {128} \
-    CONFIG.C_PROBE36_WIDTH {1024} \
-    CONFIG.C_PROBE37_WIDTH {128} \
-    CONFIG.C_PROBE38_WIDTH {512} \
-    CONFIG.C_PROBE39_WIDTH {64} \
+    CONFIG.C_PROBE34_WIDTH {1} \
+    CONFIG.C_PROBE35_WIDTH {1} \
+    CONFIG.C_PROBE36_WIDTH {1} \
+    CONFIG.C_PROBE37_WIDTH {1} \
+    CONFIG.C_PROBE38_WIDTH {1} \
+    CONFIG.C_PROBE39_WIDTH {32} \
 ] [get_ips ila_run_decoder]
 
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_page_decoder
 set_property -dict [list \
-    CONFIG.C_NUM_OF_PROBES {20} \
+    CONFIG.C_NUM_OF_PROBES {22} \
     CONFIG.C_EN_STRG_QUAL {1} \
     CONFIG.C_PROBE0_WIDTH {1} \
     CONFIG.C_PROBE1_WIDTH {2} \
@@ -68,6 +68,8 @@ set_property -dict [list \
     CONFIG.C_PROBE17_WIDTH {1} \
     CONFIG.C_PROBE18_WIDTH {1} \
     CONFIG.C_PROBE19_WIDTH {64} \
+    CONFIG.C_PROBE20_WIDTH {1} \
+    CONFIG.C_PROBE21_WIDTH {1} \
 ] [get_ips ila_page_decoder]
 
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_hybrid_page_decoder
