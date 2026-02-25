@@ -42,7 +42,7 @@ always_ff @(posedge clk) begin
     end else begin
         if (in.ready && in.valid && in.last) begin
             decompressor_input_paused <= 1'b1;
-        end else if (decompressor_input_paused && out.ready && out.valid && out.last) begin
+        end else if (decompressor_input_paused && out_inner.ready && out_inner.valid && out_inner.last) begin
             decompressor_reset_counter <= 2'd2;
         end else if (decompressor_input_paused && decompressor_reset_counter > 0) begin
             if (decompressor_reset_counter == 2'd1) begin
@@ -292,18 +292,21 @@ ndata_i #(data8_t, NUM_BYTES) tmp();
 logic is_ghost;
 // A "ghost" databeat is a valid beat which carries no data but the last
 // signal.
-assign is_ghost = in.valid && in.last && in.keep == '0;
+assign is_ghost = in.last && in.keep == '0;
+
+logic consuming_in;
+assign consuming_in = in.ready && in.valid;
 
 always_ff @(posedge clk) begin
     if (!rst_n) begin
         tmp.valid  <= 1'b0;
     end else begin
-        if (in.valid && in.ready) begin
+        if (consuming_in && ~is_ghost) begin
             tmp.valid <= in.valid;
             tmp.data <= in.data;
             tmp.keep <= in.keep;
             tmp.last <= in.last;
-        end else if (out.ready && out.valid) begin
+        end else if(out.ready && out.valid) begin
             tmp.valid <= 1'b0;
         end
     end

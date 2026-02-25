@@ -17,7 +17,7 @@ constexpr const uint64_t COLUMN_CHUNK_DECODER_CONFIG_ID = 0x5c19f934407065bd;
 class ColumnChunkDecoderConfig : public libstf::Config {
 public:
   ColumnChunkDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
-                           uint32_t addr_offset);
+                           uint32_t addr_offset, uint32_t num_regs);
 
   /**
    * Configures the ColumnChunkDecoder to process the provided column chunk.
@@ -58,7 +58,7 @@ constexpr const uint64_t PAGE_DECODER_CONFIG_ID = 0xc0779792c320630e;
 class PageDecoderConfig : public libstf::Config {
 public:
   PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
-                    uint32_t addr_offset);
+                    uint32_t addr_offset, uint32_t num_regs);
 
   /**
    * Configures the ColumnChunkDecoder with the appropriate parameters to

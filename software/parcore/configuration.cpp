@@ -85,8 +85,10 @@ constexpr const uint32_t PAGE_DECODER_LAST_ADDR = 2;
 const std::string column_config_prefix = "parcore::ColumnChunkDecoderConfig::";
 
 ColumnChunkDecoderConfig::ColumnChunkDecoderConfig(
-    std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset)
-    : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
+    std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset,
+    uint32_t num_regs)
+    : Config(cthread, addr_offset, num_regs),
+      num_decoders_(read_register(1).value()) {}
 
 void ColumnChunkDecoderConfig::process_column_chunk(
     libstf::stream_t decoder, metadata::Compression compression,
@@ -127,8 +129,9 @@ inline uint64_t last_to_hardware(bool last) {
 const std::string page_config_prefix = "parcore::PageDecoderConfig::";
 
 PageDecoderConfig::PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
-                                     uint32_t addr_offset)
-    : Config(cthread, addr_offset), num_decoders_(read_register(1).value()) {}
+                                     uint32_t addr_offset, uint32_t num_regs)
+    : Config(cthread, addr_offset, num_regs),
+      num_decoders_(read_register(1).value()) {}
 
 void PageDecoderConfig::process_page(libstf::stream_t decoder,
                                      PageType page_type,

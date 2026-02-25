@@ -117,7 +117,7 @@ TypedDictionary #(
 
 // ------ Plain wiring ----------------------------
 ready_valid_i #(type_t) plain_type ();
-ndata_i #(data8_t, DATABEAT_SIZE) plain_inner (), plain_out ();
+ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped (), plain_normalize (), plain_normalized (), plain_out ();
 
 StripLevels #(
     .NUM_BYTES(DATABEAT_SIZE)
@@ -127,18 +127,39 @@ StripLevels #(
 
     .in(ins[IN_PLAIN]),
 
-    .out(plain_inner)
+    .out(plain_stripped)
 );
 
-DataCompactor #(data8_t, DATABEAT_SIZE) inst_compactor_plain (
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_stripped_skid_buffer (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(plain_inner),
+    .in(plain_stripped),
+    .out(plain_normalize)
+);
+
+DataNormalizer #(
+    .data_t(data8_t),
+    .NUM_ELEMENTS(DATABEAT_SIZE),
+    .ENABLE_COMPACTOR(1),
+    .COMPACTOR_REGISTER_LEVELS(8)
+) inst_compactor_plain (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(plain_normalize),
+    .out(plain_normalized)
+);
+
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_normalized_skid_buffer  (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(plain_normalized),
     .out(plain_out)
 );
 
-NDataToTypedNData #(DATABEAT_SIZE) inst_plain_typed_conversion (
+NDataToTypedNData #(DATABEAT_SIZE) inst_plain_normalize_after (
     .clk(clk),
     .rst_n(reset_synced),
 
@@ -353,39 +374,49 @@ end
 assign column_chunk_conf.ready = state == ST_IDLE;
 assign page_conf.ready = state == ST_CONFIGURED;
 
-`ifdef SYNTHESIS
-ila_page_decoder inst_ila_page_decoder (
-    .clk(clk),
-    .probe0(reset_synced),
-
-    .probe1(state),
-    .probe2(last_page),
-
-    .probe3(in_select.ready),
-    .probe4(in_select.valid),
-    .probe5(in_select.data),
-
-    .probe6(out_select.ready),
-    .probe7(out_select.valid),
-    .probe8(out_select.data),
-
-    .probe9(hybrid_conf.ready),
-    .probe10(hybrid_conf.valid),
-    .probe11(hybrid_conf.data),
-
-    .probe12(decompressor_out.ready),
-    .probe13(decompressor_out.valid),
-    .probe14(decompressor_out.last),
-    .probe15(decompressor_out.keep),
-
-    .probe16(ins[IN_HYBRID].ready),
-    .probe17(ins[IN_HYBRID].valid),
-    .probe18(decompressor_out.last),
-    .probe19(ins[IN_HYBRID].keep),
-
-    .probe20(hybrid_out.ready),
-    .probe21(hybrid_out.valid)
-);
-`endif
+// `ifdef SYNTHESIS
+// ila_page_decoder inst_ila_page_decoder (
+//     .clk(clk),
+//     .probe0(reset_synced),
+//
+//     .probe1(state),
+//     .probe2(last_page),
+//
+//     .probe3(in_select.ready),
+//     .probe4(in_select.valid),
+//     .probe5(in_select.data),
+//
+//     .probe6(out_select.ready),
+//     .probe7(out_select.valid),
+//     .probe8(out_select.data),
+//
+//     .probe9(hybrid_conf.ready),
+//     .probe10(hybrid_conf.valid),
+//     .probe11(hybrid_conf.data),
+//
+//     .probe12(decompressor_out.ready),
+//     .probe13(decompressor_out.valid),
+//     .probe14(decompressor_out.last),
+//     .probe15(decompressor_out.keep),
+//
+//     .probe16(ins[IN_HYBRID].ready),
+//     .probe17(ins[IN_HYBRID].valid),
+//     .probe18(decompressor_out.last),
+//     .probe19(ins[IN_HYBRID].keep),
+//
+//     .probe20(hybrid_out.ready),
+//     .probe21(hybrid_out.valid),
+//
+//     .probe22(out.ready),
+//     .probe23(out.valid),
+//     .probe24(out.keep),
+//     .probe25(out.last),
+//
+//     .probe26(inner_out.ready),
+//     .probe27(inner_out.valid),
+//     .probe28(inner_out.keep),
+//     .probe29(inner_out.last)
+// );
+// `endif
 
 endmodule

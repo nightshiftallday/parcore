@@ -58,20 +58,6 @@ void diff(const void *d1, const void *d2, size_t size) {
   std::cout << "\t" << size << " bytes match" << std::endl;
 }
 
-template <typename T>
-T get_config(std::shared_ptr<coyote::cThread> &cthread,
-             libstf::GlobalConfig &global_config) {
-  if (!global_config.has_config(T::ID)) {
-    auto name = std::string(typeid(T).name());
-    throw std::runtime_error("flashed design doesn't have " + name);
-  }
-
-  auto addr_offset = std::get<0>(global_config.get_config_bounds(T::ID));
-  T config(cthread, addr_offset);
-
-  return config;
-}
-
 std::shared_ptr<libstf::OutputBufferManager> obm;
 
 static void handle_fpga_interrupt(int value) {
@@ -138,14 +124,20 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
 
   libstf::GlobalConfig global_config(cthread);
-  auto mem_config = get_config<libstf::MemConfig>(cthread, global_config);
+  auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
-      get_config<parcore::ColumnChunkDecoderConfig>(cthread, global_config);
-  auto page_config =
-      get_config<parcore::PageDecoderConfig>(cthread, global_config);
+      global_config.get_config<parcore::ColumnChunkDecoderConfig>();
+  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
-  obm = std::make_shared<libstf::OutputBufferManager>(cthread, mem_config, pool,
-                                                      tlb);
+#ifdef ENABLE_SIMULATION
+  obm = std::make_shared<libstf::OutputBufferManager>(
+      cthread, mem_config, pool, tlb, 2, 1 << 21 /* 2MiB */);
+#else
+  obm = std::make_shared<libstf::OutputBufferManager>(
+      cthread, mem_config, pool, tlb, 40, 1 << 23 /* 8MiB */);
+#endif
+  obm->flush_buffers();
+  std::cout << "flushed buffers" << std::endl;
 
   parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
                              page_config, parquet_file);
@@ -167,7 +159,7 @@ int main(int argc, char *argv[]) {
   auto start = std::chrono::high_resolution_clock::now();
 
   reader.enqueue_column_chunk(i, j);
-  auto fpga_data = reader.next_column_chunk();
+  auto fpga_data_raw = reader.next_column_chunk();
 
   auto end = std::chrono::high_resolution_clock::now();
   auto fpga_us =
@@ -193,7 +185,13 @@ int main(int argc, char *argv[]) {
     cpu_data.insert(cpu_data.end(), data, data + byte_size);
   }
 
-  diff(cpu_data.data(), fpga_data->ptr, fpga_data->size);
+  std::vector<uint8_t> fpga_data;
+  for (const auto &buf : fpga_data_raw) {
+    const uint8_t *data = static_cast<uint8_t *>(buf->ptr);
+    fpga_data.insert(fpga_data.end(), data, data + buf->size);
+  }
+
+  diff(cpu_data.data(), fpga_data.data(), fpga_data.size());
 
   Profiler::flush();
   return EXIT_SUCCESS;

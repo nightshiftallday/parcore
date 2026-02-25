@@ -51,7 +51,7 @@ void FileReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Reader::enqueue_column_chunk(chunk, column);
 }
 
-std::shared_ptr<libstf::Buffer> FileReader::next_column_chunk() {
+std::vector<std::shared_ptr<libstf::Buffer>> FileReader::next_column_chunk() {
   auto result = Reader::next_column_chunk();
 
   // At this point it is safe to free the input buffers, so we pop the vector

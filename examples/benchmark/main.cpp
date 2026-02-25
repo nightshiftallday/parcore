@@ -57,18 +57,25 @@ void time(std::string file_path, parcore::Reader &reader,
               << fpga_us << "," << cpu_us << std::endl;
 }
 
-template <typename T>
-T get_config(std::shared_ptr<coyote::cThread> &cthread,
-             libstf::GlobalConfig &global_config) {
-  if (!global_config.has_config(T::ID)) {
-    auto name = std::string(typeid(T).name());
-    throw std::runtime_error("flashed design doesn't have " + name);
-  }
+std::shared_ptr<libstf::OutputBufferManager> obm;
 
-  auto addr_offset = std::get<0>(global_config.get_config_bounds(T::ID));
-  T config(cthread, addr_offset);
-
-  return config;
+static void handle_fpga_interrupt(int value) {
+  // The nullptr is a bit ugly but this function is private any can only be
+  // called from the cthread, which means the private constructor was executed
+  // and the context has been initialized!
+  //
+  // Note that we needed to implement the "handle_fpga_interrupt" function as a
+  // static function due to a limitation in Coyote. The reason is that we need
+  // to register a function pointer with Coyote to call when an interrupt is
+  // triggered on the FPGA. However, Coyote only accepts a raw function pointer.
+  // Raw function points can only be created in C++ from static methods. See
+  // https://isocpp.org/wiki/faq/pointers-to-members#fnptr-vs-memfnptr-types In
+  // particular, they cannot be created from what's called a
+  // pointer-to-member-function: > NOTE: do not attempt to “cast” a poi
+  // ter-to-member-function into a pointer-to-function; > the result is
+  // undefined and probably disastrous.
+  //   (From above link)
+  obm->handle_fpga_interrupt(value);
 }
 
 void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
@@ -91,19 +98,21 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
 
   libstf::GlobalConfig global_config(cthread);
-  if (!global_config.has_config(parcore::PageDecoderConfig::ID)) {
-    throw std::runtime_error("flashed design doesn't have PageDecoderConfig");
-  }
-  auto addr_offset = std::get<0>(
-      global_config.get_config_bounds(parcore::PageDecoderConfig::ID));
-  parcore::PageDecoderConfig decoder_config(cthread, addr_offset);
-
+  auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
-      get_config<parcore::ColumnChunkDecoderConfig>(cthread, global_config);
-  auto page_config =
-      get_config<parcore::PageDecoderConfig>(cthread, global_config);
+      global_config.get_config<parcore::ColumnChunkDecoderConfig>();
+  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
-  parcore::FileReader reader(cthread, pool, tlb, column_chunk_config,
+#ifdef ENABLE_SIMULATION
+  obm = std::make_shared<libstf::OutputBufferManager>(
+      cthread, mem_config, pool, tlb, 2, 1 << 21 /* 2MiB */);
+#else
+  obm = std::make_shared<libstf::OutputBufferManager>(
+      cthread, mem_config, pool, tlb, 40, 1 << 23 /* 8MiB */);
+#endif
+  obm->flush_buffers();
+
+  parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
                              page_config, parquet_file);
 
   for (size_t i = 0; i < meta.groups.size(); ++i) {

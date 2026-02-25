@@ -32,7 +32,7 @@ public:
 
   void enqueue_column_chunk(size_t chunk, size_t column);
 
-  std::shared_ptr<libstf::Buffer> next_column_chunk();
+  std::vector<std::shared_ptr<libstf::Buffer>> next_column_chunk();
 
 protected:
   void send_page(const metadata::Page &page, PageType page_type);

@@ -26,6 +26,14 @@ class Type(Enum):
     def __str__(self):
         return f'{self.name}'
 
+    def size(self) -> int:
+        if self == Type.BYTE:
+            return 1
+        elif self == Type.INT32 or self == Type.FLOAT:
+            return 4
+        else:
+            return 8
+
 def _read_exact(f, n: int) -> bytes:
     b = f.read(n)
     if len(b) != n:

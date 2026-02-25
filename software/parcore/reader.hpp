@@ -56,7 +56,7 @@ public:
   /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
-  virtual std::shared_ptr<libstf::Buffer> next_column_chunk();
+  virtual std::vector<std::shared_ptr<libstf::Buffer>> next_column_chunk();
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);

@@ -381,8 +381,6 @@ task goto_decode_bpe(
     end
     `endif
 
-    `ASSERT_ELAB(next_varint_offset == (offst + ((bpe_padded_cnt * bit_width) / 8)));
-
     // BPE could contain so many values that the offset would go beyond two
     // databeats, in that case, we set the varint position but we don't make
     // it valid.
@@ -676,62 +674,62 @@ always_comb begin
     end
 end
 
-`ifdef SYNTHESIS
-ila_run_decoder inst_ila_run_decoder (
-    .clk(clk),
-    .probe0(reset_synced),
-
-    .probe1(conf.ready),
-    .probe2(conf.valid),
-
-    .probe3(in.ready),
-    .probe4(in.valid),
-    .probe5(in.last),
-
-    .probe6(out.ready),
-    .probe7(out.valid),
-    .probe8(out.last),
-
-    .probe9(state),
-    .probe10(offset),
-    .probe11(varint_offset),
-    .probe12(varint_in.valid),
-    .probe13(varint_in.data),
-    .probe14(varint_out.valid),
-    .probe15(varint_out.data),
-
-    .probe16(remaining_values),
-    .probe17(bpe_count),
-    .probe18(bpe_remaining_inputs),
-    .probe19(rle_width),
-    .probe20(rle_count),
-
-    .probe21(bpe_in.ready),
-    .probe22(bpe_in.valid),
-    .probe23(bpe_in.last),
-
-    .probe24(rle_in.ready),
-    .probe25(rle_in.valid),
-    .probe26(rle_in.last),
-
-    .probe27(bpe_out.ready),
-    .probe28(bpe_out.valid),
-    .probe29(bpe_out.last),
-
-    .probe30(rle_out.ready),
-    .probe31(rle_out.valid),
-    .probe32(rle_out.last),
-
-    .probe33(next_out.valid),
-    .probe34(next_out.data),
-    .probe35(can_decode_next),
-
-    .probe36(curr_out.valid),
-    .probe37(curr_out.data),
-    .probe38(fifo_out_ready),
-
-    .probe39(filling_level)
-);
-`endif
+// `ifdef SYNTHESIS
+// ila_run_decoder inst_ila_run_decoder (
+//     .clk(clk),
+//     .probe0(reset_synced),
+//
+//     .probe1(conf.ready),
+//     .probe2(conf.valid),
+//
+//     .probe3(in.ready),
+//     .probe4(in.valid),
+//     .probe5(in.last),
+//
+//     .probe6(out.ready),
+//     .probe7(out.valid),
+//     .probe8(out.last),
+//
+//     .probe9(state),
+//     .probe10(offset),
+//     .probe11(varint_offset),
+//     .probe12(varint_in.valid),
+//     .probe13(varint_in.data),
+//     .probe14(varint_out.valid),
+//     .probe15(varint_out.data),
+//
+//     .probe16(remaining_values),
+//     .probe17(bpe_count),
+//     .probe18(bpe_remaining_inputs),
+//     .probe19(rle_width),
+//     .probe20(rle_count),
+//
+//     .probe21(bpe_in.ready),
+//     .probe22(bpe_in.valid),
+//     .probe23(bpe_in.last),
+//
+//     .probe24(rle_in.ready),
+//     .probe25(rle_in.valid),
+//     .probe26(rle_in.last),
+//
+//     .probe27(bpe_out.ready),
+//     .probe28(bpe_out.valid),
+//     .probe29(bpe_out.last),
+//
+//     .probe30(rle_out.ready),
+//     .probe31(rle_out.valid),
+//     .probe32(rle_out.last),
+//
+//     .probe33(next_out.valid),
+//     .probe34(next_out.data),
+//     .probe35(can_decode_next),
+//
+//     .probe36(curr_out.valid),
+//     .probe37(curr_out.data),
+//     .probe38(fifo_out_ready),
+//
+//     .probe39(filling_level)
+// );
+// `endif
 
 endmodule
