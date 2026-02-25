@@ -6,13 +6,15 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 
 find_package(CoyoteHW REQUIRED)
 
-set(COMP_CORES 32)
+set(COMP_CORES 64)
 set(N_REGIONS 1)
 set(BUILD_OPT 1)
 set(EN_STRM 1)
 set(N_STRM_AXI 4)
 set(FDEV_NAME u55c)
 set(DEBUG 1)
+# Enable 1 GiB huge pages in the TLB
+set(TLBL_BITS 30)
 
 validation_checks_hw()
 
