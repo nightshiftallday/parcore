@@ -13,20 +13,6 @@
 
 namespace parcore {
 
-// class ColumnChunkOutput {
-// public:
-//   ColumnChunkOutput(metadata::ColumnChunk column_chunk,
-//                     libstf::OutputHandle output_handle);
-//
-//   const metadata::ColumnChunk &column_chunk() const;
-//
-//   const libstf::OutputHandle &output_handle() const;
-//
-// private:
-//   metadata::ColumnChunk column_chunk_;
-//   libstf::OutputHandle output_handle_;
-// };
-
 class Reader {
 public:
   Reader(std::shared_ptr<coyote::cThread> cthread,
@@ -37,7 +23,7 @@ public:
          PageDecoderConfig page_config, const metadata::Metadata &meta,
          libstf::stream_t decoder = 0);
 
-  const metadata::Metadata &metadata() const;
+  [[nodiscard]] const metadata::Metadata &metadata() const;
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
@@ -51,12 +37,13 @@ public:
    * retrieve the output data, potentially blocking on until the acceleartor
    * is done processing.
    */
-  virtual bool has_next_column_chunk();
+  [[nodiscard]] virtual bool has_next_column_chunk();
 
   /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
-  virtual std::vector<std::shared_ptr<libstf::Buffer>> next_column_chunk();
+  [[nodiscard]] virtual std::vector<std::shared_ptr<libstf::Buffer>>
+  next_column_chunk();
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);

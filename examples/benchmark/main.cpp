@@ -18,6 +18,7 @@
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
+#include <parcore/multi_reader.hpp>
 #include <unistd.h>
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
@@ -27,15 +28,15 @@
 
 const std::string separator = std::string(80, '-');
 
-void time(std::string file_path, parcore::Reader &reader,
+void time(std::string file_path, std::shared_ptr<parcore::MultiReader> reader,
           std::shared_ptr<arrow::io::RandomAccessFile> file, size_t i, size_t j,
           size_t values, size_t reps, bool print) {
   std::chrono::high_resolution_clock::rep fpga_us = 0, cpu_us = 0;
 
   for (size_t k = 0; k < reps; ++k) {
     auto start = std::chrono::high_resolution_clock::now();
-    reader.enqueue_column_chunk(i, j);
-    auto fpga_data = reader.next_column_chunk();
+    reader->enqueue_column_chunk(i, j);
+    auto fpga_data = reader->next_column_chunk();
     auto end = std::chrono::high_resolution_clock::now();
     fpga_us +=
         std::chrono::duration_cast<std::chrono::microseconds>(end - start)
@@ -78,7 +79,8 @@ static void handle_fpga_interrupt(int value) {
   obm->handle_fpga_interrupt(value);
 }
 
-void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
+void benchmark(std::string parquet_file, uint32_t num_decoders,
+               size_t discard_reps, size_t reps) {
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
@@ -113,8 +115,12 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
 #endif
   obm->flush_buffers();
 
-  parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
-                             page_config, parquet_file);
+  if (num_decoders <= 0)
+    num_decoders = column_chunk_config.num_decoders();
+
+  auto reader = parcore::make_multi_reader<parcore::FileReader>(
+      num_decoders, cthread, pool, tlb, obm, column_chunk_config, page_config,
+      parquet_file);
 
   auto rows = meta.groups.size();
   assert(rows > 0);
@@ -132,6 +138,7 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
 int main(int argc, char *argv[]) {
   std::vector<std::string> files;
   size_t discard_reps, reps;
+  uint32_t num_decoders;
 
   boost::program_options::options_description runtime_options(
       "Parcore benchmark");
@@ -144,7 +151,10 @@ int main(int argc, char *argv[]) {
       "discarded, not accounted for in the results)")(
       "reps,r",
       boost::program_options::value<size_t>(&reps)->default_value(N_REPS),
-      "The number of times to decode each page for benchmarking");
+      "The number of times to decode each page for benchmarking")(
+      "num_decoders,D",
+      boost::program_options::value<uint32_t>(&num_decoders)->default_value(0),
+      "The number of decoders to use; 0 means as many as possible");
   boost::program_options::variables_map command_line_arguments;
   boost::program_options::store(
       boost::program_options::parse_command_line(argc, argv, runtime_options),
@@ -153,7 +163,7 @@ int main(int argc, char *argv[]) {
 
   std::cout << "file,group,column,values,fpga,cpu" << std::endl;
   for (auto file : files) {
-    benchmark(file, discard_reps, reps);
+    benchmark(file, num_decoders, discard_reps, reps);
   }
 
   return EXIT_SUCCESS;

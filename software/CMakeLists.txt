@@ -40,6 +40,7 @@ target_sources(Parcore PRIVATE
     parcore/reader.cpp
     parcore/memory_reader.cpp
     parcore/file_reader.cpp
+    parcore/multi_reader.cpp
 
     parcore/metadata/metadata.cpp
     parcore/metadata/utils.cpp

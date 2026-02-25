@@ -30,12 +30,13 @@ public:
              PageDecoderConfig page_config, std::string path,
              libstf::stream_t decoder = 0);
 
-  void enqueue_column_chunk(size_t chunk, size_t column);
+  void enqueue_column_chunk(size_t chunk, size_t column) override;
 
-  std::vector<std::shared_ptr<libstf::Buffer>> next_column_chunk();
+  [[nodiscard]] std::vector<std::shared_ptr<libstf::Buffer>>
+  next_column_chunk() override;
 
 protected:
-  void send_page(const metadata::Page &page, PageType page_type);
+  void send_page(const metadata::Page &page, PageType page_type) override;
 };
 
 } // namespace parcore

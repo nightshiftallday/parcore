@@ -22,6 +22,7 @@ class Type(Enum):
     INT64 = 2
     FLOAT = 3
     DOUBLE = 4
+    BYTE_ARRAY = 5
 
     def __str__(self):
         return f'{self.name}'

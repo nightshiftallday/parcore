@@ -45,6 +45,8 @@ def parse_type(raw: str) -> Type:
             return Type.FLOAT
         case 'DOUBLE':
             return Type.DOUBLE
+        case 'BYTE_ARRAY':
+            return Type.BYTE_ARRAY
 
     raise Exception(f'unsupported type: {raw}')
 
