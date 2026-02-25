@@ -1,9 +1,14 @@
-#include "metadata/metadata.hpp"
+#pragma once
+
+#include <deque>
+#include <queue>
+
+#include <parcore/metadata/metadata.hpp>
 #include <parcore/reader.hpp>
 
 namespace parcore {
 
-class MultiReader {
+class MultiReader : public Reader {
 private:
   struct DecoderState {
     size_t id;
@@ -17,7 +22,7 @@ private:
 public:
   MultiReader(std::vector<std::shared_ptr<Reader>> readers);
 
-  const metadata::Metadata &metadata() const;
+  [[nodiscard]] const metadata::Metadata &metadata() const override;
 
   void enqueue_column_chunk(size_t chunk, size_t column);
 

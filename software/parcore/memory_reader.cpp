@@ -13,8 +13,8 @@ MemoryReader::MemoryReader(
     ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
     const metadata::Metadata &meta, std::shared_ptr<libstf::Buffer> data,
     libstf::stream_t decoder)
-    : Reader(cthread, memory_pool, tlb_manager, output_buffer_manager,
-             column_chunk_config, page_config, meta, decoder),
+    : BaseReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
+                 column_chunk_config, page_config, meta, decoder),
       data_(std::move(data)) {}
 
 const std::string memory_reader_prefix = "parcore::MemoryReader::";

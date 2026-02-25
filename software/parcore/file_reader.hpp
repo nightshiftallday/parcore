@@ -3,11 +3,11 @@
 #include <fstream>
 #include <memory>
 
-#include <parcore/reader.hpp>
+#include <parcore/base_reader.hpp>
 
 namespace parcore {
 
-class FileReader : public Reader {
+class FileReader : public BaseReader {
 private:
   std::ifstream file_;
   std::queue<std::vector<std::shared_ptr<libstf::Buffer>>>

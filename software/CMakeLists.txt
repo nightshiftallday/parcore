@@ -37,7 +37,7 @@ set_target_properties(Parcore PROPERTIES OUTPUT_NAME "parcore")
 
 target_sources(Parcore PRIVATE
     parcore/configuration.cpp
-    parcore/reader.cpp
+    parcore/base_reader.cpp
     parcore/memory_reader.cpp
     parcore/file_reader.cpp
     parcore/multi_reader.cpp

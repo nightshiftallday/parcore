@@ -1,34 +1,20 @@
-#include <algorithm>
 #include <cstring>
-#include <optional>
 #include <stdexcept>
 
 #include <coyote/cThread.hpp>
 #include <libstf/profiling.hpp>
+#include <parcore/base_reader.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
-#include <parcore/reader.hpp>
 
 using libstf::Profiler;
 
 namespace parcore {
 
-// ColumnChunkOutput::ColumnChunkOutput(metadata::ColumnChunk column_chunk,
-//                                      libstf::OutputHandle output_handle)
-//     : column_chunk_(column_chunk), output_handle_(output_handle) {}
-//
-// const metadata::ColumnChunk &ColumnChunkOutput::column_chunk() const {
-//   return column_chunk_;
-// }
-//
-// const libstf::OutputHandle &ColumnChunkOutput::output_handle() const {
-//   return output_handle_;
-// }
-
 const std::string reader_prefix = "parcore::Reader::";
 
-void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
+void BaseReader::enqueue_stream_input(const libstf::Buffer &buffer) {
   Profiler::open_regions({reader_prefix + "enqueue_stream_input"});
   auto byte_ptr = static_cast<const std::byte *>(buffer.ptr);
   tlb_manager_->ensure_tlb_mapping(buffer.ptr, buffer.capacity);
@@ -53,7 +39,7 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
 }
 
-Reader::Reader(
+BaseReader::BaseReader(
     std::shared_ptr<coyote::cThread> cthread,
     std::shared_ptr<libstf::MemoryPool> memory_pool,
     std::shared_ptr<libstf::TLBManager> tlb_manager,
@@ -65,7 +51,7 @@ Reader::Reader(
       column_chunk_config_(column_chunk_config), page_config_(page_config),
       meta_(meta), decoder_(decoder) {}
 
-std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
+std::shared_ptr<libstf::Buffer> BaseReader::allocate_buffer(size_t size) {
   void *ptr;
   auto status = memory_pool_->allocate(size, reinterpret_cast<void **>(&ptr));
   if (!status.ok()) {
@@ -78,15 +64,15 @@ std::shared_ptr<libstf::Buffer> Reader::allocate_buffer(size_t size) {
   return std::move(buffer);
 }
 
-libstf::stream_mask_t Reader::decoder_mask() const {
+libstf::stream_mask_t BaseReader::decoder_mask() const {
   libstf::stream_mask_t mask;
   mask.set(decoder_);
   return mask;
 }
 
-const metadata::Metadata &Reader::metadata() const { return meta_; }
+const metadata::Metadata &BaseReader::metadata() const { return meta_; }
 
-void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
+void BaseReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
   auto column_chunk = get_column_chunk(meta_, chunk, column);
@@ -121,9 +107,9 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
 
-bool Reader::has_next_column_chunk() { return !queue_.empty(); }
+bool BaseReader::has_next_column_chunk() { return !queue_.empty(); }
 
-std::vector<std::shared_ptr<libstf::Buffer>> Reader::next_column_chunk() {
+std::vector<std::shared_ptr<libstf::Buffer>> BaseReader::next_column_chunk() {
   Profiler::open_regions({reader_prefix + "next_column_chunk"});
 
   auto output_handle = queue_.front();

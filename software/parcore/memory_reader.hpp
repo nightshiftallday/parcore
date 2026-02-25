@@ -2,11 +2,11 @@
 
 #include <memory>
 
-#include <parcore/reader.hpp>
+#include <parcore/base_reader.hpp>
 
 namespace parcore {
 
-class MemoryReader : public Reader {
+class MemoryReader : public BaseReader {
 private:
   std::shared_ptr<libstf::Buffer> data_;
 

@@ -4,9 +4,9 @@
 #include <queue>
 #include <vector>
 
+#include <parcore/base_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/multi_reader.hpp>
-#include <parcore/reader.hpp>
 
 namespace parcore {
 
