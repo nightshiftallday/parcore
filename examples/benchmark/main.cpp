@@ -80,7 +80,8 @@ static void handle_fpga_interrupt(int value) {
 
 void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   auto meta = parcore::metadata::from_file(parquet_file + ".meta");
-  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid());
+  auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
+                                                   0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
   auto pool = std::make_shared<libstf::SimpleMemoryPool>();
 #else
@@ -115,10 +116,13 @@ void benchmark(std::string parquet_file, size_t discard_reps, size_t reps) {
   parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
                              page_config, parquet_file);
 
-  for (size_t i = 0; i < meta.groups.size(); ++i) {
-    auto group = meta.groups[i];
-    for (size_t j = 0; j < group.chunks.size(); ++j) {
-      auto values = group.chunks[j].num_values;
+  auto rows = meta.groups.size();
+  assert(rows > 0);
+  auto cols = meta.groups[0].chunks.size();
+
+  for (size_t j = 0; j < cols; ++j) {
+    for (size_t i = 0; i < rows; ++i) {
+      auto values = meta.groups[i].chunks[j].num_values;
       time(parquet_file, reader, file, i, j, values, discard_reps, false);
       time(parquet_file, reader, file, i, j, values, reps, true);
     }

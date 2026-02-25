@@ -45,13 +45,9 @@ void Reader::enqueue_stream_input(const libstf::Buffer &buffer) {
     sg.stream = coyote::STRM_HOST;
     sg.dest = decoder_;
 
-    // std::cout << "sending data at " << std::hex << curr_ptr << " " <<
-    // std::dec
-    //           << input_size << "..." << std::flush;
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
     cthread_->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
-    // std::cout << "done" << std::endl;
     Profiler::close_regions({reader_prefix + "local_read"});
   }
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
@@ -104,9 +100,6 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   }
   auto column_chunk = group.chunks[column];
 
-  // std::cout << "configuring column chunk compression = " <<
-  // column_chunk.compression << ", num_values = " << column_chunk.num_values <<
-  // ", hybrid_num_values = " << column_chunk.hybrid_num_values << std::endl;
   column_chunk_config_.process_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values,
       column_chunk.hybrid_num_values, column_chunk.type);
@@ -116,7 +109,6 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
       output_buffer_manager_->acquire_output_handle(decoder_mask());
   auto expected_bytes =
       libstf::size_of(column_chunk.type) * column_chunk.num_values;
-  std::cout << "expecting bytes " << expected_bytes << std::endl;
 
   if (column_chunk.dictionary != std::nullopt) {
     page_config_.process_page(decoder_, PageType::DICT,
@@ -135,7 +127,6 @@ void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   queue_.push(output_handle);
 
-  // std::cout << "enqueue_column_chunk over" << std::endl;
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
 
@@ -143,7 +134,6 @@ bool Reader::has_next_column_chunk() { return !queue_.empty(); }
 
 std::vector<std::shared_ptr<libstf::Buffer>> Reader::next_column_chunk() {
   Profiler::open_regions({reader_prefix + "next_column_chunk"});
-  // std::cout << "next_column_chunk start" << std::endl;
 
   auto output_handle = queue_.front();
   queue_.pop();
@@ -151,19 +141,19 @@ std::vector<std::shared_ptr<libstf::Buffer>> Reader::next_column_chunk() {
   std::vector<std::shared_ptr<libstf::Buffer>> bufs;
 
   while (output_handle->stream_has_more_output(decoder_)) {
-    // std::cout << "fpga has more output, getting it" << std::endl;
     auto buf = output_handle->get_next_stream_output(decoder_);
     bufs.push_back(std::move(buf));
   }
 
   if (bufs.size() > 1) {
-    std::cout << "done receiving output, got " << bufs.size() << " buffers"
-              << std::endl;
+    throw std::runtime_error(
+        "expected to receive just one output buffer for maximum "
+        "performance, instead received " +
+        std::to_string(bufs.size()));
   }
 
   Profiler::close_regions({reader_prefix + "next_column_chunk"});
 
-  // std::cout << "next_column_chunk over" << std::endl;
   return bufs;
 }
 
