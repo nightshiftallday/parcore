@@ -69,4 +69,7 @@ private:
   std::queue<std::shared_ptr<libstf::OutputHandle>> queue_;
 };
 
+const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
+                                             size_t chunk, size_t column);
+
 } // namespace parcore

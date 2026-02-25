@@ -1,8 +1,19 @@
+#include "metadata/metadata.hpp"
 #include <parcore/reader.hpp>
 
 namespace parcore {
 
 class MultiReader {
+private:
+  struct DecoderState {
+    size_t id;
+    double available_time;
+
+    bool operator>(const DecoderState &other) const {
+      return available_time > other.available_time;
+    }
+  };
+
 public:
   MultiReader(std::vector<std::shared_ptr<Reader>> readers);
 
@@ -16,10 +27,21 @@ public:
   next_column_chunk();
 
 private:
-  std::vector<std::shared_ptr<Reader>> readers_;
+  double compute_cost(const metadata::ColumnChunk &column_chunk) const;
 
-  size_t enqueue_index_ = 0;
-  size_t next_index_ = 0;
+  std::vector<std::shared_ptr<Reader>> readers_;
+  std::priority_queue<DecoderState, std::vector<DecoderState>,
+                      std::greater<DecoderState>>
+      decoder_heap_;
+  // The order of decoders used, so that we can fetch data from them in the
+  // appropriate order.
+  std::deque<size_t> scheduled_order_;
+
+  // Coefficients for computing the next decoder to use
+  double transfer_factor_;
+  double decompress_factor_;
+  double plain_factor_;
+  double hybrid_factor_;
 };
 
 template <typename T, typename... Args>

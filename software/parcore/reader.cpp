@@ -89,16 +89,7 @@ const metadata::Metadata &Reader::metadata() const { return meta_; }
 void Reader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
-  if (chunk >= meta_.groups.size()) {
-    throw std::runtime_error("attempted to parse chunk which is out of bounds");
-  }
-  auto group = meta_.groups[chunk];
-
-  if (column >= group.chunks.size()) {
-    throw std::runtime_error(
-        "attempted to parse column chunk which is out of bounds");
-  }
-  auto column_chunk = group.chunks[column];
+  auto column_chunk = get_column_chunk(meta_, chunk, column);
 
   column_chunk_config_.process_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values,
@@ -155,6 +146,21 @@ std::vector<std::shared_ptr<libstf::Buffer>> Reader::next_column_chunk() {
   Profiler::close_regions({reader_prefix + "next_column_chunk"});
 
   return bufs;
+}
+
+const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
+                                             size_t chunk, size_t column) {
+  if (chunk >= meta.groups.size()) {
+    throw std::runtime_error("attempted to parse chunk which is out of bounds");
+  }
+  auto group = meta.groups[chunk];
+
+  if (column >= group.chunks.size()) {
+    throw std::runtime_error(
+        "attempted to parse column chunk which is out of bounds");
+  }
+
+  return group.chunks[column];
 }
 
 } // namespace parcore
