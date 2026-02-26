@@ -81,7 +81,8 @@ inline size_t get_input_bytes(const metadata::ColumnChunk &column_chunk) {
 }
 
 inline size_t get_output_bytes(const metadata::ColumnChunk &column_chunk) {
-  return column_chunk.num_values * libstf::size_of(column_chunk.type);
+  auto type = metadata::to_libstf_type(column_chunk.type);
+  return column_chunk.num_values * libstf::size_of(type);
 }
 
 double

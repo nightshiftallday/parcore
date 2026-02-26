@@ -24,12 +24,12 @@ public:
 
   [[nodiscard]] const metadata::Metadata &metadata() const override;
 
-  void enqueue_column_chunk(size_t chunk, size_t column);
+  void enqueue_column_chunk(size_t chunk, size_t column) override;
 
-  [[nodiscard]] bool has_next_column_chunk();
+  [[nodiscard]] bool has_next_column_chunk() override;
 
   [[nodiscard]] std::vector<std::shared_ptr<libstf::Buffer>>
-  next_column_chunk();
+  next_column_chunk() override;
 
 private:
   double compute_cost(const metadata::ColumnChunk &column_chunk) const;

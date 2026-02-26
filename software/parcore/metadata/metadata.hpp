@@ -18,6 +18,19 @@ std::ostream &operator<<(std::ostream &os, Encoding e);
 enum class Compression : uint8_t { RAW = 0, SNAPPY = 1 };
 std::ostream &operator<<(std::ostream &os, Compression c);
 
+enum class Type : unsigned char {
+  BYTE_T,
+  INT32_T,
+  INT64_T,
+  FLOAT_T,
+  DOUBLE_T,
+  NUM_TYPES,
+
+};
+std::ostream &operator<<(std::ostream &os, Type typ);
+bool is_libstf_type(const Type &typ);
+libstf::type_t to_libstf_type(const Type &typ);
+
 struct Page {
   Encoding encoding;
   uint64_t offset;
@@ -28,7 +41,7 @@ struct Page {
 };
 
 struct ColumnChunk {
-  libstf::type_t type;
+  Type type;
   uint64_t num_values;
   uint64_t hybrid_num_values;
   Compression compression;

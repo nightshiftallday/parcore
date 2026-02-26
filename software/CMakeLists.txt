@@ -57,16 +57,19 @@ target_include_directories(Parcore PRIVATE ${COYOTE_INCLUDE_DIRS})
 target_link_libraries(Parcore PRIVATE libstf)
 target_include_directories(Parcore PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
+find_package(Arrow REQUIRED)
+target_link_libraries(Parcore PRIVATE Arrow::arrow_shared)
+target_include_directories(Parcore PRIVATE ${ARROW_INCLUDE_DIRS})
+
 if (PARCORE_INCLUDE_CPU)
     find_package(Parquet REQUIRED)
-    find_package(Arrow REQUIRED)
-
-    target_link_libraries(Parcore PRIVATE Arrow::arrow_shared)
     target_link_libraries(Parcore PRIVATE Parquet::parquet_shared)
-    target_include_directories(Parcore PRIVATE ${ARROW_INCLUDE_DIRS})
     target_include_directories(Parcore PRIVATE ${PARQUET_INCLUDE_DIRS})
 
-    target_sources(Parcore PRIVATE parcore/cpu/cpu.cpp)
+    target_sources(Parcore PRIVATE 
+        parcore/cpu/cpu.cpp
+        parcore/hybrid_reader.cpp
+    )
 endif()
 
 include(GNUInstallDirs)

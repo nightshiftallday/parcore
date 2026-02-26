@@ -77,15 +77,15 @@ void BaseReader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   auto column_chunk = get_column_chunk(meta_, chunk, column);
 
+  auto type = metadata::to_libstf_type(column_chunk.type);
   column_chunk_config_.process_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values,
-      column_chunk.hybrid_num_values, column_chunk.type);
+      column_chunk.hybrid_num_values, type);
 
   // Storing the result handle in the queue
   auto output_handle =
       output_buffer_manager_->acquire_output_handle(decoder_mask());
-  auto expected_bytes =
-      libstf::size_of(column_chunk.type) * column_chunk.num_values;
+  auto expected_bytes = libstf::size_of(type) * column_chunk.num_values;
 
   if (column_chunk.dictionary != std::nullopt) {
     page_config_.process_page(decoder_, PageType::DICT,

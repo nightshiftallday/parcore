@@ -7,6 +7,53 @@
 namespace parcore {
 namespace metadata {
 
+std::ostream &operator<<(std::ostream &os, Type typ) {
+  switch (typ) {
+  case Type::BYTE_T:
+    return os << "BYTE_T";
+  case Type::INT32_T:
+    return os << "INT32_T";
+  case Type::INT64_T:
+    return os << "INT64_T";
+  case Type::FLOAT_T:
+    return os << "FLOAT_T";
+  case Type::DOUBLE_T:
+    return os << "DOUBLE_T";
+  default:
+    return os << "UNEXPECTED TYPE";
+  }
+}
+
+bool is_libstf_type(const Type &typ) {
+  switch (typ) {
+  case Type::BYTE_T:
+  case Type::INT32_T:
+  case Type::INT64_T:
+  case Type::FLOAT_T:
+  case Type::DOUBLE_T:
+    return true;
+  default:
+    return false;
+  }
+}
+
+libstf::type_t to_libstf_type(const Type &typ) {
+  switch (typ) {
+  case Type::BYTE_T:
+    return libstf::type_t::BYTE_T;
+  case Type::INT32_T:
+    return libstf::type_t::INT32_T;
+  case Type::INT64_T:
+    return libstf::type_t::INT64_T;
+  case Type::FLOAT_T:
+    return libstf::type_t::FLOAT_T;
+  case Type::DOUBLE_T:
+    return libstf::type_t::DOUBLE_T;
+  default:
+    throw std::runtime_error("cannot convert type to libstf::type_t");
+  }
+}
+
 std::ostream &operator<<(std::ostream &os, Encoding e) {
   switch (e) {
   case Encoding::PLAIN:
@@ -14,7 +61,7 @@ std::ostream &operator<<(std::ostream &os, Encoding e) {
   case Encoding::HYBRID:
     return os << "HYBRID";
   default:
-    throw std::runtime_error("unexpected encoding");
+    return os << "UNEXPECTED ENCODING";
   }
 }
 
@@ -25,7 +72,7 @@ std::ostream &operator<<(std::ostream &os, Compression c) {
   case Compression::SNAPPY:
     return os << "SNAPPY";
   default:
-    throw std::runtime_error("unexpected compression");
+    return os << "UNEXPECTED COMPRESSION";
   }
 }
 
