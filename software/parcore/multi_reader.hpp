@@ -58,9 +58,7 @@ std::shared_ptr<MultiReader> make_multi_reader(size_t count, Args &&...args) {
 
   for (size_t i = 0; i < count; ++i) {
     readers.push_back(
-        std::make_shared<T>(std::forward<Args>(args)...,
-                            static_cast<libstf::stream_t>(i) // decoder = i
-                            ));
+        std::make_shared<T>(args..., static_cast<libstf::stream_t>(i)));
   }
 
   return std::make_shared<MultiReader>(std::move(readers));

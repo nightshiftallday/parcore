@@ -50,7 +50,13 @@ HardwareReader::HardwareReader(
     : cthread_(cthread), memory_pool_(memory_pool), tlb_manager_(tlb_manager),
       output_buffer_manager_(output_buffer_manager),
       column_chunk_config_(column_chunk_config), page_config_(page_config),
-      meta_(meta), decoder_(decoder) {}
+      meta_(meta), decoder_(decoder) {
+
+  assert(cthread_ != nullptr);
+  assert(memory_pool_ != nullptr);
+  assert(tlb_manager_ != nullptr);
+  assert(output_buffer_manager_ != nullptr);
+}
 
 std::shared_ptr<libstf::Buffer> HardwareReader::allocate_buffer(size_t size) {
   void *ptr;

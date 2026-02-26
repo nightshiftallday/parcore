@@ -5,6 +5,7 @@
 #include <optional>
 #include <vector>
 
+#include <arrow/type.h>
 #include <libstf/common.hpp>
 
 namespace parcore {
@@ -29,6 +30,7 @@ enum class Type : unsigned char {
 std::ostream &operator<<(std::ostream &os, Type typ);
 bool is_libstf_type(const Type &typ);
 libstf::type_t to_libstf_type(const Type &typ);
+std::shared_ptr<arrow::DataType> to_arrow_type(const Type &typ);
 
 struct Page {
   Encoding encoding;

@@ -54,6 +54,23 @@ libstf::type_t to_libstf_type(const Type &typ) {
   }
 }
 
+std::shared_ptr<arrow::DataType> to_arrow_type(const Type &typ) {
+  switch (typ) {
+  case Type::BYTE_T:
+    return arrow::boolean();
+  case Type::INT32_T:
+    return arrow::int32();
+  case Type::INT64_T:
+    return arrow::int64();
+  case Type::FLOAT_T:
+    return arrow::float32();
+  case Type::DOUBLE_T:
+    return arrow::float64();
+  default:
+    throw std::runtime_error("cannot convert type to arrow::DataType");
+  }
+}
+
 std::ostream &operator<<(std::ostream &os, Encoding e) {
   switch (e) {
   case Encoding::PLAIN:
