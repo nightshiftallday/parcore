@@ -1,8 +1,8 @@
 #include <parquet/arrow/reader.h>
 
-#include <parcore/base_reader.hpp>
 #include <parcore/hybrid_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
+#include <parcore/reader.hpp>
 #include <stdexcept>
 
 namespace parcore {
@@ -11,6 +11,10 @@ HybridReader::HybridReader(std::shared_ptr<Reader> hardware_reader,
                            std::shared_ptr<Reader> software_reader)
     : hardware_reader_(std::move(hardware_reader)),
       software_reader_(std::move(software_reader)) {}
+
+const metadata::Metadata &HybridReader::metadata() const {
+  return hardware_reader_->metadata();
+}
 
 void HybridReader::enqueue_column_chunk(size_t chunk, size_t column) {
   auto column_chunk = get_column_chunk(metadata(), chunk, column);
@@ -38,7 +42,7 @@ bool HybridReader::has_next_column_chunk() {
   }
 }
 
-std::vector<std::shared_ptr<libstf::Buffer>> HybridReader::next_column_chunk() {
+std::shared_ptr<arrow::ChunkedArray> HybridReader::next_column_chunk() {
   assert(!chosen_decoder_.empty());
 
   auto decoder = chosen_decoder_.front();

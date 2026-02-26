@@ -1,15 +1,14 @@
 #pragma once
 
-#include <fstream>
-#include <memory>
-
 #include <arrow/io/file.h>
 
-#include <parcore/base_reader.hpp>
+#include <parcore/fpga/reader.hpp>
 
 namespace parcore {
 
-class FileReader : public BaseReader {
+namespace fpga {
+
+class FileReader : public HardwareReader {
 private:
   std::shared_ptr<arrow::io::RandomAccessFile> file_;
   std::queue<std::vector<std::shared_ptr<libstf::Buffer>>>
@@ -33,5 +32,7 @@ public:
 protected:
   void send_page(const metadata::Page &page, PageType page_type) override;
 };
+
+} // namespace fpga
 
 } // namespace parcore

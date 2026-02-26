@@ -7,6 +7,7 @@
 #include <parcore/reader.hpp>
 
 namespace parcore {
+
 namespace cpu {
 
 class CPUReader : public Reader {
@@ -17,13 +18,16 @@ private:
 public:
   CPUReader(std::shared_ptr<arrow::io::RandomAccessFile> file);
 
+  [[nodiscard]] const metadata::Metadata &metadata() const override;
+
   void enqueue_column_chunk(size_t chunk, size_t column) override;
 
   [[nodiscard]] bool has_next_column_chunk() override;
 
-  [[nodiscard]] std::vector<std::shared_ptr<libstf::Buffer>>
+  [[nodiscard]] std::shared_ptr<arrow::ChunkedArray>
   next_column_chunk() override;
 };
 
 } // namespace cpu
+//
 } // namespace parcore

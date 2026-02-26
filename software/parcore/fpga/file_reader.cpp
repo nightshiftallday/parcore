@@ -1,13 +1,15 @@
 #include <stdexcept>
 
 #include <libstf/profiling.hpp>
-#include <parcore/file_reader.hpp>
+#include <parcore/fpga/file_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
 
 using libstf::Profiler;
 
 namespace parcore {
+
+namespace fpga {
 
 FileReader::FileReader(
     std::shared_ptr<coyote::cThread> cthread,
@@ -17,8 +19,8 @@ FileReader::FileReader(
     ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
     const metadata::Metadata &meta,
     std::shared_ptr<arrow::io::RandomAccessFile> file, libstf::stream_t decoder)
-    : BaseReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
-                 column_chunk_config, page_config, meta, decoder),
+    : HardwareReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
+                     column_chunk_config, page_config, meta, decoder),
       file_(std::move(file)) {}
 
 const std::string file_reader_prefix = "parcore::FileReader::";
@@ -36,11 +38,11 @@ void FileReader::enqueue_column_chunk(size_t chunk, size_t column) {
   buffers_per_column_chunk_.push(
       std::vector<std::shared_ptr<libstf::Buffer>>());
 
-  BaseReader::enqueue_column_chunk(chunk, column);
+  HardwareReader::enqueue_column_chunk(chunk, column);
 }
 
 std::vector<std::shared_ptr<libstf::Buffer>> FileReader::next_column_chunk() {
-  auto result = BaseReader::next_column_chunk();
+  auto result = HardwareReader::next_column_chunk();
 
   // At this point it is safe to free the input buffers, so we pop the vector
   // containing all references.
@@ -77,5 +79,7 @@ void FileReader::send_page(const metadata::Page &page, PageType page_type) {
 
   Profiler::close_regions({file_reader_prefix + "send_page"});
 }
+
+} // namespace fpga
 
 } // namespace parcore

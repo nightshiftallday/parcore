@@ -37,9 +37,11 @@ set_target_properties(Parcore PROPERTIES OUTPUT_NAME "parcore")
 
 target_sources(Parcore PRIVATE
     parcore/configuration.cpp
-    parcore/base_reader.cpp
-    parcore/memory_reader.cpp
-    parcore/file_reader.cpp
+    parcore/fpga/buffer.cpp
+    parcore/fpga/reader.cpp
+    parcore/fpga/memory_reader.cpp
+    parcore/fpga/file_reader.cpp
+
     parcore/multi_reader.cpp
 
     parcore/metadata/metadata.cpp
@@ -65,6 +67,8 @@ if (PARCORE_INCLUDE_CPU)
     find_package(Parquet REQUIRED)
     target_link_libraries(Parcore PRIVATE Parquet::parquet_shared)
     target_include_directories(Parcore PRIVATE ${PARQUET_INCLUDE_DIRS})
+
+    message(STATUS "Adding CPU decoding support to Parcore")
 
     target_sources(Parcore PRIVATE 
         parcore/cpu/cpu.cpp

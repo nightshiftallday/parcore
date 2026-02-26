@@ -5,10 +5,12 @@
 
 #include <libstf/profiling.hpp>
 #include <parcore/cpu/cpu_reader.hpp>
+#include <stdexcept>
 
 using libstf::Profiler;
 
 namespace parcore {
+
 namespace cpu {
 
 const std::string prefix = "parcore::HybridReader::";
@@ -38,6 +40,10 @@ open_reader(std::shared_ptr<arrow::io::RandomAccessFile> file) {
 CPUReader::CPUReader(std::shared_ptr<arrow::io::RandomAccessFile> file)
     : file_reader_(std::move(open_reader(file))) {}
 
+const metadata::Metadata &CPUReader::metadata() const {
+  throw std::logic_error("CPUReader::metadata() is not implemented");
+}
+
 void CPUReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({prefix + "enqueue_column_chunk"});
   auto rg = file_reader_->RowGroup(chunk);
@@ -49,26 +55,7 @@ void CPUReader::enqueue_column_chunk(size_t chunk, size_t column) {
 
 bool CPUReader::has_next_column_chunk() { return !queue_.empty(); }
 
-struct ArrayDeleter {
-  ArrayDeleter(std::shared_ptr<arrow::Array> array) : array_(array) {}
-
-  void operator()(libstf::Buffer const *buffer) const { /* TODO */ }
-
-private:
-  std::shared_ptr<arrow::Array> array_;
-};
-
-std::shared_ptr<libstf::Buffer>
-arrow_to_libstf_buffer(std::shared_ptr<arrow::Array> array) {
-  auto &buf = array->data()->buffers[1];
-  void *ptr = const_cast<uint8_t *>(buf->data());
-  size_t bytes = buf->size();
-  auto buffer =
-      new libstf::Buffer{.ptr = ptr, .size = bytes, .capacity = bytes};
-  return std::shared_ptr<libstf::Buffer>(buffer, ArrayDeleter(array));
-}
-
-std::vector<std::shared_ptr<libstf::Buffer>> CPUReader::next_column_chunk() {
+std::shared_ptr<arrow::ChunkedArray> CPUReader::next_column_chunk() {
   assert(!queue_.empty());
   Profiler::open_regions({prefix + "next_column_chunk"});
 
@@ -83,16 +70,10 @@ std::vector<std::shared_ptr<libstf::Buffer>> CPUReader::next_column_chunk() {
                              status.message());
   }
 
-  std::vector<std::shared_ptr<libstf::Buffer>> buffers;
-  buffers.reserve(out->num_chunks());
-  for (auto array : out->chunks()) {
-    auto buf = arrow_to_libstf_buffer(array);
-    buffers.push_back(buf);
-  }
-
   Profiler::close_regions({prefix + "next_column_chunk"});
-  return buffers;
+  return std::move(out);
 }
 
 } // namespace cpu
+
 } // namespace parcore

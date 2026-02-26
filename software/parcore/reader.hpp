@@ -1,8 +1,6 @@
 #pragma once
 
-#include <memory>
-
-#include <libstf/buffer.hpp>
+#include <arrow/chunked_array.h>
 #include <parcore/metadata/metadata.hpp>
 
 namespace parcore {
@@ -28,8 +26,11 @@ public:
   /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
-  [[nodiscard]] virtual std::vector<std::shared_ptr<libstf::Buffer>>
+  [[nodiscard]] virtual std::shared_ptr<arrow::ChunkedArray>
   next_column_chunk() = 0;
 };
+
+const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
+                                             size_t chunk, size_t column);
 
 } // namespace parcore

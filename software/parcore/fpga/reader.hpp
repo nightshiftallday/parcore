@@ -14,23 +14,26 @@
 
 namespace parcore {
 
-class BaseReader : public Reader {
-public:
-  BaseReader(std::shared_ptr<coyote::cThread> cthread,
-             std::shared_ptr<libstf::MemoryPool> memory_pool,
-             std::shared_ptr<libstf::TLBManager> tlb_manager,
-             std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
-             ColumnChunkDecoderConfig column_chunk_config,
-             PageDecoderConfig page_config, const metadata::Metadata &meta,
-             libstf::stream_t decoder = 0);
+namespace fpga {
 
-  [[nodiscard]] const metadata::Metadata &metadata() const override;
+class HardwareReader {
+public:
+  HardwareReader(
+      std::shared_ptr<coyote::cThread> cthread,
+      std::shared_ptr<libstf::MemoryPool> memory_pool,
+      std::shared_ptr<libstf::TLBManager> tlb_manager,
+      std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
+      ColumnChunkDecoderConfig column_chunk_config,
+      PageDecoderConfig page_config, const metadata::Metadata &meta,
+      libstf::stream_t decoder = 0);
+
+  [[nodiscard]] const metadata::Metadata &metadata() const;
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
    * and potentially dictionary mapping.
    */
-  virtual void enqueue_column_chunk(size_t chunk, size_t column) override;
+  virtual void enqueue_column_chunk(size_t chunk, size_t column);
 
   /**
    * Returns whether there is a column chunk enqueued for processing. If this
@@ -38,13 +41,13 @@ public:
    * retrieve the output data, potentially blocking on until the acceleartor
    * is done processing.
    */
-  [[nodiscard]] virtual bool has_next_column_chunk() override;
+  [[nodiscard]] virtual bool has_next_column_chunk();
 
   /**
    * Retrieves the next column chunk that has been enqueued for processing.
    */
   [[nodiscard]] virtual std::vector<std::shared_ptr<libstf::Buffer>>
-  next_column_chunk() override;
+  next_column_chunk();
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
@@ -70,7 +73,6 @@ private:
   std::queue<std::shared_ptr<libstf::OutputHandle>> queue_;
 };
 
-const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
-                                             size_t chunk, size_t column);
+} // namespace fpga
 
 } // namespace parcore

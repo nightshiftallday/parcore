@@ -28,7 +28,7 @@ public:
 
   [[nodiscard]] bool has_next_column_chunk() override;
 
-  [[nodiscard]] std::vector<std::shared_ptr<libstf::Buffer>>
+  [[nodiscard]] std::shared_ptr<arrow::ChunkedArray>
   next_column_chunk() override;
 
 private:

@@ -1,12 +1,11 @@
 #include <boost/type.hpp>
 #include <memory>
 #include <optional>
-#include <queue>
 #include <vector>
 
-#include <parcore/base_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/multi_reader.hpp>
+#include <parcore/reader.hpp>
 
 namespace parcore {
 
@@ -55,7 +54,7 @@ bool MultiReader::has_next_column_chunk() {
   return readers_[decoder_id]->has_next_column_chunk();
 }
 
-std::vector<std::shared_ptr<libstf::Buffer>> MultiReader::next_column_chunk() {
+std::shared_ptr<arrow::ChunkedArray> MultiReader::next_column_chunk() {
   if (scheduled_order_.empty())
     return {};
 

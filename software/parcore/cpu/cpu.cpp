@@ -15,6 +15,7 @@
 using libstf::Profiler;
 
 namespace parcore {
+
 namespace cpu {
 
 InMemoryRandomAccessFile::InMemoryRandomAccessFile(
@@ -108,4 +109,5 @@ read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
 }
 
 } // namespace cpu
+
 } // namespace parcore

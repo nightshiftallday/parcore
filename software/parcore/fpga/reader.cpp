@@ -1,10 +1,9 @@
 #include <cstring>
-#include <stdexcept>
 
 #include <coyote/cThread.hpp>
 #include <libstf/profiling.hpp>
-#include <parcore/base_reader.hpp>
 #include <parcore/configuration.hpp>
+#include <parcore/fpga/reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
 
@@ -12,9 +11,11 @@ using libstf::Profiler;
 
 namespace parcore {
 
+namespace fpga {
+
 const std::string reader_prefix = "parcore::Reader::";
 
-void BaseReader::enqueue_stream_input(const libstf::Buffer &buffer) {
+void HardwareReader::enqueue_stream_input(const libstf::Buffer &buffer) {
   Profiler::open_regions({reader_prefix + "enqueue_stream_input"});
   auto byte_ptr = static_cast<const std::byte *>(buffer.ptr);
   tlb_manager_->ensure_tlb_mapping(buffer.ptr, buffer.capacity);
@@ -39,7 +40,7 @@ void BaseReader::enqueue_stream_input(const libstf::Buffer &buffer) {
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
 }
 
-BaseReader::BaseReader(
+HardwareReader::HardwareReader(
     std::shared_ptr<coyote::cThread> cthread,
     std::shared_ptr<libstf::MemoryPool> memory_pool,
     std::shared_ptr<libstf::TLBManager> tlb_manager,
@@ -51,7 +52,7 @@ BaseReader::BaseReader(
       column_chunk_config_(column_chunk_config), page_config_(page_config),
       meta_(meta), decoder_(decoder) {}
 
-std::shared_ptr<libstf::Buffer> BaseReader::allocate_buffer(size_t size) {
+std::shared_ptr<libstf::Buffer> HardwareReader::allocate_buffer(size_t size) {
   void *ptr;
   auto status = memory_pool_->allocate(size, reinterpret_cast<void **>(&ptr));
   if (!status.ok()) {
@@ -64,15 +65,15 @@ std::shared_ptr<libstf::Buffer> BaseReader::allocate_buffer(size_t size) {
   return std::move(buffer);
 }
 
-libstf::stream_mask_t BaseReader::decoder_mask() const {
+libstf::stream_mask_t HardwareReader::decoder_mask() const {
   libstf::stream_mask_t mask;
   mask.set(decoder_);
   return mask;
 }
 
-const metadata::Metadata &BaseReader::metadata() const { return meta_; }
+const metadata::Metadata &HardwareReader::metadata() const { return meta_; }
 
-void BaseReader::enqueue_column_chunk(size_t chunk, size_t column) {
+void HardwareReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
   auto column_chunk = get_column_chunk(meta_, chunk, column);
@@ -107,9 +108,10 @@ void BaseReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
 
-bool BaseReader::has_next_column_chunk() { return !queue_.empty(); }
+bool HardwareReader::has_next_column_chunk() { return !queue_.empty(); }
 
-std::vector<std::shared_ptr<libstf::Buffer>> BaseReader::next_column_chunk() {
+std::vector<std::shared_ptr<libstf::Buffer>>
+HardwareReader::next_column_chunk() {
   Profiler::open_regions({reader_prefix + "next_column_chunk"});
 
   auto output_handle = queue_.front();
@@ -134,19 +136,6 @@ std::vector<std::shared_ptr<libstf::Buffer>> BaseReader::next_column_chunk() {
   return bufs;
 }
 
-const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
-                                             size_t chunk, size_t column) {
-  if (chunk >= meta.groups.size()) {
-    throw std::runtime_error("attempted to parse chunk which is out of bounds");
-  }
-  auto group = meta.groups[chunk];
-
-  if (column >= group.chunks.size()) {
-    throw std::runtime_error(
-        "attempted to parse column chunk which is out of bounds");
-  }
-
-  return group.chunks[column];
-}
+} // namespace fpga
 
 } // namespace parcore

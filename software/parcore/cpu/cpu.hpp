@@ -4,6 +4,7 @@
 #include <vector>
 
 namespace parcore {
+
 namespace cpu {
 
 // Originally from https://stackoverflow.com/questions/72240424
@@ -34,4 +35,5 @@ read_column_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
                   size_t chunk, size_t column);
 
 } // namespace cpu
+
 } // namespace parcore

@@ -1,9 +1,11 @@
 #include <libstf/profiling.hpp>
-#include <parcore/memory_reader.hpp>
+#include <parcore/fpga/memory_reader.hpp>
 
 using libstf::Profiler;
 
 namespace parcore {
+
+namespace fpga {
 
 MemoryReader::MemoryReader(
     std::shared_ptr<coyote::cThread> cthread,
@@ -13,8 +15,8 @@ MemoryReader::MemoryReader(
     ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
     const metadata::Metadata &meta, std::shared_ptr<libstf::Buffer> data,
     libstf::stream_t decoder)
-    : BaseReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
-                 column_chunk_config, page_config, meta, decoder),
+    : HardwareReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
+                     column_chunk_config, page_config, meta, decoder),
       data_(std::move(data)) {}
 
 const std::string memory_reader_prefix = "parcore::MemoryReader::";
@@ -34,5 +36,7 @@ void MemoryReader::send_page(const metadata::Page &page, PageType page_type) {
 
   Profiler::close_regions({memory_reader_prefix + "send_page"});
 }
+
+} // namespace fpga
 
 } // namespace parcore

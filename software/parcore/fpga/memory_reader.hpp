@@ -1,12 +1,12 @@
 #pragma once
 
-#include <memory>
-
-#include <parcore/base_reader.hpp>
+#include <parcore/fpga/reader.hpp>
 
 namespace parcore {
 
-class MemoryReader : public BaseReader {
+namespace fpga {
+
+class MemoryReader : public HardwareReader {
 private:
   std::shared_ptr<libstf::Buffer> data_;
 
@@ -23,5 +23,7 @@ public:
 protected:
   void send_page(const metadata::Page &page, PageType page_type);
 };
+
+} // namespace fpga
 
 } // namespace parcore
