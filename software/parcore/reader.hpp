@@ -9,7 +9,7 @@ namespace parcore {
 
 class Reader {
 public:
-  [[nodiscard]] virtual const metadata::Metadata &metadata() const;
+  [[nodiscard]] virtual const metadata::Metadata &metadata() const = 0;
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
