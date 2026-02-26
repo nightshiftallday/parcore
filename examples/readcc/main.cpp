@@ -20,7 +20,8 @@
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/file_reader.hpp>
+#include <parcore/fpga/file_reader.hpp>
+#include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
 
 using libstf::Profiler;
@@ -139,8 +140,8 @@ int main(int argc, char *argv[]) {
   obm->flush_buffers();
   std::cout << "flushed buffers" << std::endl;
 
-  parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
-                             page_config, parquet_file);
+  parcore::fpga::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
+                                   page_config, meta, file);
 
   if (i < 0 || i > meta.groups.size())
     throw std::runtime_error("invalid group (i)");
@@ -149,6 +150,11 @@ int main(int argc, char *argv[]) {
   if (j < 0 || j > group.chunks.size())
     throw std::runtime_error("invalid column (j)");
   auto chunk = group.chunks[j];
+
+  if (!parcore::metadata::is_libstf_type(chunk.type))
+    throw std::runtime_error(
+        "requested column chunk has an unsupported type, cannot decode");
+  auto typ = parcore::metadata::to_libstf_type(chunk.type);
 
   std::cout << "Decoding column chunk " << i << ":" << j << ":" << std::endl;
   std::cout << "\tcompression: " << chunk.compression << std::endl;
@@ -181,7 +187,7 @@ int main(int argc, char *argv[]) {
   for (const auto &cc : cpu_data_raw->chunks()) {
     auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
     const uint8_t *data = arr->data()->GetValues<uint8_t>(1);
-    size_t byte_size = arr->length() * libstf::size_of(chunk.type);
+    size_t byte_size = arr->length() * libstf::size_of(typ);
     cpu_data.insert(cpu_data.end(), data, data + byte_size);
   }
 

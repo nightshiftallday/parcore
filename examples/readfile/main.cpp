@@ -18,7 +18,7 @@
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/file_reader.hpp>
+#include <parcore/fpga/file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
 
 using libstf::Profiler;
@@ -143,13 +143,18 @@ int main(int argc, char *argv[]) {
   obm->flush_buffers();
   std::cout << "flushed buffers" << std::endl;
 
-  parcore::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
-                             page_config, parquet_file);
+  parcore::fpga::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
+                                   page_config, meta, file);
 
   for (size_t i = start; i < end; ++i) {
     auto group = meta.groups[i];
     for (size_t j = 0; j < group.chunks.size(); ++j) {
       auto chunk = group.chunks[j];
+
+      if (!parcore::metadata::is_libstf_type(chunk.type))
+        continue;
+
+      auto typ = parcore::metadata::to_libstf_type(chunk.type);
 
       std::cout << separator << std::endl;
       std::cout << "Decoding column chunk " << i << ":" << j << ":"
@@ -184,7 +189,7 @@ int main(int argc, char *argv[]) {
       for (const auto &cc : cpu_data_raw->chunks()) {
         auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
         const uint8_t *data = arr->data()->GetValues<uint8_t>(1);
-        size_t byte_size = arr->length() * libstf::size_of(chunk.type);
+        size_t byte_size = arr->length() * libstf::size_of(typ);
         cpu_data.insert(cpu_data.end(), data, data + byte_size);
       }
 

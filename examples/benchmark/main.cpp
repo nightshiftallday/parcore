@@ -16,7 +16,8 @@
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/file_reader.hpp>
+#include <parcore/cpu/cpu_reader.hpp>
+#include <parcore/fpga/adaptor.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/multi_reader.hpp>
 #include <unistd.h>
@@ -28,34 +29,35 @@
 
 const std::string separator = std::string(80, '-');
 
-void time(std::string file_path, std::shared_ptr<parcore::MultiReader> reader,
-          std::shared_ptr<arrow::io::RandomAccessFile> file, size_t i, size_t j,
-          size_t values, size_t reps, bool print) {
+void time(std::string path,
+          std::shared_ptr<parcore::MultiReader> hardware_reader,
+          std::shared_ptr<parcore::cpu::CPUReader> software_reader, size_t i,
+          size_t j, size_t values, size_t reps, bool print) {
   std::chrono::high_resolution_clock::rep fpga_us = 0, cpu_us = 0;
 
   for (size_t k = 0; k < reps; ++k) {
     auto start = std::chrono::high_resolution_clock::now();
-    reader->enqueue_column_chunk(i, j);
-    auto fpga_data = reader->next_column_chunk();
+    hardware_reader->enqueue_column_chunk(i, j);
+    auto fpga_data = hardware_reader->next_column_chunk();
     auto end = std::chrono::high_resolution_clock::now();
     fpga_us +=
         std::chrono::duration_cast<std::chrono::microseconds>(end - start)
             .count();
 
     start = std::chrono::high_resolution_clock::now();
-    auto cpu_data_raw = parcore::cpu::read_column_chunk(file, i, j);
+    software_reader->enqueue_column_chunk(i, j);
+    auto cpu_data = software_reader->next_column_chunk();
     end = std::chrono::high_resolution_clock::now();
     cpu_us += std::chrono::duration_cast<std::chrono::microseconds>(end - start)
                   .count();
-    usleep(10000); // sleep 10ms
   }
 
   fpga_us /= reps;
   cpu_us /= reps;
 
   if (print)
-    std::cout << file_path << "," << i << "," << j << "," << values << ","
-              << fpga_us << "," << cpu_us << std::endl;
+    std::cout << path << "," << i << "," << j << "," << values << "," << fpga_us
+              << "," << cpu_us << std::endl;
 }
 
 std::shared_ptr<libstf::OutputBufferManager> obm;
@@ -99,6 +101,12 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
     throw std::runtime_error(maybe_file.status().ToString());
   }
   std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
+  // auto maybe_file = arrow::io::MemoryMappedFile::Open(
+  //     parquet_file, arrow::io::FileMode::READ);
+  // if (!maybe_file.ok())
+  //   throw std::runtime_error("could not open parquet file: " +
+  //                            maybe_file.status().message());
+  // auto file = maybe_file.ValueOrDie();
 
   libstf::GlobalConfig global_config(cthread);
   auto mem_config = global_config.get_config<libstf::MemConfig>();
@@ -118,9 +126,12 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
   if (num_decoders <= 0)
     num_decoders = column_chunk_config.num_decoders();
 
-  auto reader = parcore::make_multi_reader<parcore::FileReader>(
-      num_decoders, cthread, pool, tlb, obm, column_chunk_config, page_config,
-      parquet_file);
+  auto hardware_reader =
+      parcore::make_multi_reader<parcore::fpga::adapted::FileReader>(
+          num_decoders, cthread, pool, tlb, obm, column_chunk_config,
+          page_config, meta, file);
+
+  auto software_reader = std::make_shared<parcore::cpu::CPUReader>(file);
 
   auto rows = meta.groups.size();
   assert(rows > 0);
@@ -128,9 +139,16 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
 
   for (size_t j = 0; j < cols; ++j) {
     for (size_t i = 0; i < rows; ++i) {
-      auto values = meta.groups[i].chunks[j].num_values;
-      time(parquet_file, reader, file, i, j, values, discard_reps, false);
-      time(parquet_file, reader, file, i, j, values, reps, true);
+      auto column_chunk = meta.groups[i].chunks[j];
+
+      if (!parcore::metadata::is_libstf_type(column_chunk.type))
+        continue;
+      auto values = column_chunk.num_values;
+
+      time(parquet_file, hardware_reader, software_reader, i, j, values,
+           discard_reps, false);
+      time(parquet_file, hardware_reader, software_reader, i, j, values, reps,
+           true);
     }
   }
 }
