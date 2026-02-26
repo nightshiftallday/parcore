@@ -15,23 +15,11 @@ FileReader::FileReader(
     std::shared_ptr<libstf::TLBManager> tlb_manager,
     std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
     ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
-    const metadata::Metadata &meta, std::ifstream file,
-    libstf::stream_t decoder)
+    const metadata::Metadata &meta,
+    std::shared_ptr<arrow::io::RandomAccessFile> file, libstf::stream_t decoder)
     : BaseReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
                  column_chunk_config, page_config, meta, decoder),
       file_(std::move(file)) {}
-
-FileReader::FileReader(
-    std::shared_ptr<coyote::cThread> cthread,
-    std::shared_ptr<libstf::MemoryPool> memory_pool,
-    std::shared_ptr<libstf::TLBManager> tlb_manager,
-    std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
-    ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
-    std::string path, libstf::stream_t decoder)
-    : BaseReader(cthread, memory_pool, tlb_manager, output_buffer_manager,
-                 column_chunk_config, page_config,
-                 metadata::from_file(path + ".meta"), decoder),
-      file_(path) {}
 
 const std::string file_reader_prefix = "parcore::FileReader::";
 
@@ -73,13 +61,16 @@ void FileReader::send_page(const metadata::Page &page, PageType page_type) {
   buffers_per_column_chunk_.front().push_back(buffer);
 
   Profiler::open_regions({file_reader_prefix + "read_file"});
-  if (file_.seekg(page.offset).fail()) {
-    throw std::runtime_error("error while seeking to page");
-  }
+  auto seek_status = file_->Seek(page.offset);
+  if (!seek_status.ok())
+    throw std::runtime_error("error while seeking to page: " +
+                             seek_status.message());
+  auto read_status = file_->Read(page.size, buffer->ptr);
+  if (!read_status.ok())
+    throw std::runtime_error("error while reading page: " +
+                             read_status.status().message());
+  assert(read_status.ValueOrDie() == page.size);
 
-  if (file_.read(static_cast<char *>(buffer->ptr), page.size).fail()) {
-    throw std::runtime_error("error while reading page");
-  }
   Profiler::close_regions({file_reader_prefix + "read_file"});
 
   enqueue_stream_input(*buffer.get());

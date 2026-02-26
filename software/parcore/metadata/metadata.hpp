@@ -19,13 +19,12 @@ enum class Compression : uint8_t { RAW = 0, SNAPPY = 1 };
 std::ostream &operator<<(std::ostream &os, Compression c);
 
 enum class Type : unsigned char {
-  BYTE_T,
-  INT32_T,
-  INT64_T,
-  FLOAT_T,
-  DOUBLE_T,
-  NUM_TYPES,
-
+  BYTE_T = 0,
+  INT32_T = 1,
+  INT64_T = 2,
+  FLOAT_T = 3,
+  DOUBLE_T = 4,
+  BYTE_ARRAY = 5
 };
 std::ostream &operator<<(std::ostream &os, Type typ);
 bool is_libstf_type(const Type &typ);

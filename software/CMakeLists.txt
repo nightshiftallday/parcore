@@ -68,6 +68,7 @@ if (PARCORE_INCLUDE_CPU)
 
     target_sources(Parcore PRIVATE 
         parcore/cpu/cpu.cpp
+        parcore/cpu/cpu_reader.cpp
         parcore/hybrid_reader.cpp
     )
 endif()
