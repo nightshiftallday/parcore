@@ -166,9 +166,13 @@ int main(int argc, char *argv[]) {
   auto start = std::chrono::high_resolution_clock::now();
 
   auto handle = reader.decode_column_chunk(i, j);
+  // NOTE: this buffer will just be 2Mi in simulation, so it likely won't
+  // contain all output more buffers should be read to get the full data.
   auto fpga_data_raw = handle->get_next_stream_output(0);
+#ifdef ENABLE_SIMULATION
   assert(!handle->stream_has_more_output(0));
   assert(!handle->any_stream_has_more_output());
+#endif
 
   auto end = std::chrono::high_resolution_clock::now();
   auto fpga_us =

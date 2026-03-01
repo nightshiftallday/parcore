@@ -164,9 +164,11 @@ int main(int argc, char *argv[]) {
       for (size_t k = 0; k < reps; ++k) {
         auto handle = hardware_reader->decode_column_chunk(i, j);
         auto fpga_data = handle->get_next_stream_output(0);
+#ifdef ENABLE_SIMULATION
         assert(!handle->stream_has_more_output(0));
         assert(!handle->any_stream_has_more_output());
         assert(fpga_data->size == (out_bytes_plain + out_bytes_hybrid));
+#endif
       }
       auto end = std::chrono::high_resolution_clock::now();
       auto us =

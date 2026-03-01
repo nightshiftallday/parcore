@@ -7,7 +7,11 @@ import lynxTypes::*;
 
 parameter int VARINT_NUM_BYTES = 4;
 parameter int VARINT_NUM_BITS = VARINT_NUM_BYTES * 7;
-parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES);
+// This is intentionally 1 bit wider to allow encoding the case in which
+// all bytes are consumed for the varint. For example, for a 4 byte
+// varint, if 4 bytes are consumed that is 0b100, thus requiring clog2(4)
+// +1 bits.
+parameter int VARINT_LENGTH_BITS = $clog2(VARINT_NUM_BYTES)+1;
 parameter int ID_BITS = 19;
 // Theoretically, a page could have more than 1Mi values inside. The
 // dictionary is usually capped around 1MiB, limiting the number of unique
@@ -39,7 +43,9 @@ typedef enum logic {
 // which tend to stick to slighly over 1MiB.
 typedef logic [ID_BITS - 1:0] bit_width_t; 
 
-typedef logic [VALUES_BITS - 1:0] rle_count_t;
+// Here we're using one extra bit to handle the case where we have exactly 1Mi
+// values, which can happen for RLE series, but not for BPE series.
+typedef logic [VALUES_BITS:0] rle_count_t;
 
 typedef logic [VALUES_BITS - 1:0] bpe_count_t;
 
@@ -62,7 +68,7 @@ typedef struct packed {
 
 typedef struct packed {
     logic [VARINT_NUM_BITS - 1:0] value;
-    logic [$clog2(VARINT_NUM_BYTES) - 1:0] length;
+    logic [VARINT_LENGTH_BITS - 1:0] length;
 } varint_t;
 
 typedef enum logic [1:0] {

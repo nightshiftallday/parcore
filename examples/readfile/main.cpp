@@ -166,8 +166,12 @@ int main(int argc, char *argv[]) {
 
       auto start = std::chrono::high_resolution_clock::now();
 
-      reader.enqueue_column_chunk(i, j);
-      auto fpga_data_raw = reader.next_column_chunk();
+      auto handle = reader.decode_column_chunk(i, j);
+      auto fpga_data_raw = handle->get_next_stream_output(0);
+#ifdef ENABLE_SIMULATION
+      assert(!handle->stream_has_more_output(0));
+      assert(!handle->any_stream_has_more_output());
+#endif
 
       auto end = std::chrono::high_resolution_clock::now();
       auto fpga_us =
@@ -193,13 +197,7 @@ int main(int argc, char *argv[]) {
         cpu_data.insert(cpu_data.end(), data, data + byte_size);
       }
 
-      std::vector<uint8_t> fpga_data;
-      for (const auto &buf : fpga_data_raw) {
-        const uint8_t *data = static_cast<uint8_t *>(buf->ptr);
-        fpga_data.insert(fpga_data.end(), data, data + buf->size);
-      }
-
-      diff(cpu_data.data(), fpga_data.data(), fpga_data.size());
+      diff(cpu_data.data(), fpga_data_raw->ptr, fpga_data_raw->size);
     }
   }
 

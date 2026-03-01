@@ -148,7 +148,8 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
     }
 
     us /= reps;
-    double gbps = (max(in_bytes, out_bytes) / 1073741824.0) / (us / 1000000.0);
+    double gbps =
+        (std::max(in_bytes, out_bytes) / 1073741824.0) / (us / 1000000.0);
 
     double in_out_bytes_ratio = ((double)in_bytes) / ((double)out_bytes);
 
