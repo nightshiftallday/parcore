@@ -1,115 +1,110 @@
 #include <boost/type.hpp>
+#include <condition_variable>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <vector>
 
+#include <parcore/fpga/adaptor.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/multi_reader.hpp>
 #include <parcore/reader.hpp>
 
 namespace parcore {
 
-constexpr const double TRANSFER_FACTOR = 1.0;
-constexpr const double DECOMPRESS_FACTOR = 1.0;
-constexpr const double PLAIN_FACTOR = 1.0;
-constexpr const double HYBRID_FACTOR = 1.0;
-
-MultiReader::MultiReader(std::vector<std::shared_ptr<Reader>> readers)
-    : readers_(readers), transfer_factor_(TRANSFER_FACTOR),
-      decompress_factor_(DECOMPRESS_FACTOR), plain_factor_(PLAIN_FACTOR),
-      hybrid_factor_(HYBRID_FACTOR) {
+MultiReader::MultiReader(
+    std::vector<std::shared_ptr<fpga::HardwareReader>> readers)
+    : readers_(std::move(readers)) {
   for (size_t i = 0; i < readers_.size(); ++i) {
-    decoder_heap_.push({i, 0.0});
+    idle_readers_.push(i);
   }
 }
 
 const metadata::Metadata &MultiReader::metadata() const {
-  assert(readers_.size() > 0);
   return readers_[0]->metadata();
 }
 
 void MultiReader::enqueue_column_chunk(size_t chunk, size_t column) {
-  auto column_chunk = get_column_chunk(metadata(), chunk, column);
-  double cost = compute_cost(column_chunk);
+  auto column_chunk = get_column_chunk(this->metadata(), chunk, column);
 
-  auto state = decoder_heap_.top();
-  decoder_heap_.pop();
+  std::unique_lock<std::mutex> lock(queue_mtx_);
 
-  size_t decoder_id = state.id;
+  QueuedTask task{chunk, column, next_seq_to_enqueue_++,
+                  column_chunk.num_values, column_chunk.type};
 
-  readers_[decoder_id]->enqueue_column_chunk(chunk, column);
+  if (!idle_readers_.empty()) {
+    size_t reader_idx = idle_readers_.front();
+    idle_readers_.pop();
+    dispatch_task_to_reader(task, reader_idx);
+  } else {
+    task_queue_.push(task);
+  }
+}
 
-  // Record scheduling order
-  scheduled_order_.push_back(decoder_id);
+std::optional<MultiReader::QueuedTask>
+MultiReader::assign_next_column_chunk_to_reader(libstf::stream_t reader_id) {
+  std::lock_guard<std::mutex> lock(queue_mtx_);
 
-  state.available_time += cost;
-  decoder_heap_.push(state);
+  if (!task_queue_.empty()) {
+    auto task = task_queue_.front();
+    task_queue_.pop();
+    return task;
+  } else {
+    idle_readers_.push(reader_id);
+    return std::nullopt;
+  }
+}
+
+// Internal helper (called with lock held)
+void MultiReader::dispatch_task_to_reader(QueuedTask task,
+                                          libstf::stream_t reader_id) {
+  auto handle =
+      readers_[reader_id]->decode_column_chunk(task.chunk, task.column);
+
+  // Release lock before hardware call if decode_column_chunk is slow to
+  // initiate but here we keep it simple.
+  handle->add_callback(
+      [this, reader_id, handle, task](libstf::stream_t stream) {
+        auto result = fpga::collect_from_output_handle_into_arrow(
+            handle, stream, task.num_values, task.type);
+
+        {
+          std::lock_guard<std::mutex> lock(reorder_buffer_mtx_);
+          reorder_buffer_[task.sequence_id] = std::move(result);
+          cv_finished_.notify_all();
+        }
+
+        auto task = assign_next_column_chunk_to_reader(reader_id);
+        if (task != std::nullopt) {
+          dispatch_task_to_reader(*task, reader_id);
+        }
+      });
 }
 
 bool MultiReader::has_next_column_chunk() {
-  if (scheduled_order_.empty())
-    return false;
-
-  size_t decoder_id = scheduled_order_.front();
-  return readers_[decoder_id]->has_next_column_chunk();
+  std::lock_guard<std::mutex> lock(queue_mtx_);
+  return next_seq_to_return_ < next_seq_to_enqueue_;
 }
 
 std::shared_ptr<arrow::ChunkedArray> MultiReader::next_column_chunk() {
-  if (scheduled_order_.empty())
-    return {};
+  std::shared_ptr<arrow::ChunkedArray> result;
+  {
+    std::unique_lock<std::mutex> lock(reorder_buffer_mtx_);
 
-  size_t decoder_id = scheduled_order_.front();
+    if (!reorder_buffer_.contains(next_seq_to_return_)) {
+      cv_finished_.wait(lock, [this] {
+        return reorder_buffer_.contains(next_seq_to_return_);
+      });
+    }
 
-  auto result = readers_[decoder_id]->next_column_chunk();
+    auto it = reorder_buffer_.find(next_seq_to_return_++);
+    result = std::move(it->second);
+    reorder_buffer_.erase(it);
+  } // lock is released here
 
-  scheduled_order_.pop_front();
-
-  return result;
-}
-
-inline size_t get_input_bytes(const metadata::ColumnChunk &column_chunk) {
-  size_t bytes = 0;
-
-  if (column_chunk.dictionary != std::nullopt)
-    bytes += column_chunk.dictionary->size;
-
-  for (auto page : column_chunk.data)
-    bytes += page.size;
-
-  return bytes;
-}
-
-inline size_t get_output_bytes(const metadata::ColumnChunk &column_chunk) {
-  auto type = metadata::to_libstf_type(column_chunk.type);
-  return column_chunk.num_values * libstf::size_of(type);
-}
-
-double
-MultiReader::compute_cost(const metadata::ColumnChunk &column_chunk) const {
-  const auto &chunk_meta = column_chunk;
-
-  size_t input_bytes = get_input_bytes(column_chunk);
-  size_t output_bytes = get_output_bytes(column_chunk);
-
-  double T_input = transfer_factor_ * input_bytes;
-
-  double T_output = transfer_factor_ * output_bytes;
-
-  double T_decompress = 0.0;
-  if (chunk_meta.compression != metadata::Compression::RAW) {
-    T_decompress = decompress_factor_ * input_bytes;
-  }
-
-  double T_decode = 0.0;
-  for (const auto &page : chunk_meta.data) {
-    double encoding_factor = (page.encoding == metadata::Encoding::HYBRID)
-                                 ? hybrid_factor_
-                                 : plain_factor_;
-
-    T_decode += page.num_values * encoding_factor;
-  }
-
-  return T_input + T_output + T_decompress + T_decode;
+  return result; // Return occurs outside the mutex
 }
 
 } // namespace parcore

@@ -34,7 +34,11 @@ void HardwareReader::enqueue_stream_input(const libstf::Buffer &buffer) {
 
     auto last_transfer = off + coyote::MAX_TRANSFER_SIZE >= buffer.size;
     Profiler::open_regions({reader_prefix + "local_read"});
+    auto start = std::chrono::high_resolution_clock::now();
     cthread_->invoke(coyote::CoyoteOper::LOCAL_READ, sg, last_transfer);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                  .count();
     Profiler::close_regions({reader_prefix + "local_read"});
   }
   Profiler::close_regions({reader_prefix + "enqueue_stream_input"});
@@ -45,7 +49,8 @@ HardwareReader::HardwareReader(
     std::shared_ptr<libstf::MemoryPool> memory_pool,
     std::shared_ptr<libstf::TLBManager> tlb_manager,
     std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
-    ColumnChunkDecoderConfig column_chunk_config, PageDecoderConfig page_config,
+    std::shared_ptr<ColumnChunkDecoderConfig> column_chunk_config,
+    std::shared_ptr<PageDecoderConfig> page_config,
     const metadata::Metadata &meta, libstf::stream_t decoder)
     : cthread_(cthread), memory_pool_(memory_pool), tlb_manager_(tlb_manager),
       output_buffer_manager_(output_buffer_manager),
@@ -78,68 +83,59 @@ libstf::stream_mask_t HardwareReader::decoder_mask() const {
 }
 
 const metadata::Metadata &HardwareReader::metadata() const { return meta_; }
+const libstf::stream_t &HardwareReader::decoder() const { return decoder_; }
 
-void HardwareReader::enqueue_column_chunk(size_t chunk, size_t column) {
+std::shared_ptr<libstf::OutputHandle>
+HardwareReader::decode_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
   auto column_chunk = get_column_chunk(meta_, chunk, column);
 
+  // std::cout << "starting initial configuration" << std::endl;
+  // auto start = std::chrono::high_resolution_clock::now();
   auto type = metadata::to_libstf_type(column_chunk.type);
-  column_chunk_config_.process_column_chunk(
+  column_chunk_config_->process_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values,
       column_chunk.hybrid_num_values, type);
 
   // Storing the result handle in the queue
   auto output_handle =
       output_buffer_manager_->acquire_output_handle(decoder_mask());
-  auto expected_bytes = libstf::size_of(type) * column_chunk.num_values;
 
+  // Confiure the decoding for all pages before hand.
   if (column_chunk.dictionary != std::nullopt) {
-    page_config_.process_page(decoder_, PageType::DICT,
-                              column_chunk.dictionary->encoding, 0, false);
-    send_page(*column_chunk.dictionary, PageType::DICT);
+    page_config_->process_page(decoder_, PageType::DICT,
+                               column_chunk.dictionary->encoding, 0, false);
   }
-
   size_t i = 0;
   for (auto page : column_chunk.data) {
     bool last = i == column_chunk.data.size() - 1;
-    page_config_.process_page(decoder_, PageType::DATA, page.encoding,
-                              page.num_values, last);
-    send_page(page, PageType::DATA);
+    page_config_->process_page(decoder_, PageType::DATA, page.encoding,
+                               page.num_values, last);
     ++i;
   }
+  // auto end = std::chrono::high_resolution_clock::now();
+  // auto us = std::chrono::duration_cast<std::chrono::microseconds>(end -
+  // start)
+  //               .count();
+  // std::cout << "initial configuration done, took " << us << "us" <<
+  // std::endl;
 
-  queue_.push(output_handle);
+  // std::cout << "starting data sending" << std::endl;
+  // start = std::chrono::high_resolution_clock::now();
+  if (column_chunk.dictionary != std::nullopt) {
+    send_page(*column_chunk.dictionary, PageType::DICT);
+  }
+  for (auto page : column_chunk.data) {
+    send_page(page, PageType::DATA);
+  }
+  // end = std::chrono::high_resolution_clock::now();
+  // us = std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+  //          .count();
+  // std::cout << "sending data done, took " << us << "us" << std::endl;
 
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
-}
-
-bool HardwareReader::has_next_column_chunk() { return !queue_.empty(); }
-
-std::vector<std::shared_ptr<libstf::Buffer>>
-HardwareReader::next_column_chunk() {
-  Profiler::open_regions({reader_prefix + "next_column_chunk"});
-
-  auto output_handle = queue_.front();
-  queue_.pop();
-
-  std::vector<std::shared_ptr<libstf::Buffer>> bufs;
-
-  while (output_handle->stream_has_more_output(decoder_)) {
-    auto buf = output_handle->get_next_stream_output(decoder_);
-    bufs.push_back(std::move(buf));
-  }
-
-  if (bufs.size() > 1) {
-    throw std::runtime_error(
-        "expected to receive just one output buffer for maximum "
-        "performance, instead received " +
-        std::to_string(bufs.size()));
-  }
-
-  Profiler::close_regions({reader_prefix + "next_column_chunk"});
-
-  return bufs;
+  return std::move(output_handle);
 }
 
 } // namespace fpga

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <deque>
-#include <queue>
+#include <map>
 
+#include <parcore/fpga/reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/reader.hpp>
 
@@ -20,7 +20,7 @@ private:
   };
 
 public:
-  MultiReader(std::vector<std::shared_ptr<Reader>> readers);
+  MultiReader(std::vector<std::shared_ptr<fpga::HardwareReader>> readers);
 
   [[nodiscard]] const metadata::Metadata &metadata() const override;
 
@@ -32,28 +32,39 @@ public:
   next_column_chunk() override;
 
 private:
-  double compute_cost(const metadata::ColumnChunk &column_chunk) const;
+  std::vector<std::shared_ptr<fpga::HardwareReader>> readers_;
 
-  std::vector<std::shared_ptr<Reader>> readers_;
-  std::priority_queue<DecoderState, std::vector<DecoderState>,
-                      std::greater<DecoderState>>
-      decoder_heap_;
-  // The order of decoders used, so that we can fetch data from them in the
-  // appropriate order.
-  std::deque<size_t> scheduled_order_;
+  struct QueuedTask {
+    size_t chunk;
+    size_t column;
+    size_t sequence_id;
+    size_t num_values;
+    metadata::Type type;
+  };
 
-  // Coefficients for computing the next decoder to use
-  double transfer_factor_;
-  double decompress_factor_;
-  double plain_factor_;
-  double hybrid_factor_;
+  std::queue<QueuedTask> task_queue_;
+  std::queue<size_t> idle_readers_;
+  size_t next_seq_to_enqueue_ = 0;
+  size_t next_seq_to_return_ = 0;
+  std::mutex queue_mtx_;
+
+  std::map<libstf::stream_t, std::shared_ptr<arrow::ChunkedArray>>
+      reorder_buffer_;
+  std::mutex reorder_buffer_mtx_;
+
+  std::condition_variable cv_finished_;
+
+  std::optional<QueuedTask>
+  assign_next_column_chunk_to_reader(libstf::stream_t reader_id);
+  void dispatch_task_to_reader(QueuedTask task, libstf::stream_t reader_id);
 };
 
 template <typename T, typename... Args>
 std::shared_ptr<MultiReader> make_multi_reader(size_t count, Args &&...args) {
-  static_assert(std::is_base_of_v<Reader, T>, "T must derive from Reader");
+  static_assert(std::is_base_of_v<fpga::HardwareReader, T>,
+                "T must derive from HardwareReader");
 
-  std::vector<std::shared_ptr<Reader>> readers;
+  std::vector<std::shared_ptr<fpga::HardwareReader>> readers;
   readers.reserve(count);
 
   for (size_t i = 0; i < count; ++i) {

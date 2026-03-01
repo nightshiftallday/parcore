@@ -39,6 +39,7 @@ struct Page {
   uint64_t num_values;
 
   static Page from(std::istream &is);
+  bool operator==(const Page &rhs) const;
 };
 
 struct ColumnChunk {
@@ -51,12 +52,14 @@ struct ColumnChunk {
   std::vector<Page> data;
 
   static ColumnChunk from(std::istream &is);
+  bool operator==(const ColumnChunk &rhs) const;
 };
 
 struct RowGroup {
   std::vector<ColumnChunk> chunks;
 
   static RowGroup from(std::istream &is);
+  bool operator==(const RowGroup &rhs) const;
 };
 
 struct Metadata {
@@ -64,7 +67,90 @@ struct Metadata {
   std::vector<RowGroup> groups;
 
   static Metadata from(std::istream &is);
+  bool operator==(const Metadata &rhs) const;
 };
+
+namespace utils {
+/**
+ * Combines the hash of 'v' into the 'seed'.
+ */
+template <typename T> inline void hash_combine(std::size_t &seed, const T &v) {
+  std::hash<T> hasher;
+  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+/**
+ * Overload for containers (like std::vector).
+ * Iterates through elements and combines their hashes.
+ */
+template <typename T>
+inline void hash_range(std::size_t &seed, const T &container) {
+  for (const auto &item : container) {
+    hash_combine(seed, item);
+  }
+}
+} // namespace utils
 
 } // namespace metadata
 }; // namespace parcore
+
+namespace std {
+
+using parcore::metadata::utils::hash_combine;
+
+template <> struct hash<parcore::metadata::Page> {
+  std::size_t operator()(const parcore::metadata::Page &p) const {
+    size_t seed = 0;
+
+    hash_combine(seed, p.encoding);
+    hash_combine(seed, p.offset);
+    hash_combine(seed, p.size);
+    hash_combine(seed, p.num_values);
+
+    return seed;
+  }
+};
+
+template <> struct hash<parcore::metadata::ColumnChunk> {
+  std::size_t operator()(const parcore::metadata::ColumnChunk &cc) const {
+    size_t seed = 0;
+
+    hash_combine(seed, cc.type);
+    hash_combine(seed, cc.num_values);
+    hash_combine(seed, cc.hybrid_num_values);
+    hash_combine(seed, cc.compression);
+    hash_combine(seed, cc.dictionary);
+
+    for (auto page : cc.data)
+      hash_combine(seed, page);
+
+    return seed;
+  }
+};
+
+template <> struct hash<parcore::metadata::RowGroup> {
+  std::size_t operator()(const parcore::metadata::RowGroup &rg) const {
+    size_t seed = 0;
+
+    for (auto cc : rg.chunks)
+      hash_combine(seed, cc);
+
+    return seed;
+  }
+};
+
+template <> struct hash<parcore::metadata::Metadata> {
+  std::size_t operator()(const parcore::metadata::Metadata &meta) const {
+    size_t seed = 0;
+
+    for (auto col_name : meta.column_names)
+      hash_combine(seed, col_name);
+
+    for (auto rg : meta.groups)
+      hash_combine(seed, rg);
+
+    return seed;
+  }
+};
+
+} // namespace std

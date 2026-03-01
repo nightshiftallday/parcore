@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -17,7 +18,7 @@
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/cpu/cpu_reader.hpp>
-#include <parcore/fpga/adaptor.hpp>
+#include <parcore/fpga/preload_file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/multi_reader.hpp>
 #include <unistd.h>
@@ -25,7 +26,7 @@
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this
 // is the only possible value
 #define DEFAULT_VFPGA_ID 0
-#define N_REPS 64
+#define N_REPS 10
 
 const std::string separator = std::string(80, '-');
 
@@ -34,30 +35,6 @@ void time(std::string path,
           std::shared_ptr<parcore::cpu::CPUReader> software_reader, size_t i,
           size_t j, size_t values, size_t reps, bool print) {
   std::chrono::high_resolution_clock::rep fpga_us = 0, cpu_us = 0;
-
-  for (size_t k = 0; k < reps; ++k) {
-    auto start = std::chrono::high_resolution_clock::now();
-    hardware_reader->enqueue_column_chunk(i, j);
-    auto fpga_data = hardware_reader->next_column_chunk();
-    auto end = std::chrono::high_resolution_clock::now();
-    fpga_us +=
-        std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-            .count();
-
-    start = std::chrono::high_resolution_clock::now();
-    software_reader->enqueue_column_chunk(i, j);
-    auto cpu_data = software_reader->next_column_chunk();
-    end = std::chrono::high_resolution_clock::now();
-    cpu_us += std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-                  .count();
-  }
-
-  fpga_us /= reps;
-  cpu_us /= reps;
-
-  if (print)
-    std::cout << path << "," << i << "," << j << "," << values << "," << fpga_us
-              << "," << cpu_us << std::endl;
 }
 
 std::shared_ptr<libstf::OutputBufferManager> obm;
@@ -81,9 +58,9 @@ static void handle_fpga_interrupt(int value) {
   obm->handle_fpga_interrupt(value);
 }
 
-void benchmark(std::string parquet_file, uint32_t num_decoders,
-               size_t discard_reps, size_t reps) {
-  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
+void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
+               size_t reps) {
+  auto meta = parcore::metadata::from_file(path + ".meta");
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
@@ -96,8 +73,8 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
 #endif
 
-  auto maybe_file = arrow::io::MemoryMappedFile::Open(
-      parquet_file, arrow::io::FileMode::READ);
+  auto maybe_file =
+      arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
   if (!maybe_file.ok())
     throw std::runtime_error("could not open parquet file: " +
                              maybe_file.status().message());
@@ -126,25 +103,58 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
           num_decoders, cthread, pool, tlb, obm, column_chunk_config,
           page_config, meta, file);
 
-  auto software_reader = std::make_shared<parcore::cpu::CPUReader>(file);
-
   auto rows = meta.groups.size();
   assert(rows > 0);
   auto cols = meta.groups[0].chunks.size();
 
   for (size_t j = 0; j < cols; ++j) {
+    auto first_column_chunk = meta.groups[0].chunks[j];
+    auto typ = first_column_chunk.type;
+    if (!parcore::metadata::is_libstf_type(typ))
+      continue;
+
+    size_t byte_size = libstf::size_of(parcore::metadata::to_libstf_type(typ));
+    size_t in_bytes = 0;
+    size_t out_bytes = 0;
+    size_t num_values = 0;
     for (size_t i = 0; i < rows; ++i) {
-      auto column_chunk = meta.groups[i].chunks[j];
+      auto cc = meta.groups[i].chunks[j];
+      assert(cc.type == typ);
 
-      if (!parcore::metadata::is_libstf_type(column_chunk.type))
-        continue;
-      auto values = column_chunk.num_values;
+      if (cc.dictionary != std::nullopt)
+        in_bytes += cc.dictionary->size;
+      for (auto page : cc.data)
+        in_bytes += page.size;
 
-      time(parquet_file, hardware_reader, software_reader, i, j, values,
-           discard_reps, false);
-      time(parquet_file, hardware_reader, software_reader, i, j, values, reps,
-           true);
+      out_bytes += cc.num_values * byte_size;
+      num_values += cc.num_values;
     }
+    auto total_bytes = out_bytes + in_bytes;
+
+    double us = 0.0;
+    for (size_t k = 0; k < reps; ++k) {
+      auto start = std::chrono::high_resolution_clock::now();
+
+      for (size_t i = 0; i < rows; ++i) {
+        hardware_reader->enqueue_column_chunk(i, j);
+      }
+      for (size_t i = 0; i < rows; ++i) {
+        auto fpga_data = hardware_reader->next_column_chunk();
+      }
+
+      auto end = std::chrono::high_resolution_clock::now();
+      us += std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count();
+    }
+
+    us /= reps;
+    double gbps = (out_bytes / 1073741824.0) / (us / 1000000.0);
+
+    double in_out_bytes_ratio = ((double)in_bytes) / ((double)out_bytes);
+
+    std::cout << path << "," << j << "," << num_values << "," << typ << ","
+              << in_bytes << "," << out_bytes << "," << in_out_bytes_ratio
+              << "," << total_bytes << "," << us << "," << gbps << std::endl;
   }
 }
 
@@ -158,10 +168,6 @@ int main(int argc, char *argv[]) {
   runtime_options.add_options()(
       "file,f", boost::program_options::value(&files)->multitoken(),
       "Path to the parquet files to benchmark on")(
-      "discard_reps,d",
-      boost::program_options::value<size_t>(&discard_reps)->default_value(5),
-      "The number of times to decode each page for benchmarking (will be "
-      "discarded, not accounted for in the results)")(
       "reps,r",
       boost::program_options::value<size_t>(&reps)->default_value(N_REPS),
       "The number of times to decode each page for benchmarking")(
@@ -174,7 +180,9 @@ int main(int argc, char *argv[]) {
       command_line_arguments);
   boost::program_options::notify(command_line_arguments);
 
-  std::cout << "file,group,column,values,fpga,cpu" << std::endl;
+  std::cout << "file,column,num_values,type,in_bytes,out_bytes,in_out_bytes_"
+               "ratio,total_bytes,time,GiBps"
+            << std::endl;
   for (auto file : files) {
     benchmark(file, num_decoders, discard_reps, reps);
   }

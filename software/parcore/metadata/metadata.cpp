@@ -1,3 +1,4 @@
+#include <cmath>
 #include <parcore/metadata/metadata.hpp>
 
 #include <iostream>
@@ -125,6 +126,11 @@ Page Page::from(std::istream &is) {
   return p;
 }
 
+bool Page::operator==(const Page &rhs) const {
+  return encoding == rhs.encoding && offset == rhs.offset && size == rhs.size &&
+         num_values == rhs.num_values;
+}
+
 ColumnChunk ColumnChunk::from(std::istream &is) {
   ColumnChunk c;
   uint32_t n;
@@ -147,6 +153,13 @@ ColumnChunk ColumnChunk::from(std::istream &is) {
   return c;
 }
 
+bool ColumnChunk::operator==(const ColumnChunk &rhs) const {
+  return type == rhs.type && num_values == rhs.num_values &&
+         hybrid_num_values == rhs.hybrid_num_values &&
+         compression == rhs.compression && dictionary == rhs.dictionary &&
+         data == rhs.data;
+}
+
 RowGroup RowGroup::from(std::istream &is) {
   RowGroup g;
   uint32_t n;
@@ -155,6 +168,10 @@ RowGroup RowGroup::from(std::istream &is) {
   for (uint32_t i = 0; i < n; ++i)
     g.chunks.push_back(ColumnChunk::from(is));
   return g;
+}
+
+bool RowGroup::operator==(const RowGroup &rhs) const {
+  return chunks == rhs.chunks;
 }
 
 Metadata Metadata::from(std::istream &is) {
@@ -171,6 +188,10 @@ Metadata Metadata::from(std::istream &is) {
   for (uint32_t i = 0; i < n; ++i)
     m.groups.push_back(RowGroup::from(is));
   return m;
+}
+
+bool Metadata::operator==(const Metadata &rhs) const {
+  return column_names == rhs.column_names && groups == rhs.groups;
 }
 
 } // namespace metadata

@@ -20,7 +20,7 @@
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/fpga/file_reader.hpp>
+#include <parcore/fpga/preload_file_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
 #include <parcore/metadata/utils.hpp>
 
@@ -118,11 +118,12 @@ int main(int argc, char *argv[]) {
   tlb->ensure_tlb_mapping(pool->initial_address(), pool->total_capacity());
 #endif
 
-  auto maybe_file = arrow::io::ReadableFile::Open(parquet_file);
-  if (!maybe_file.ok()) {
-    throw std::runtime_error(maybe_file.status().ToString());
-  }
-  std::shared_ptr<arrow::io::ReadableFile> file = *maybe_file;
+  auto maybe_file = arrow::io::MemoryMappedFile::Open(
+      parquet_file, arrow::io::FileMode::READ);
+  if (!maybe_file.ok())
+    throw std::runtime_error("could not open parquet file: " +
+                             maybe_file.status().message());
+  auto file = maybe_file.ValueOrDie();
 
   libstf::GlobalConfig global_config(cthread);
   auto mem_config = global_config.get_config<libstf::MemConfig>();
@@ -140,8 +141,8 @@ int main(int argc, char *argv[]) {
   obm->flush_buffers();
   std::cout << "flushed buffers" << std::endl;
 
-  parcore::fpga::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
-                                   page_config, meta, file);
+  parcore::fpga::PreloadFileReader reader(
+      cthread, pool, tlb, obm, column_chunk_config, page_config, meta, file);
 
   if (i < 0 || i > meta.groups.size())
     throw std::runtime_error("invalid group (i)");
@@ -164,8 +165,10 @@ int main(int argc, char *argv[]) {
 
   auto start = std::chrono::high_resolution_clock::now();
 
-  reader.enqueue_column_chunk(i, j);
-  auto fpga_data_raw = reader.next_column_chunk();
+  auto handle = reader.decode_column_chunk(i, j);
+  auto fpga_data_raw = handle->get_next_stream_output(0);
+  assert(!handle->stream_has_more_output(0));
+  assert(!handle->any_stream_has_more_output());
 
   auto end = std::chrono::high_resolution_clock::now();
   auto fpga_us =
@@ -192,10 +195,8 @@ int main(int argc, char *argv[]) {
   }
 
   std::vector<uint8_t> fpga_data;
-  for (const auto &buf : fpga_data_raw) {
-    const uint8_t *data = static_cast<uint8_t *>(buf->ptr);
-    fpga_data.insert(fpga_data.end(), data, data + buf->size);
-  }
+  const uint8_t *data = static_cast<uint8_t *>(fpga_data_raw->ptr);
+  fpga_data.insert(fpga_data.end(), data, data + fpga_data_raw->size);
 
   diff(cpu_data.data(), fpga_data.data(), fpga_data.size());
 

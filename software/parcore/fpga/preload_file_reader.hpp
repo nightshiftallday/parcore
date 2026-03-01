@@ -1,33 +1,38 @@
 #pragma once
 
+#include <arrow/io/file.h>
+
 #include <parcore/fpga/reader.hpp>
 
 namespace parcore {
 
 namespace fpga {
 
-class MemoryReader : public HardwareReader {
+/*
+ * This reader preloads all pages in memory to avoid any overhead when measuring
+ * performance of the decoder.
+ */
+class PreloadFileReader : public HardwareReader {
 private:
-  std::shared_ptr<libstf::Buffer> data_;
-  size_t decode_id_;
-  std::unordered_map<size_t, std::vector<std::shared_ptr<libstf::Buffer>>>
-      buffers_per_column_chunk_;
+  std::unordered_map<metadata::Page, std::shared_ptr<libstf::Buffer>> pages_;
 
 public:
-  MemoryReader(
+  PreloadFileReader(
       std::shared_ptr<coyote::cThread> cthread,
       std::shared_ptr<libstf::MemoryPool> memory_pool,
       std::shared_ptr<libstf::TLBManager> tlb_manager,
       std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
       std::shared_ptr<ColumnChunkDecoderConfig> column_chunk_config,
       std::shared_ptr<PageDecoderConfig> page_config,
-      const metadata::Metadata &meta, std::shared_ptr<libstf::Buffer> data,
+      const metadata::Metadata &meta,
+      std::shared_ptr<arrow::io::RandomAccessFile> file,
       libstf::stream_t decoder = 0);
 
-  [[nodiscard]] std::shared_ptr<libstf::OutputHandle>
-  decode_column_chunk(size_t chunk, size_t column) override;
-
 protected:
+  std::shared_ptr<libstf::Buffer>
+  load_page(std::shared_ptr<arrow::io::RandomAccessFile> file,
+            const metadata::Page &page);
+
   void send_page(const metadata::Page &page, PageType page_type) override;
 };
 

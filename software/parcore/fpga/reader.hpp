@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <queue>
 
 #include <coyote/cThread.hpp>
 #include <libstf/buffer.hpp>
@@ -23,31 +22,25 @@ public:
       std::shared_ptr<libstf::MemoryPool> memory_pool,
       std::shared_ptr<libstf::TLBManager> tlb_manager,
       std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager,
-      ColumnChunkDecoderConfig column_chunk_config,
-      PageDecoderConfig page_config, const metadata::Metadata &meta,
-      libstf::stream_t decoder = 0);
+      std::shared_ptr<ColumnChunkDecoderConfig> column_chunk_config,
+      std::shared_ptr<PageDecoderConfig> page_config,
+      const metadata::Metadata &meta, libstf::stream_t decoder = 0);
 
   [[nodiscard]] const metadata::Metadata &metadata() const;
+  [[nodiscard]] const libstf::stream_t &decoder() const;
 
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
    * and potentially dictionary mapping.
+   *
+   * @param chunk      The index of the chunk to decode
+   * @param column     The index of the column to decode
+   * @param callback A callback function to be called when the column chunk is
+   * done decoding.
+   * @return The handle to receive the output from the hardware decoder.
    */
-  virtual void enqueue_column_chunk(size_t chunk, size_t column);
-
-  /**
-   * Returns whether there is a column chunk enqueued for processing. If this
-   * function returns true, then the consumer can call `next_column_chunk` to
-   * retrieve the output data, potentially blocking on until the acceleartor
-   * is done processing.
-   */
-  [[nodiscard]] virtual bool has_next_column_chunk();
-
-  /**
-   * Retrieves the next column chunk that has been enqueued for processing.
-   */
-  [[nodiscard]] virtual std::vector<std::shared_ptr<libstf::Buffer>>
-  next_column_chunk();
+  [[nodiscard]] virtual std::shared_ptr<libstf::OutputHandle>
+  decode_column_chunk(size_t chunk, size_t column);
 
 protected:
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
@@ -58,19 +51,16 @@ protected:
   // Sends a dictionary or data pge to be processed by the accelerator
   virtual void send_page(const metadata::Page &page, PageType page_type) = 0;
 
-private:
   std::shared_ptr<coyote::cThread> cthread_;
   std::shared_ptr<libstf::MemoryPool> memory_pool_;
   std::shared_ptr<libstf::TLBManager> tlb_manager_;
   std::shared_ptr<libstf::OutputBufferManager> output_buffer_manager_;
 
-  ColumnChunkDecoderConfig column_chunk_config_;
-  PageDecoderConfig page_config_;
+  std::shared_ptr<ColumnChunkDecoderConfig> column_chunk_config_;
+  std::shared_ptr<PageDecoderConfig> page_config_;
 
   metadata::Metadata meta_;
   libstf::stream_t decoder_;
-
-  std::queue<std::shared_ptr<libstf::OutputHandle>> queue_;
 };
 
 } // namespace fpga
