@@ -18,7 +18,7 @@
 #include <libstf/tlb_manager.hpp>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/cpu/cpu_reader.hpp>
-#include <parcore/fpga/preload_file_reader.hpp>
+#include <parcore/fpga/adaptor.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/multi_reader.hpp>
 #include <unistd.h>
@@ -99,7 +99,7 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
     num_decoders = column_chunk_config->num_decoders();
 
   auto hardware_reader =
-      parcore::make_multi_reader<parcore::fpga::PreloadFileReader>(
+      parcore::make_multi_reader<parcore::fpga::adapted::PreloadFileReader>(
           num_decoders, cthread, pool, tlb, obm, column_chunk_config,
           page_config, meta, file);
 
@@ -148,7 +148,7 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
     }
 
     us /= reps;
-    double gbps = (out_bytes / 1073741824.0) / (us / 1000000.0);
+    double gbps = (max(in_bytes, out_bytes) / 1073741824.0) / (us / 1000000.0);
 
     double in_out_bytes_ratio = ((double)in_bytes) / ((double)out_bytes);
 
