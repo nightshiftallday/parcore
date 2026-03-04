@@ -16,9 +16,10 @@
 #include <libstf/common.hpp>
 #include <libstf/memory_pool.hpp>
 #include <libstf/tlb_manager.hpp>
+#include <parcore/adaptor.hpp>
+#include <parcore/column_chunk_decoder.hpp>
 #include <parcore/cpu/cpu.hpp>
 #include <parcore/cpu/cpu_reader.hpp>
-#include <parcore/fpga/adaptor.hpp>
 #include <parcore/metadata/utils.hpp>
 #include <parcore/multi_reader.hpp>
 #include <unistd.h>
@@ -27,6 +28,7 @@
 // is the only possible value
 #define DEFAULT_VFPGA_ID 0
 #define N_REPS 10
+#define N_ENQUEUE 5
 
 const std::string separator = std::string(80, '-');
 
@@ -98,10 +100,17 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
   if (num_decoders <= 0)
     num_decoders = column_chunk_config->num_decoders();
 
-  auto hardware_reader =
-      parcore::make_multi_reader<parcore::fpga::adapted::PreloadFileReader>(
-          num_decoders, cthread, pool, tlb, obm, column_chunk_config,
-          page_config, meta, file);
+  std::vector<std::shared_ptr<parcore::ColumnChunkDecoder>> decoders;
+  for (size_t i = 0; i < num_decoders; ++i)
+    decoders.push_back(std::make_shared<parcore::ColumnChunkDecoder>(
+        cthread, tlb, obm, column_chunk_config, page_config, i));
+
+  std::vector<std::shared_ptr<parcore::Reader>> readers;
+  for (size_t i = 0; i < num_decoders; ++i)
+    readers.push_back(std::make_shared<parcore::adapted::PreloadFileReader>(
+        decoders[i], pool, meta, file));
+
+  auto hardware_reader = std::make_shared<parcore::MultiReader>(readers);
 
   auto rows = meta.groups.size();
   assert(rows > 0);
@@ -135,11 +144,19 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
     for (size_t k = 0; k < reps; ++k) {
       auto start = std::chrono::high_resolution_clock::now();
 
-      for (size_t i = 0; i < rows; ++i) {
+      auto preload = std::min((size_t)N_ENQUEUE, rows);
+      for (size_t i = 0; i < preload; ++i) {
         hardware_reader->enqueue_column_chunk(i, j);
       }
+
       for (size_t i = 0; i < rows; ++i) {
+        if (i + preload < rows)
+          hardware_reader->enqueue_column_chunk(preload + i, j);
+
         auto fpga_data = hardware_reader->next_column_chunk();
+        if (fpga_data->num_chunks() > 1)
+          throw std::runtime_error(
+              "expected just 1 output buffer for maximum performance");
       }
 
       auto end = std::chrono::high_resolution_clock::now();

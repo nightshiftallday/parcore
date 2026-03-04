@@ -29,9 +29,9 @@ private:
   std::shared_ptr<libstf::Buffer> buf_;
 };
 
-std::shared_ptr<arrow::ChunkedArray>
-libstf_buffers_into_arrow(std::shared_ptr<libstf::OutputHandle> output_handle,
-                          size_t num_values, metadata::Type type);
+std::shared_ptr<arrow::ChunkedArray> libstf_buffers_into_arrow(
+    std::vector<std::shared_ptr<libstf::Buffer>> output_handle,
+    size_t num_values, metadata::Type type);
 
 template <typename HWReader> class Adaptor : public Reader {
 public:
@@ -48,7 +48,7 @@ public:
         .type = column_chunk.type,
     };
 
-    hw_.decode_column_chunk(chunk, column);
+    hw_.enqueue_column_chunk(chunk, column);
     handle_queue_.push(handle);
   }
 
@@ -61,8 +61,7 @@ public:
     auto handle = handle_queue_.front();
     handle_queue_.pop();
 
-    return collect_from_output_handle_into_arrow(buffers, handle.num_values,
-                                                 handle.type);
+    return libstf_buffers_into_arrow(buffers, handle.num_values, handle.type);
   }
 
 private:

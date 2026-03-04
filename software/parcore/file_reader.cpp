@@ -1,3 +1,4 @@
+#include <parcore/reader.hpp>
 #include <stdexcept>
 
 #include <libstf/profiling.hpp>
@@ -29,15 +30,18 @@ const std::string prefix = "parcore::FileReader::";
 
 void FileReader::enqueue_column_chunk(size_t chunk, size_t column) {
   // Add a new entry to the queue of buffers used in each request
-  buffers_.push(std::vector<std::shared_ptr<libstf::Buffer>>());
+  auto vec = std::vector<std::shared_ptr<libstf::Buffer>>();
+  vec.reserve(num_pages(get_column_chunk(metadata(), chunk, column)));
+  buffers_.push_back(vec);
 
   HardwareReader::enqueue_column_chunk(chunk, column);
 }
 
 std::vector<std::shared_ptr<libstf::Buffer>> FileReader::next_column_chunk() {
   auto result = HardwareReader::next_column_chunk();
-  buffers_.pop(); // drop the buffers that were kept alive until the result is
-                  // returned from the FPGA
+  assert(buffers_.front().size() > 0);
+  buffers_.pop_front(); // drop the buffers that were kept alive until the
+                        // result is returned from the FPGA
   return result;
 }
 
@@ -63,7 +67,8 @@ FileReader::get_page_data(const metadata::Page &page, PageType page_type) {
   // Store the reference to the buffer in the queue so it won't be freed until
   // we have compltely parsed the column chunk that this page belongs to.
   assert(!buffers_.empty());
-  buffers_.front().push_back(buffer);
+  buffers_.back().push_back(buffer);
+  auto &fr = buffers_.back();
 
   Profiler::close_regions({prefix + "get_page_data"});
   return buffer;

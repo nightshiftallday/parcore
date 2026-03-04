@@ -17,8 +17,9 @@
 #include <libstf/memory_pool.hpp>
 #include <libstf/profiling.hpp>
 #include <libstf/tlb_manager.hpp>
+#include <parcore/column_chunk_decoder.hpp>
 #include <parcore/cpu/cpu.hpp>
-#include <parcore/fpga/file_reader.hpp>
+#include <parcore/file_reader.hpp>
 #include <parcore/metadata/utils.hpp>
 
 using libstf::Profiler;
@@ -143,8 +144,9 @@ int main(int argc, char *argv[]) {
   obm->flush_buffers();
   std::cout << "flushed buffers" << std::endl;
 
-  parcore::fpga::FileReader reader(cthread, pool, tlb, obm, column_chunk_config,
-                                   page_config, meta, file);
+  auto column_chunk_decoder = std::make_shared<parcore::ColumnChunkDecoder>(
+      cthread, tlb, obm, column_chunk_config, page_config, 0);
+  parcore::FileReader reader(column_chunk_decoder, pool, meta, file);
 
   for (size_t i = start; i < end; ++i) {
     auto group = meta.groups[i];
@@ -166,12 +168,8 @@ int main(int argc, char *argv[]) {
 
       auto start = std::chrono::high_resolution_clock::now();
 
-      auto handle = reader.decode_column_chunk(i, j);
-      auto fpga_data_raw = handle->get_next_stream_output(0);
-#ifdef ENABLE_SIMULATION
-      assert(!handle->stream_has_more_output(0));
-      assert(!handle->any_stream_has_more_output());
-#endif
+      reader.enqueue_column_chunk(i, j);
+      auto fpga_data_raw = reader.next_column_chunk();
 
       auto end = std::chrono::high_resolution_clock::now();
       auto fpga_us =
@@ -189,6 +187,11 @@ int main(int argc, char *argv[]) {
       std::cout << "\tcompleted! FPGA took " << fpga_us << "us, CPU took "
                 << cpu_us << "us" << std::endl;
 
+      std::vector<uint8_t> fpga_data;
+      for (auto buf : fpga_data_raw) {
+        auto ptr = reinterpret_cast<uint8_t *>(buf->ptr);
+        fpga_data.insert(fpga_data.end(), ptr, ptr + buf->size);
+      }
       std::vector<uint8_t> cpu_data;
       for (const auto &cc : cpu_data_raw->chunks()) {
         auto arr = std::static_pointer_cast<arrow::PrimitiveArray>(cc);
@@ -197,7 +200,7 @@ int main(int argc, char *argv[]) {
         cpu_data.insert(cpu_data.end(), data, data + byte_size);
       }
 
-      diff(cpu_data.data(), fpga_data_raw->ptr, fpga_data_raw->size);
+      diff(cpu_data.data(), fpga_data.data(), fpga_data.size());
     }
   }
 

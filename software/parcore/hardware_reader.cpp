@@ -44,21 +44,13 @@ void HardwareReader::enqueue_column_chunk(size_t chunk, size_t column) {
 
   auto handle = column_chunk_decoder_->decode_column_chunk(column_chunk);
 
-  // std::cout << "starting data sending" << std::endl;
-  // start = std::chrono::high_resolution_clock::now();
-  if (column_chunk.dictionary != std::nullopt) {
+  if (column_chunk.dictionary != std::nullopt)
     handle->add_page(get_page_data(*column_chunk.dictionary, PageType::DICT));
-  }
-  for (auto page : column_chunk.data) {
+  for (auto page : column_chunk.data)
     handle->add_page(get_page_data(page, PageType::DATA));
-  }
-  // end = std::chrono::high_resolution_clock::now();
-  // us = std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-  //          .count();
-  // std::cout << "sending data done, took " << us << "us" << std::endl;
 
   auto output_handle = std::move(*handle).done();
-  output_queue_.push(output_handle);
+  output_queue_.push({column_chunk, output_handle});
 
   Profiler::close_regions({reader_prefix + "enqueue_column_chunk"});
 }
@@ -70,7 +62,7 @@ HardwareReader::next_column_chunk() {
   Profiler::open_regions({reader_prefix + "next_column_chunk"});
   assert(!output_queue_.empty());
 
-  auto output_handle = output_queue_.front();
+  auto [column_chunk, output_handle] = output_queue_.front();
   output_queue_.pop();
 
   std::vector<std::shared_ptr<libstf::Buffer>> chunks;
@@ -78,6 +70,8 @@ HardwareReader::next_column_chunk() {
     auto buf = output_handle->get_next_stream_output(decoder_);
     chunks.push_back(std::move(buf));
   }
+
+  column_chunk_decoder_->finished_decoding_column_chunk(column_chunk);
 
   Profiler::close_regions({reader_prefix + "next_column_chunk"});
   return chunks;

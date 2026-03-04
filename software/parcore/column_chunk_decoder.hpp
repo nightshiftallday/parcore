@@ -25,7 +25,8 @@ public:
   struct Handle {
   public:
     Handle(std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder,
-           std::mutex &m, std::shared_ptr<libstf::OutputHandle> output_handle,
+           std::unique_lock<std::mutex> lock,
+           std::shared_ptr<libstf::OutputHandle> output_handle,
            size_t expected_pages);
 
     void add_page(const std::shared_ptr<libstf::Buffer> &buffer);
@@ -35,7 +36,7 @@ public:
 
   private:
     std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder_;
-    std::unique_lock<std::mutex> lock;
+    std::unique_lock<std::mutex> lock_;
 
     std::shared_ptr<libstf::OutputHandle> output_handle_;
     size_t written_pages_;
@@ -44,6 +45,9 @@ public:
 
   [[nodiscard]] std::unique_ptr<Handle>
   decode_column_chunk(const metadata::ColumnChunk &column_chunk);
+
+  void
+  finished_decoding_column_chunk(const metadata::ColumnChunk &column_chunk);
 
 private:
   std::shared_ptr<coyote::cThread> cthread_;
@@ -54,6 +58,8 @@ private:
   libstf::stream_t decoder_;
 
   std::mutex mtx;
+  size_t column_chunk_enqueued_configs_;
+  size_t page_enqueued_configs_;
 
   libstf::stream_mask_t decoder_mask() const;
 

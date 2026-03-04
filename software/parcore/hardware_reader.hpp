@@ -53,7 +53,9 @@ protected:
   std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder_;
   metadata::Metadata meta_;
   libstf::stream_t decoder_;
-  std::queue<std::shared_ptr<libstf::OutputHandle>> output_queue_;
+  std::queue<
+      std::pair<metadata::ColumnChunk, std::shared_ptr<libstf::OutputHandle>>>
+      output_queue_;
 
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
 

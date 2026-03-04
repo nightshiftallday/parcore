@@ -23,7 +23,7 @@ protected:
 
 private:
   std::shared_ptr<libstf::Buffer> data_;
-  std::queue<std::vector<std::shared_ptr<libstf::Buffer>>> buffers_;
+  std::deque<std::vector<std::shared_ptr<libstf::Buffer>>> buffers_;
 };
 
 } // namespace parcore
