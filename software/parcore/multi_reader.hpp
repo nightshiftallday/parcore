@@ -43,19 +43,4 @@ private:
   std::deque<size_t> scheduled_order_;
 };
 
-template <typename T, typename... Args>
-std::shared_ptr<MultiReader> make_multi_reader(size_t count, Args &&...args) {
-  static_assert(std::is_base_of_v<Reader, T>, "T must derive from Reader");
-
-  std::vector<std::shared_ptr<Reader>> readers;
-  readers.reserve(count);
-
-  for (size_t i = 0; i < count; ++i) {
-    readers.push_back(
-        std::make_shared<T>(args..., static_cast<libstf::stream_t>(i)));
-  }
-
-  return std::make_shared<MultiReader>(std::move(readers));
-}
-
 } // namespace parcore

@@ -39,11 +39,13 @@ public:
                             libstf::type_t typ);
 
   const libstf::stream_t num_decoders() const;
+  const size_t maximum_num_enqueued_configs() const;
 
   static constexpr uint64_t ID = COLUMN_CHUNK_DECODER_CONFIG_ID;
 
 private:
   libstf::stream_t num_decoders_;
+  size_t maximum_num_enqueued_configs_;
 };
 
 enum class PageType : uint8_t { DICT, DATA };
@@ -76,11 +78,13 @@ public:
                     bool last);
 
   const libstf::stream_t num_decoders() const;
+  const size_t maximum_num_enqueued_configs() const;
 
   static constexpr uint64_t ID = PAGE_DECODER_CONFIG_ID;
 
 private:
   libstf::stream_t num_decoders_;
+  size_t maximum_num_enqueued_configs_;
 };
 
 } // namespace parcore

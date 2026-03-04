@@ -38,12 +38,12 @@ set_target_properties(Parcore PROPERTIES OUTPUT_NAME "parcore")
 target_sources(Parcore PRIVATE
     parcore/configuration.cpp
     parcore/reader.cpp
-    parcore/fpga/buffer.cpp
-    parcore/fpga/adaptor.cpp
-    parcore/fpga/reader.cpp
-    parcore/fpga/memory_reader.cpp
-    parcore/fpga/file_reader.cpp
-    parcore/fpga/preload_file_reader.cpp
+    parcore/column_chunk_decoder.cpp
+    parcore/hardware_reader.cpp
+    parcore/file_reader.cpp
+    parcore/preload_file_reader.cpp
+    parcore/memory_reader.cpp
+    parcore/adaptor.cpp
 
     parcore/multi_reader.cpp
 

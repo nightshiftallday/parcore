@@ -88,7 +88,8 @@ ColumnChunkDecoderConfig::ColumnChunkDecoderConfig(
     std::shared_ptr<coyote::cThread> cthread, uint32_t addr_offset,
     uint32_t num_regs)
     : Config(cthread, addr_offset, num_regs),
-      num_decoders_(read_register(1).value()) {}
+      num_decoders_(read_register(1).value()),
+      maximum_num_enqueued_configs_(64 /* TODO: read from config */) {}
 
 void ColumnChunkDecoderConfig::process_column_chunk(
     libstf::stream_t decoder, metadata::Compression compression,
@@ -118,6 +119,10 @@ const libstf::stream_t ColumnChunkDecoderConfig::num_decoders() const {
   return num_decoders_;
 }
 
+const size_t ColumnChunkDecoderConfig::maximum_num_enqueued_configs() const {
+  return maximum_num_enqueued_configs_;
+}
+
 inline uint64_t last_to_hardware(bool last) {
   if (last) {
     return 1;
@@ -131,7 +136,8 @@ const std::string page_config_prefix = "parcore::PageDecoderConfig::";
 PageDecoderConfig::PageDecoderConfig(std::shared_ptr<coyote::cThread> cthread,
                                      uint32_t addr_offset, uint32_t num_regs)
     : Config(cthread, addr_offset, num_regs),
-      num_decoders_(read_register(1).value()) {}
+      num_decoders_(read_register(1).value()),
+      maximum_num_enqueued_configs_(64 /* TODO: read from config */) {}
 
 void PageDecoderConfig::process_page(libstf::stream_t decoder,
                                      PageType page_type,
@@ -159,6 +165,10 @@ void PageDecoderConfig::process_page(libstf::stream_t decoder,
 
 const libstf::stream_t PageDecoderConfig::num_decoders() const {
   return num_decoders_;
+}
+
+const size_t PageDecoderConfig::maximum_num_enqueued_configs() const {
+  return maximum_num_enqueued_configs_;
 }
 
 } // namespace parcore

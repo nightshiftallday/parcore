@@ -12,6 +12,9 @@ public:
   /**
    * Submits a column chunk for parsing, which includes decompression, decoding
    * and potentially dictionary mapping.
+   *
+   * @param chunk      The index of the chunk to decode
+   * @param column     The index of the column to decode
    */
   virtual void enqueue_column_chunk(size_t chunk, size_t column) = 0;
 

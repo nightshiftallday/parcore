@@ -16,7 +16,8 @@ namespace cpu {
 const std::string prefix = "parcore::HybridReader::";
 
 std::unique_ptr<parquet::arrow::FileReader>
-open_reader(std::shared_ptr<arrow::io::RandomAccessFile> file) {
+open_reader(std::shared_ptr<arrow::io::RandomAccessFile> file,
+            arrow::MemoryPool *memory_pool, bool use_threads) {
   Profiler::open_regions({prefix + "open_reader"});
   parquet::arrow::FileReaderBuilder builder;
   auto status = builder.Open(file);
@@ -25,7 +26,9 @@ open_reader(std::shared_ptr<arrow::io::RandomAccessFile> file) {
                              status.message());
   }
   parquet::ArrowReaderProperties props;
-  props.set_use_threads(false);
+  props.set_use_threads(use_threads);
+  if (memory_pool != nullptr)
+    builder.memory_pool(memory_pool);
   builder.properties(props);
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
@@ -37,19 +40,35 @@ open_reader(std::shared_ptr<arrow::io::RandomAccessFile> file) {
   return std::move(reader);
 }
 
-CPUReader::CPUReader(std::shared_ptr<arrow::io::RandomAccessFile> file)
-    : file_reader_(std::move(open_reader(file))) {}
+CPUReader::CPUReader(std::shared_ptr<arrow::io::RandomAccessFile> file,
+                     arrow::MemoryPool *memory_pool, bool use_threads)
+    : file_reader_(std::move(open_reader(file, memory_pool, use_threads))) {}
 
 const metadata::Metadata &CPUReader::metadata() const {
   throw std::logic_error("CPUReader::metadata() is not implemented");
 }
 
+inline void CPUReader::read_column_chunk(Job *job) {
+  auto status = job->reader->Read(&job->out);
+  if (!status.ok()) {
+    throw std::runtime_error("could not read column chunk: " +
+                             status.message());
+  }
+}
+
 void CPUReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({prefix + "enqueue_column_chunk"});
   auto rg = file_reader_->RowGroup(chunk);
-  auto col_reader = rg->Column(column);
+  auto reader = rg->Column(column);
 
-  queue_.push(col_reader);
+  std::shared_ptr<arrow::ChunkedArray> out;
+  auto job = new Job{
+      .reader = reader,
+      .out = out,
+  };
+  std::thread thread(read_column_chunk, job);
+
+  queue_.push({std::move(thread), job});
   Profiler::close_regions({prefix + "enqueue_column_chunk"});
 }
 
@@ -59,16 +78,11 @@ std::shared_ptr<arrow::ChunkedArray> CPUReader::next_column_chunk() {
   assert(!queue_.empty());
   Profiler::open_regions({prefix + "next_column_chunk"});
 
-  auto col_reader = queue_.front();
-  assert(col_reader != nullptr);
+  auto &pair = queue_.front();
+  pair.first.join();
+  auto out = std::move(pair.second->out);
+  delete pair.second;
   queue_.pop();
-
-  std::shared_ptr<arrow::ChunkedArray> out;
-  auto status = col_reader->Read(&out);
-  if (!status.ok()) {
-    throw std::runtime_error("could not read column chunk: " +
-                             status.message());
-  }
 
   Profiler::close_regions({prefix + "next_column_chunk"});
   return std::move(out);
