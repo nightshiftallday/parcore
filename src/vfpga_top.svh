@@ -35,7 +35,6 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-
 mem_config_i mem_conf[N_STREAMS](.*);
 MemConfig #(
     .NUM_STREAMS(N_STREAMS)
@@ -146,6 +145,7 @@ generate
         );
 
         /* -- PROFILING --------------------------------------------------------- */
+        /*
         data64_t inputs_counter, n_inputs_counter;
         logic    is_stop;
 
@@ -202,21 +202,24 @@ generate
             .stalled_cycles   (perf_counters[8 * I + 6]),
             .idle_cycles      (perf_counters[8 * I + 7])
         );
+        */
 
-        // ila_top inst_ila_top (
-        //     .clk(clk),
-        //     .probe0(rst_n),
-        //
-        //     .probe1(axi_host_recv.tready),
-        //     .probe2(axi_host_recv.tvalid),
-        //     .probe3(axi_host_recv.tlast),
-        //     .probe4(axi_host_recv.tkeep),
-        //
-        //     .probe5(in.ready),
-        //     .probe6(in.valid),
-        //     .probe7(in.last),
-        //     .probe8(in.keep)
-        // );
+        /*
+        ila_top inst_ila_top (
+            .clk(clk),
+            .probe0(rst_n),
+
+            .probe1(axi_host_recv.tready),
+            .probe2(axi_host_recv.tvalid),
+            .probe3(axi_host_recv.tlast),
+            .probe4(axi_host_recv.tkeep),
+
+            .probe5(in.ready),
+            .probe6(in.valid),
+            .probe7(in.last),
+            .probe8(in.keep)
+        );
+        */
     end
 endgenerate
 
