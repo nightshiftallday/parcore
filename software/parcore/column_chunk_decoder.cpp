@@ -24,7 +24,13 @@ void ColumnChunkDecoder::Handle::add_page(
     const std::shared_ptr<libstf::Buffer> &buffer) {
   assert(written_pages_ < expected_pages_);
 
-  column_chunk_decoder_->enqueue_stream_input(buffer);
+  // Buffer here could be null to signal that we have providede the data to the
+  // hardware trough a side-channel. For example, the RDMA reader would be
+  // directly wired into the ColumnChunkDecoder, and thus just configuring the
+  // reader is enough to feed data to the decoder, so we don't need to perform
+  // any host transfer.
+  if (buffer != nullptr)
+    column_chunk_decoder_->enqueue_stream_input(buffer);
 
   ++written_pages_;
 }
