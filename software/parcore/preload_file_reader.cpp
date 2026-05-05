@@ -53,7 +53,7 @@ PreloadFileReader::load_page(std::shared_ptr<arrow::io::RandomAccessFile> file,
 std::shared_ptr<libstf::Buffer>
 PreloadFileReader::get_page_data(const metadata::Page &page,
                                  PageType page_type) {
-  assert(pages_.contains(page));
+  assert(pages_.find(page) != pages_.end());
   return pages_[page];
 }
 
