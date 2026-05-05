@@ -92,7 +92,7 @@ install(TARGETS Parcore
 )
 
 # Install headers
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/parcore
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/parcore/"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parcore
     FILES_MATCHING PATTERN "*.hpp"
 )
