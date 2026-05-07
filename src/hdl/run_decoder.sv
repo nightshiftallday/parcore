@@ -621,11 +621,12 @@ always_comb begin
 end
 
 // ------- Driving output --------
+localparam FIFO_DEPTH = MAX_IN_TRANSIT * 8;
 
 logic fifo_out_ready;
-data32_t filling_level;
+logic[$clog2(FIFO_DEPTH):0] filling_level;
 FIFO #(
-    .DEPTH(MAX_IN_TRANSIT*8),
+    .DEPTH(FIFO_DEPTH),
     .WIDTH($bits(output_t))
 ) inst_output_fifo (
     .i_clk(clk),

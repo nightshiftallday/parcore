@@ -32,6 +32,10 @@ module HybridPageDecoder #(
 
 localparam int NUM_BYTES_OFFSET = 4;
 
+offset_t    offset;
+bit_width_t bit_width;
+data32_t    num_values, next_num_values; 
+
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
 ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
@@ -75,14 +79,12 @@ typedef enum logic [1:0] {
 } state_t;
 state_t state;
 
-offset_t offset, bit_width_offset;
+offset_t bit_width_offset;
 // This is used to handle the edge case where the bit width is contained on
 // the last byte of a data page and we need to consume it to get to the first
 // byte of the data page we can actually pipe to the run decoder.
 valid_i #(bit_width_t) keep_bit_width ();
-bit_width_t bit_width;
 assign bit_width = keep_bit_width.valid ? keep_bit_width.data : in.data[bit_width_offset];
-data32_t num_values, next_num_values;
 
 offset_t actual_offset, next_offset;
 assign actual_offset = NUM_BYTES_OFFSET + in.data[NUM_BYTES_OFFSET - 1:0];
