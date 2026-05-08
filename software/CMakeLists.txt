@@ -62,8 +62,8 @@ target_link_libraries(parcore PRIVATE libstf)
 target_include_directories(parcore PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 find_package(Arrow REQUIRED)
-target_link_libraries(parcore PRIVATE Arrow::arrow_shared)
-target_include_directories(parcore PRIVATE ${ARROW_INCLUDE_DIRS})
+target_link_libraries(parcore PUBLIC Arrow::arrow_shared)
+target_include_directories(parcore PUBLIC ${ARROW_INCLUDE_DIRS})
 
 if (PARCORE_INCLUDE_CPU)
     find_package(Parquet REQUIRED)
