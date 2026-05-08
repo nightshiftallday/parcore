@@ -3,6 +3,7 @@ build
 build1
 
 build_*/
+build-*/
 unit-tests/diff/**
 unit-tests/sim_dump.vcd
 unit-tests/sim.out
