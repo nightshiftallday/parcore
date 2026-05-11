@@ -2,11 +2,15 @@
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        "./unit-tests",
+        "./hardware/unit-tests",
         "-p",
         "*_test.py"
     ],
-    "python.testing.cwd": "./hw",
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
+
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "file",
+
+    "cmake.sourceDirectory": "${workspaceFolder}/software"
 }

@@ -5,10 +5,9 @@ This repo contains a hardware design to read Parquet data pages of specific comp
 
 * Build with the Coyote simulation setup 
 
-Run `./setup_simulation`. 
-Needs created vivado simulation project.
+Run `./setup_simulation.sh`.
 
-* Build for deployment. 
+* Syntehsize for deployment. 
 
 `./setup_project -b hw/final_bitstreams/<>.bit`. Deployment also injects the design to the FPGA, needs built Coyote driver. 
 
