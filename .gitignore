@@ -1,14 +1,11 @@
 */compile_commands.json
 build
-build1
-
 build_*/
 build-*/
-unit-tests/diff/**
-unit-tests/sim_dump.vcd
-unit-tests/sim.out
-unit-tests/vapor_view.json
-tst/tb_design_user_logic.sv
+
+hardware/unit-tests/diff/**
+hardware/unit-tests/sim_dump.vcd
+hardware/unit-tests/sim.out
 
 # Vivado generated files
 *.jou
