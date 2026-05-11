@@ -5,6 +5,11 @@ project(parcore
   LANGUAGES CXX
 )
 
+option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(NOT TARGET Coyote)
     find_package(Coyote QUIET)
     if(NOT Coyote_FOUND)
@@ -18,17 +23,7 @@ if(NOT TARGET libstf)
     endif()
 endif()
 
-# Metadata utility
-add_executable(parcore-metaread parcore/metadata/parcore-metaread.cpp)
-target_link_libraries(parcore-metaread PRIVATE parcore)
-target_include_directories(parcore-metaread PRIVATE parcore/)
-target_link_libraries(parcore-metaread PRIVATE libstf)
-target_include_directories(parcore-metaread PRIVATE ${LIBSTF_INCLUDE_DIRS})
-
-option(PARCORE_INCLUDE_CPU "Bundles the CPU helper code to parse parquet files on the CPU from memory using Arrow's parquet parser" OFF)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(GNUInstallDirs)
 
 add_library(parcore SHARED)
 
@@ -53,7 +48,6 @@ target_include_directories(parcore
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parcore>
 )
 
-
 target_link_libraries(parcore PRIVATE Coyote)
 target_include_directories(parcore PRIVATE ${COYOTE_INCLUDE_DIRS})
 target_link_libraries(parcore PRIVATE libstf)
@@ -61,7 +55,6 @@ target_include_directories(parcore PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 find_package(Arrow REQUIRED)
 target_link_libraries(parcore PUBLIC Arrow::arrow_shared)
-target_include_directories(parcore PUBLIC ${ARROW_INCLUDE_DIRS})
 
 if (PARCORE_INCLUDE_CPU)
     find_package(Parquet REQUIRED)
@@ -77,7 +70,12 @@ if (PARCORE_INCLUDE_CPU)
     )
 endif()
 
-include(GNUInstallDirs)
+# Metadata utility
+add_executable(parcore-metaread parcore/metadata/parcore-metaread.cpp)
+target_link_libraries(parcore-metaread PRIVATE parcore)
+target_include_directories(parcore-metaread PRIVATE parcore/)
+target_link_libraries(parcore-metaread PRIVATE libstf)
+target_include_directories(parcore-metaread PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 # Install the library
 install(TARGETS parcore
