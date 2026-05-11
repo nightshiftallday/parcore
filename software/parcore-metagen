@@ -19,7 +19,7 @@ def parse_encoding(raw: int) -> Encoding:
     match raw:
         case 0:
             return Encoding.PLAIN
-        case 8:
+        case 2 | 8:
             return Encoding.HYBRID
 
     raise Exception(f'unsupported encoding: {raw}, only 0 (PLAIN) and 8 (HYBRID) are supported')
