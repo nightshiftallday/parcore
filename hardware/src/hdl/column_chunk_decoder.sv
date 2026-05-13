@@ -5,6 +5,8 @@
 import lynxTypes::AXI_DATA_BITS;
 import libstf::data8_t;
 import libstf::data32_t;
+import libstf::type_t;
+import libstf::BYTE_T;
 import parcore::*;
 
 module ColumnChunkDecoder #(
