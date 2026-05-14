@@ -58,7 +58,7 @@ HybridPageDecoderConfig inst_hybrid_page_decoder_config (
 AXI4S axi_host_recv_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
-ndata_i #(data8_t, 64) in ();
+ndata_i #(data8_t, 64) in(clk, rst_n);
 AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .clk(clk),
     .rst_n(rst_n),
@@ -72,7 +72,7 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
-ndata_i #(data32_t, 16) out ();
+ndata_i #(data32_t, 16) out(clk, rst_n);
 NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
     .clk(clk),
     .rst_n(rst_n),
@@ -83,8 +83,7 @@ NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-ready_valid_i #(data32_t) confs[1:0] ();
-
+ready_valid_i #(data32_t) confs[1:0](clk, rst_n);
 ReadyValidDuplicator #(2) inst_conf_duplicator (
     .clk(clk),
     .rst_n(rst_n),
@@ -93,8 +92,7 @@ ReadyValidDuplicator #(2) inst_conf_duplicator (
     .out(confs)
 );
 
-ndata_i #(data32_t, 16) hybrid_out ();
-
+ndata_i #(data32_t, 16) hybrid_out(clk, rst_n);
 HybridPageDecoder #(data32_t, 16) inst_hybrid_page_decoder (
     .clk(clk),
     .rst_n(rst_n),

@@ -25,7 +25,7 @@ module StripLevels #(
 
 localparam int NUM_BYTES_OFFSET = 4;
 
-ndata_i #(data8_t, NUM_BYTES) in_inner (), out_inner ();
+ndata_i #(data8_t, NUM_BYTES) in_inner(clk, reset_synced), out_inner(clk, reset_synced);
 
 NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_in (
     .clk(clk),

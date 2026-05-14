@@ -34,7 +34,7 @@ assign test_data = '{
     '{data: 1024, meta: 64}
 };
 
-ready_valid_i #(tagged_t) ready_valid_in ();
+ready_valid_i #(tagged_t) ready_valid_in(clk, rst_n);
 ReadyValidCyclicDriver #(tagged_t, 4) inst_in_driver (
     .clk(aclk),
     .rst_n(aresetn),
@@ -43,7 +43,7 @@ ReadyValidCyclicDriver #(tagged_t, 4) inst_in_driver (
     .out_data(ready_valid_in)
 );
 
-tagged_i #(data32_t, $bits(rle_count_t)) in ();
+tagged_i #(data32_t, $bits(rle_count_t)) in(clk, rst_n);
 assign ready_valid_in.ready = in.ready;
 assign in.valid = ready_valid_in.valid;
 assign in.data = ready_valid_in.data.data;
@@ -60,7 +60,7 @@ assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 assign axis_host_send[0].tid = output_databeat;
 
-ndata_i #(data32_t, 16) out ();
+ndata_i #(data32_t, 16) out(clk, rst_n);
 NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
     .clk(aclk),
     .rst_n(aresetn),

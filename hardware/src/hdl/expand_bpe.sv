@@ -55,9 +55,9 @@ localparam int IDX_BOUNDARIES[N_STAGES+1] = '{
 
 typedef logic [$bits(data_t) * NUM_ELEMENTS - 1:0] input_t;
 
-tagged_i #(input_t, $bits(bpe_config_t)) in_inner ();
-ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
-bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) middle[N_STAGES:0] ();
+tagged_i #(input_t, $bits(bpe_config_t)) in_inner(clk, rst_n);
+ndata_i #(data_t, NUM_ELEMENTS) out_inner(clk, rst_n);
+bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) middle[N_STAGES:0]();
 
 // some stages of buffering are required for full throughput in RunDecoder
 FIFO #(
@@ -132,7 +132,7 @@ assign in.ready = out.ready;
 
 typedef logic [$bits(data_t) * NUM_ELEMENTS - 1:0] input_t;
 
-bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) curr (), next ();
+bpe_stage_i #(input_t, bpe_config_t, data_t, NUM_ELEMENTS) curr(), next();
 
 assign out.raw = curr.raw;
 assign out.tag = curr.tag;

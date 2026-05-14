@@ -40,16 +40,16 @@ ConfigReadRegisterFile #(
 
 // -- Write ----------------------------------------------------------------------------------------
 for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    ready_valid_i #(compression_t) compression ();
+    ready_valid_i #(compression_t) compression(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+0, MAX_NUM_ENQUEUED_BUFFERS, compression_t) inst_compression (clk, reset_synced, write_config, compression);
 
-    ready_valid_i #(data32_t) num_values ();
+    ready_valid_i #(data32_t) num_values(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+1, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
-    ready_valid_i #(data32_t) hybrid_num_values ();
+    ready_valid_i #(data32_t) hybrid_num_values(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+2, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_hybrid_num_values (clk, reset_synced, write_config, hybrid_num_values);
 
-    ready_valid_i #(type_t) typ ();
+    ready_valid_i #(type_t) typ(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+3, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
 
     assign out[I].compression = compression.data;
@@ -100,13 +100,13 @@ ConfigReadRegisterFile #(
 
 // -- Write ----------------------------------------------------------------------------------------
 for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    ready_valid_i #(page_type_t) page_type ();
+    ready_valid_i #(page_type_t) page_type(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+0, MAX_NUM_ENQUEUED_BUFFERS, page_type_t) inst_page_type (clk, reset_synced, write_config, page_type);
 
-    ready_valid_i #(data32_t) num_values ();
+    ready_valid_i #(data32_t) num_values(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+1, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
-    ready_valid_i #(logic) last ();
+    ready_valid_i #(logic) last(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+2, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_last (clk, reset_synced, write_config, last);
 
     assign out[I].page_type = page_type.data;

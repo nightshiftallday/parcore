@@ -32,7 +32,7 @@ assign unconfigured = remaining == 0;
 
 assign size.ready = unconfigured;
 
-ndata_i #(data_t, NUM_ELEMENTS) in_inner (), normalizer_in (), out_inner ();
+ndata_i #(data_t, NUM_ELEMENTS) in_inner(clk, reset_synced), normalizer_in(clk, reset_synced), out_inner(clk, reset_synced);
 
 // This is on purpose 1 bit wider to account for the case where keep is 0xf..f
 logic [$clog2(NUM_ELEMENTS):0] in_num_values;
@@ -115,15 +115,15 @@ localparam int MAX_IN_TRANSIT = 8;
 `RESET_RESYNC // Reset pipelining
 
 size_t remaining;
-ready_valid_i #(type_t) fifo_typ ();
-valid_i #(type_t) in_typ (), out_typ ();
+ready_valid_i #(type_t) fifo_typ(clk, reset_synced);
+valid_i #(type_t) in_typ(clk, reset_synced), out_typ(clk, reset_synced);
 
 logic unconfigured;
 assign unconfigured = remaining == 0;
 
 assign size.ready = unconfigured && in.valid;
 
-ndata_i #(data8_t, DATABEAT_SIZE) untyped_in (), in_inner (), normalizer_in (), out_inner (), untyped_out ();
+ndata_i #(data8_t, DATABEAT_SIZE) untyped_in(clk, reset_synced), in_inner(clk, reset_synced), normalizer_in(clk, reset_synced), out_inner(clk, reset_synced), untyped_out(clk, reset_synced);
 
 // This is on purpose 1 bit wider to account for the case where keep is 0xf..f
 logic [$clog2(DATABEAT_SIZE):0] in_num_bytes;

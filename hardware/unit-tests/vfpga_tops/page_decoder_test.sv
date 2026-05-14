@@ -71,7 +71,7 @@ PageDecoderConfig #(
 AXI4S axi_host_recv_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
-ndata_i #(data8_t, 64) in ();
+ndata_i #(data8_t, 64) in(clk, rst_n);
 AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .clk(clk),
     .rst_n(rst_n),
@@ -85,7 +85,7 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
-ndata_i #(data8_t, 64) out_u8 ();
+ndata_i #(data8_t, 64) out_u8(clk, rst_n);
 NDataToAXI #(data8_t, 64) inst_ndata_to_axi (
     .clk(clk),
     .rst_n(rst_n),
@@ -95,7 +95,7 @@ NDataToAXI #(data8_t, 64) inst_ndata_to_axi (
 );
 
 // discard typed interface
-typed_ndata_i #(64) out();
+typed_ndata_i #(64) out(clk, rst_n);
 `DATA_ASSIGN(out, out_u8);
 
 /* -- DESIGN WIRING ----------------------------------------------------- */

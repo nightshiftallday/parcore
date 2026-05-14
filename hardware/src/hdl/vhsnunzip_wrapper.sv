@@ -17,7 +17,7 @@ module VHSNUnzipWrapper #(
 reg decompressor_input_paused;
 reg [1:0] decompressor_reset_counter;
 
-ndata_i #(data8_t, NUM_BYTES) out_inner ();
+ndata_i #(data8_t, NUM_BYTES) out_inner(clk, rst_n);
 
 VHSNUnzipWrapperInternal #(NUM_BYTES) inst_vhsnunzip_wrapper_internal (
     .clk(clk),
@@ -102,8 +102,6 @@ module VHSNUnzipWrapperInternal #(
 
     // Index in the output chunk
     logic [INDEX_BITS-1:0] out_index;
-
-
 
     // Ready to receive new input when we are done with the chunk or currently streaming the last part of it.
     // assign in.ready = rst_n && (in_done || (in_index == {(INDEX_BITS){1'b1}} && co_ready));
@@ -288,7 +286,7 @@ module VHSNUnzipWrapperFixLast #(
     ndata_i.m out // #(data8_t, NUM_BYTES)
 );
 
-ndata_i #(data8_t, NUM_BYTES) tmp();
+ndata_i #(data8_t, NUM_BYTES) tmp(clk, rst_n);
 logic is_ghost;
 // A "ghost" databeat is a valid beat which carries no data but the last
 // signal.
@@ -311,6 +309,10 @@ always_ff @(posedge clk) begin
         end
     end
 end
+
+// Assign ready to silence assertion that ready cannot be undefined. Needs to be high so we do not 
+// get in trouble with with stable assertion of the interface.
+assign tmp.ready = 1'b1;
 
 assign out.valid = tmp.valid && (tmp.last || in.valid);
 assign out.data  = tmp.data;

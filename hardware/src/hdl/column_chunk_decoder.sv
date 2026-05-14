@@ -27,8 +27,8 @@ module ColumnChunkDecoder #(
 localparam NUM_IDS = 16;
 
 // ------ Decompressor wiring ---------------------
-ready_valid_i #(compression_t) decompressor_conf ();
-ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out ();
+ready_valid_i #(compression_t) decompressor_conf(clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out(clk, reset_synced);
 Decompressor #(DATABEAT_SIZE) inst_decompressor (
     .clk(clk),
     .rst_n(reset_synced),
@@ -48,7 +48,7 @@ typedef enum logic [$bits(page_type_t) - 1:0] {
 } in_selector_t;
 `ASSERT_ELAB(NUM_IN <= 2**$bits(in_selector_t))
 
-ndata_i #(data8_t, DATABEAT_SIZE) ins[NUM_IN] ();
+ndata_i #(data8_t, DATABEAT_SIZE) ins[NUM_IN](clk, reset_synced);
 
 localparam int NUM_OUT = 2;
 typedef enum logic {
@@ -56,15 +56,15 @@ typedef enum logic {
   OUT_PLAIN = 1
 } out_selector_t;
 `ASSERT_ELAB(NUM_OUT <= 2**$bits(out_selector_t))
-typed_ndata_i #(DATABEAT_SIZE) outs[NUM_OUT] ();
+typed_ndata_i #(DATABEAT_SIZE) outs[NUM_OUT](clk, reset_synced);
 
-ready_valid_i #(in_selector_t) in_select ();
-ready_valid_i #(out_selector_t) out_select ();
+ready_valid_i #(in_selector_t) in_select(clk, reset_synced);
+ready_valid_i #(out_selector_t) out_select(clk, reset_synced);
 
 // ------ Hybrid decoder + Dictionary wiring ------
-ready_valid_i #(data32_t) hybrid_conf ();
+ready_valid_i #(data32_t) hybrid_conf(clk, reset_synced);
 
-ndata_i #(id_t, NUM_IDS) hybrid_out ();
+ndata_i #(id_t, NUM_IDS) hybrid_out(clk, reset_synced);
 HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -79,8 +79,8 @@ HybridPageDecoder #(
     .out(hybrid_out)
 );
 
-ndata_i #(id_t, NUM_IDS) dict_ids ();
-ready_valid_i #(data32_t) hybrid_num_values ();
+ndata_i       #(id_t, NUM_IDS) dict_ids(clk, reset_synced);
+ready_valid_i #(data32_t)      hybrid_num_values(clk, reset_synced);
 NormalizeUntil #(id_t, data32_t, NUM_IDS) inst_normalize_until_hybrid (
     .clk(clk),
     .rst_n(reset_synced),
@@ -91,8 +91,8 @@ NormalizeUntil #(id_t, data32_t, NUM_IDS) inst_normalize_until_hybrid (
     .out(dict_ids)
 );
 
-ready_valid_i #(type_t) dict_type ();
-typed_ndata_i #(DATABEAT_SIZE) dict_values ();
+ready_valid_i #(type_t) dict_type(clk, reset_synced);
+typed_ndata_i #(DATABEAT_SIZE) dict_values(clk, reset_synced);
 NDataToTypedNData #(DATABEAT_SIZE) inst_dict_typed_conversion (
     .clk(clk),
     .rst_n(reset_synced),
@@ -118,8 +118,8 @@ TypedDictionary #(
 );
 
 // ------ Plain wiring ----------------------------
-ready_valid_i #(type_t) plain_type ();
-ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped (), plain_normalize (), plain_normalized (), plain_out ();
+ready_valid_i #(type_t) plain_type(clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped(clk, reset_synced), plain_normalize(clk, reset_synced), plain_normalized(clk, reset_synced), plain_out(clk, reset_synced);
 
 StripLevels #(
     .NUM_BYTES(DATABEAT_SIZE)
@@ -182,7 +182,7 @@ DataDemultiplexer #(NUM_IN) inst_multiplexer (
     .out(ins)
 );
 
-typed_ndata_i #(DATABEAT_SIZE) inner_out ();
+typed_ndata_i #(DATABEAT_SIZE) inner_out(clk, reset_synced);
 TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
     .clk(clk),
     .rst_n(reset_synced),
@@ -193,7 +193,7 @@ TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
     .out(inner_out)
 );
 
-ready_valid_i #(data32_t) num_values ();
+ready_valid_i #(data32_t) num_values(clk, reset_synced);
 TypedNormalizeUntil #(data32_t, DATABEAT_SIZE) inst_normalize_until_out (
     .clk(clk),
     .rst_n(reset_synced),

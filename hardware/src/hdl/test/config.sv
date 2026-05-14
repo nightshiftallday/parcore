@@ -68,13 +68,13 @@ ConfigReadRegisterFile #(
 );
 
 // -- Write ----------------------------------------------------------------------------------------
-ready_valid_i #(bit_width_t) bit_width ();
+ready_valid_i #(bit_width_t) bit_width(clk, reset_synced);
 ConfigWriteFIFO #(0, 8, bit_width_t) inst_bit_width (clk, reset_synced, write_config, bit_width);
 
-ready_valid_i #(offset_t) offset ();
+ready_valid_i #(offset_t) offset(clk, reset_synced);
 ConfigWriteFIFO #(0, 8, offset_t) inst_offset (clk, reset_synced, write_config, offset);
 
-ready_valid_i #(data32_t) num_values ();
+ready_valid_i #(data32_t) num_values(clk, reset_synced);
 ConfigWriteFIFO #(0, 8, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
 bpe_config_t data;

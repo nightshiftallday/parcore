@@ -37,11 +37,11 @@ bit_width_t bit_width;
 data32_t    num_values, next_num_values; 
 
 // ------- Run decoder wiring ------
-ndata_i #(data8_t, NUM_BYTES) run_decoder_in ();
-ndata_i #(data_t, NUM_ELEMENTS) out_inner ();
+ndata_i #(data8_t, NUM_BYTES)   run_decoder_in(clk, reset_synced);
+ndata_i #(data_t, NUM_ELEMENTS) out_inner(clk, reset_synced);
 
 run_decoder_config_t run_decoder_conf_data;
-ready_valid_i #(run_decoder_config_t) run_decoder_conf ();
+ready_valid_i #(run_decoder_config_t) run_decoder_conf(clk, reset_synced);
 logic run_decoder_conf_valid;
 
 assign run_decoder_conf_data.bit_width = bit_width;
@@ -83,7 +83,7 @@ offset_t bit_width_offset;
 // This is used to handle the edge case where the bit width is contained on
 // the last byte of a data page and we need to consume it to get to the first
 // byte of the data page we can actually pipe to the run decoder.
-valid_i #(bit_width_t) keep_bit_width ();
+valid_i #(bit_width_t) keep_bit_width(clk, reset_synced);
 assign bit_width = keep_bit_width.valid ? keep_bit_width.data : in.data[bit_width_offset];
 
 offset_t actual_offset, next_offset;

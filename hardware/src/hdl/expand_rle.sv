@@ -17,7 +17,7 @@ module ExpandRLE #(
     ndata_i.m out   // #(data_t, NUM_ELEMENTS)
 );
 
-tagged_i #(data_t, $bits(rle_count_t)) in_inner ();
+tagged_i #(data_t, $bits(rle_count_t)) in_inner(clk, rst_n);
 
 TaggedSkidBuffer #(data_t, $bits(rle_count_t)) inst_in_skid_buffer (
     .clk(clk),

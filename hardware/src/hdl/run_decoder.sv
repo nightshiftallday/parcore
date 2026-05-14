@@ -82,7 +82,7 @@ typedef enum logic {
   OUTPUT_RLE,
   OUTPUT_BPE
 } output_t;
-valid_i #(output_t) next_out (), curr_out ();
+valid_i #(output_t) next_out(clk, reset_synced), curr_out(clk, reset_synced);
 // This signal is used to apply backpressure from the output queue. In case
 // the queue gets full, this signal will be low and the next decoding will be
 // paused until there's space in the queue to store it.
@@ -140,8 +140,8 @@ endgenerate
 // - up to 4 valid bytes
 // - at least 1 valid byte if we've received last. We assume the input is
 // correct.
-valid_i #(data8_t[VARINT_NUM_BYTES - 1:0]) varint_in ();
-valid_i #(varint_t) varint_out ();
+valid_i #(data8_t[VARINT_NUM_BYTES - 1:0]) varint_in(clk, reset_synced);
+valid_i #(varint_t) varint_out(clk, reset_synced);
 
 VarintDecoder inst_varint_decoder (
     .in(varint_in),
@@ -172,8 +172,8 @@ offset_t offset_after_varint;
 assign offset_after_varint = varint_offset + varint_out.data.length;
 
 // ------- RLE decoding
-tagged_i #(data_t, $bits(rle_count_t)) rle_in ();
-ndata_i #(data_t, NUM_ELEMENTS) rle_out ();
+tagged_i #(data_t, $bits(rle_count_t)) rle_in(clk, reset_synced);
+ndata_i #(data_t, NUM_ELEMENTS) rle_out(clk, reset_synced);
 
 ExpandRLE #(
     .data_t(data_t),
@@ -212,8 +212,8 @@ assign bpe_in_tag.bit_width = bit_width;
 assign bpe_in_tag.mask = bit_width_bpe_mask;
 assign bpe_in_tag.count = bpe_count;
 
-tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_config_t)) bpe_in ();
-ndata_i #(data_t, NUM_ELEMENTS) bpe_out ();
+tagged_i #(logic [$bits(data_t) * NUM_ELEMENTS - 1:0], $bits(bpe_config_t)) bpe_in(clk, reset_synced);
+ndata_i  #(data_t, NUM_ELEMENTS) bpe_out(clk, reset_synced);
 
 ExpandBPE #(
     .data_t(data_t),

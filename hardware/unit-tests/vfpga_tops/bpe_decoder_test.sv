@@ -16,11 +16,18 @@ for (genvar I = 1; I < N_STRM_AXI; I++) begin
     always_comb axis_host_send[I].tie_off_m();
 end
 
+/* -- Fix clock and reset names ----------------------------------------- */
+logic clk;
+logic rst_n;
+
+assign clk   = aclk;
+assign rst_n = aresetn;
+
 /* -- USER LOGIC -------------------------------------------------------- */
 
 /* -- INPUT ------------------------------------------------------------- */
 
-AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(aclk), .aresetn(aresetn));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_in (.aclk(clk), .aresetn(rst_n));
 assign axis_host_recv[0].tready = host_in.tready;
 assign host_in.tdata = axis_host_recv[0].tdata;
 assign host_in.tkeep = axis_host_recv[0].tkeep;
@@ -29,7 +36,7 @@ assign host_in.tvalid = axis_host_recv[0].tvalid;
 
 localparam int BITS = $bits(data32_t) * 16;
 
-tagged_i #(logic [BITS - 1:0], $bits(bpe_config_t)) in ();
+tagged_i #(logic [BITS - 1:0], $bits(bpe_config_t)) in(clk, rst_n);
 assign host_in.tready = in.ready;
 assign in.valid = host_in.tvalid;
 assign in.data  = host_in.tdata;
@@ -44,17 +51,17 @@ assign in.last = count <= 16;
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
-AXI4S #(.AXI4S_DATA_BITS(512)) host_out (.aclk(aclk), .aresetn(aresetn));
+AXI4S #(.AXI4S_DATA_BITS(512)) host_out (.aclk(clk), .aresetn(rst_n));
 assign host_out.tready = axis_host_send[0].tready;
 assign axis_host_send[0].tdata = host_out.tdata;
 assign axis_host_send[0].tkeep = host_out.tkeep;
 assign axis_host_send[0].tlast = host_out.tlast;
 assign axis_host_send[0].tvalid = host_out.tvalid;
 
-ndata_i #(logic[31:0], 16) out ();
+ndata_i #(logic[31:0], 16) out(clk, rst_n);
 NDataToAXI #(logic[31:0], 16) inst_ndata_to_axi (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
     .in(out),
     .out(host_out)
@@ -62,8 +69,8 @@ NDataToAXI #(logic[31:0], 16) inst_ndata_to_axi (
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
-always_ff @(posedge aclk) begin
-    if(aresetn == 1'b1) begin 
+always_ff @(posedge clk) begin
+    if(rst_n == 1'b1) begin 
         if (in.valid && in.ready) begin
             if (count > 16) begin
                 count <= count - 16;
@@ -75,8 +82,8 @@ always_ff @(posedge aclk) begin
 end
 
 ExpandBPE #(data32_t, 16) inst_expand_bpe (
-    .clk(aclk),
-    .rst_n(aresetn),
+    .clk(clk),
+    .rst_n(rst_n),
 
     .in(in),
     .out(out)

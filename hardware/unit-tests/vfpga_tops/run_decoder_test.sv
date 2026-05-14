@@ -30,7 +30,7 @@ assign rst_n = aresetn;
 AXI4S axi_host_recv_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[0], axi_host_recv_0)
 
-ndata_i #(data8_t, 64) in ();
+ndata_i #(data8_t, 64) in(clk, rst_n);
 AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .clk(clk),
     .rst_n(rst_n),
@@ -39,9 +39,9 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .out(in)
 );
 
-ready_valid_i #(run_decoder_config_t) conf ();
+ready_valid_i #(run_decoder_config_t) conf(clk, rst_n);
 
-// TODO: configure using the RunDecoderConfig module
+// TODO: Configure using the RunDecoderConfig module
 
 run_decoder_config_t test_conf[2:0];
 assign test_conf = '{
@@ -63,7 +63,7 @@ ReadyValidCyclicDriver #(run_decoder_config_t, 3) inst_conf_driver (
 AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
 
-ndata_i #(data32_t, 16) out ();
+ndata_i #(data32_t, 16) out(clk, rst_n);
 NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
     .clk(clk),
     .rst_n(rst_n),

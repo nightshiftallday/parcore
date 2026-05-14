@@ -105,7 +105,7 @@ generate
         AXI4S axi_host_recv (.aclk(clk), .aresetn(rst_n));
         `AXIS_ASSIGN(axis_host_recv[I], axi_host_recv)
 
-        ndata_i #(data8_t, DATABEAT_SIZE) in ();
+        ndata_i #(data8_t, DATABEAT_SIZE) in(clk, rst_n);
         AXIToNData #(data8_t, DATABEAT_SIZE) inst_axi_to_ndata (
             .clk(clk),
             .rst_n(rst_n),
@@ -116,7 +116,7 @@ generate
 
         /* -- OUTPUT ------------------------------------------------------------ */
 
-        ndata_i #(data8_t, DATABEAT_SIZE) out_u8 ();
+        ndata_i #(data8_t, DATABEAT_SIZE) out_u8(clk, rst_n);
         NDataToAXI #(data8_t, DATABEAT_SIZE) inst_ndata_to_axi (
             .clk(clk),
             .rst_n(rst_n),
@@ -126,7 +126,7 @@ generate
         );
 
         // discard typed interface
-        typed_ndata_i #(DATABEAT_SIZE) out();
+        typed_ndata_i #(DATABEAT_SIZE) out(clk, rst_n);
         `DATA_ASSIGN(out, out_u8);
 
         /* -- DESIGN WIRING ----------------------------------------------------- */

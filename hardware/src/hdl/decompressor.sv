@@ -23,8 +23,8 @@ module Decompressor #(
 
 `RESET_RESYNC // Reset pipelining
 
-ndata_i #(data8_t, NUM_BYTES) ins[1:0] ();
-ndata_i #(data8_t, NUM_BYTES) outs[1:0] ();
+ndata_i #(data8_t, NUM_BYTES) ins[1:0](clk, reset_synced);
+ndata_i #(data8_t, NUM_BYTES) outs[1:0](clk, reset_synced);
 
 // ------ Bypass wiring -------------
 
@@ -38,7 +38,7 @@ NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_bypass (
 
 // ------ Decompressor wiring -------------
 
-ndata_i #(data8_t, NUM_BYTES) decompressor_inner ();
+ndata_i #(data8_t, NUM_BYTES) decompressor_inner(clk, reset_synced);
 VHSNUnzipWrapper #(NUM_BYTES) inst_vhsnunzip_wrapper (
     .clk(clk),
     .rst_n(reset_synced),
@@ -56,7 +56,7 @@ NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_buffer_vhsnunzip (
 
 // ------ (De)Multiplexing -------------
 
-ready_valid_i #(compression_t) confs[1:0] ();
+ready_valid_i #(compression_t) confs[1:0](clk, reset_synced);
 
 ReadyValidDuplicator #(2) inst_conf_duplicator (
     .clk(clk),
