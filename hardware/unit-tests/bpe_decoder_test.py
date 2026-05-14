@@ -63,9 +63,9 @@ class _TestCase:
 
 _test_cases = (
     _TestCase(elements=list(range(55)), bit_width=7),
-    _TestCase(elements=[randint(0, 32) for _ in range(55)], bit_width=7),
-    _TestCase(elements=[randint(0, 64) for _ in range(55)], bit_width=7),
-    _TestCase(elements=[randint(0, 128) for _ in range(55)], bit_width=7),
+    _TestCase(elements=[randint(0, 31) for _ in range(55)], bit_width=7),
+    _TestCase(elements=[randint(0, 63) for _ in range(55)], bit_width=7),
+    _TestCase(elements=[randint(0, 127) for _ in range(55)], bit_width=7),
 )
 
 class BPEDecoderTestCase(fpga_test_case.FPGATestCase):
