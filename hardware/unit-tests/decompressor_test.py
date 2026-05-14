@@ -10,7 +10,7 @@ def read_data(filename: str) -> bytearray:
     return data
 
 class DecompressorTestCase(fpga_test_case.FPGATestCase):
-    alternative_vfpga_top_file = "decompressor_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/decompressor_test.sv"
     debug_mode = True
     # verbose_logging = True
 

@@ -69,7 +69,7 @@ _test_cases = (
 )
 
 class BPEDecoderTestCase(fpga_test_case.FPGATestCase):
-    alternative_vfpga_top_file = "bpe_decoder_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/bpe_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
 

@@ -20,7 +20,7 @@ _test_cases = (
 )
 
 class RLEDecoderTestCase(fpga_test_case.FPGATestCase):
-    alternative_vfpga_top_file = "rle_decoder_test.sv"
+    alternative_vfpga_top_file = "vfpga_tops/rle_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
 

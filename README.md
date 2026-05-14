@@ -5,7 +5,7 @@ This repo contains a hardware design to read Parquet data pages of specific comp
 
 * Build with the Coyote simulation setup 
 
-Run `./setup_simulation.sh`.
+Run `./scripts/setup_simulation.sh`.
 
 * Syntehsize for deployment. 
 
