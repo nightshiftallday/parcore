@@ -62,7 +62,7 @@ _test_cases = (
     ),
 )
 
-class PageDecoderTestCase(fpga_test_case.FPGATestCase):
+class HybridPageDecoderTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "vfpga_tops/hybrid_page_decoder_test.sv"
     debug_mode = True
     # verbose_logging = True
