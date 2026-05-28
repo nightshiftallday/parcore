@@ -24,12 +24,12 @@ assign clk   = aclk;
 assign rst_n = aresetn;
 
 /* -- CONFIG ------------------------------------------------------------ */
-write_config_i write_configs[2](.*);
-read_config_i  read_configs [2](.*);
+write_config_i write_configs[1](.*);
+read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
-    .NUM_CONFIGS(2),
-    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_CONFIG_REGS*1, PAGE_DECODER_CONFIG_REGS*1})
+    .NUM_CONFIGS(1),
+    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_CONFIG_REGS})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -40,7 +40,7 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-column_chunk_decoder_config_i column_chunk_conf[1](.*);
+ready_valid_i #(column_chunk_conf_t) column_chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(
     .NUM_DECODERS(1)
 ) inst_column_chunk_decoder_config (
@@ -51,19 +51,6 @@ ColumnChunkDecoderConfig #(
     .read_config(read_configs[0]),
 
     .out(column_chunk_conf)
-);
-
-page_decoder_config_i page_conf[1](.*);
-PageDecoderConfig #(
-    .NUM_DECODERS(1)
-) inst_page_decoder_config (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .write_config(write_configs[1]),
-    .read_config(read_configs[1]),
-
-    .out(page_conf)
 );
 
 /* -- INPUT ------------------------------------------------------------- */
@@ -107,7 +94,6 @@ ColumnChunkDecoder #(
     .rst_n(rst_n),
 
     .column_chunk_conf(column_chunk_conf[0]),
-    .page_conf(page_conf[0]),
 
     .in(in),
     .out(out)

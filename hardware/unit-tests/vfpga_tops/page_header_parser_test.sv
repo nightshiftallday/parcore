@@ -45,7 +45,7 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-column_chunk_decoder_config_i chunk_conf[1](.*);
+ready_valid_i #(column_chunk_conf_t) chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(
     .NUM_DECODERS(1)
 ) inst_column_chunk_decoder_config (
@@ -75,7 +75,7 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 /* -- DUT --------------------------------------------------------------- */
 
 ndata_i #(data8_t, 64) payload(clk, rst_n);
-page_decoder_config_i page_conf(.*);
+ready_valid_i #(page_conf_t) page_conf(.*);
 
 PageHeaderParser #(
     .NUM_BYTES(64)
@@ -121,12 +121,12 @@ always_ff @(posedge clk or negedge rst_n) begin
     end else begin
         // Consume page_conf when not already holding a pending beat
         if (!pc_pending && page_conf.valid) begin
-            pc_buf[0] <= data8_t'(page_conf.page_type);
-            pc_buf[1] <= data8_t'(page_conf.num_values[7:0]);
-            pc_buf[2] <= data8_t'(page_conf.num_values[15:8]);
-            pc_buf[3] <= data8_t'(page_conf.num_values[23:16]);
-            pc_buf[4] <= data8_t'(page_conf.num_values[31:24]);
-            pc_buf[5] <= data8_t'(page_conf.last);
+            pc_buf[0] <= data8_t'(page_conf.data.page_type);
+            pc_buf[1] <= data8_t'(page_conf.data.num_values[7:0]);
+            pc_buf[2] <= data8_t'(page_conf.data.num_values[15:8]);
+            pc_buf[3] <= data8_t'(page_conf.data.num_values[23:16]);
+            pc_buf[4] <= data8_t'(page_conf.data.num_values[31:24]);
+            pc_buf[5] <= data8_t'(page_conf.data.last);
             pc_pending <= 1'b1;
         end else if (pc_pending && page_conf_stream.ready) begin
             pc_pending <= 1'b0;

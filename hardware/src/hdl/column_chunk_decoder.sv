@@ -15,29 +15,15 @@ module ColumnChunkDecoder #(
     input logic clk,
     input logic rst_n,
 
-    column_chunk_decoder_config_i.s column_chunk_conf,
-    page_decoder_config_i.s         page_conf,
+    ready_valid_i.s column_chunk_conf, // #(column_chunk_conf_t)
 
-    ndata_i.s       in,      // #(data8_t, DATABEAT_SIZE)
+    ndata_i.s       in,      // #(data8_t, DATABEAT_SIZE) raw column-chunk bytes
     typed_ndata_i.m out      // #(DATABEAT_SIZE)
 );
 
 `RESET_RESYNC // Reset pipelining
 
 localparam NUM_IDS = 16;
-
-// ------ Decompressor wiring ---------------------
-ready_valid_i #(compression_t) decompressor_conf(clk, reset_synced);
-ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out(clk, reset_synced);
-Decompressor #(DATABEAT_SIZE) inst_decompressor (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .conf(decompressor_conf),
-
-    .in(in),
-    .out(decompressor_out)
-);
 
 // ------ Multiplexing declarations ---------------
 localparam int NUM_IN = 3;
@@ -61,7 +47,57 @@ typed_ndata_i #(DATABEAT_SIZE) outs[NUM_OUT](clk, reset_synced);
 ready_valid_i #(in_selector_t) in_select(clk, reset_synced);
 ready_valid_i #(out_selector_t) out_select(clk, reset_synced);
 
-// ------ Hybrid decoder + Dictionary wiring ------
+// ------ PageHeaderParser wiring -----------------
+ready_valid_i #(column_chunk_conf_t) chunk_confs[2](clk, reset_synced);
+ready_valid_i #(page_conf_t)         page_conf(clk, reset_synced);
+
+ReadyValidDuplicator #(2) inst_chunk_conf_duplicator (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(column_chunk_conf),
+    .out(chunk_confs)
+);
+ndata_i #(data8_t, DATABEAT_SIZE) page_payload(clk, reset_synced);
+
+PageHeaderParser #(
+    .NUM_BYTES(DATABEAT_SIZE)
+) inst_page_header_parser (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .chunk_conf(chunk_confs[1]),
+
+    .in(in),
+    .out(page_payload),
+
+    .page_conf(page_conf)
+);
+
+// ------ Decompressor wiring ---------------------
+ready_valid_i #(compression_t) decompressor_conf(clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) decompressor_out(clk, reset_synced);
+Decompressor #(DATABEAT_SIZE) inst_decompressor (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .conf(decompressor_conf),
+
+    .in(page_payload),
+    .out(decompressor_out)
+);
+
+DataDemultiplexer #(NUM_IN) inst_multiplexer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(in_select),
+
+    .in(decompressor_out),
+    .out(ins)
+);
+
+// ------ Hybrid decoder + dictionary wiring ------
 ready_valid_i #(data32_t) hybrid_conf(clk, reset_synced);
 
 ndata_i #(id_t, NUM_IDS) hybrid_out(clk, reset_synced);
@@ -171,17 +207,7 @@ NDataToTypedNData #(DATABEAT_SIZE) inst_plain_normalize_after (
     .out(outs[OUT_PLAIN])
 );
 
-// ------ Multiplexing ----------------------------
-DataDemultiplexer #(NUM_IN) inst_multiplexer (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .select(in_select),
-
-    .in(decompressor_out),
-    .out(ins)
-);
-
+// ------ Output multiplexing ----------------------------
 typed_ndata_i #(DATABEAT_SIZE) inner_out(clk, reset_synced);
 TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
     .clk(clk),
@@ -223,46 +249,41 @@ logic last_page;
 // provided. When this matches the number in hybrid_num_values, then the data
 // normalizer should be re-configured for the next series of plain decodings.
 data32_t received_hybrid_num_values;
-logic has_received_any_hybrid_page;
 logic is_last_hybrid_page;
 
 assign is_last_hybrid_page = received_hybrid_num_values == hybrid_num_values.data;
 
-task reset();
-    decompressor_conf.valid <= 1'b0;
-    num_values.valid <= 1'b0;
-    hybrid_num_values.valid <= 1'b0;
-
-    hybrid_conf.valid <= 1'b0;
-    dict_type.valid <= 1'b0;
-    plain_type.valid <= 1'b0;
-    in_select.valid <= 1'b0;
-    out_select.valid <= 1'b0;
-
-    typ <= BYTE_T;
-    last_page <= 1'b0;
-    received_hybrid_num_values <= '0;
-    has_received_any_hybrid_page <= 1'b0;
-    state <= ST_IDLE;
-endtask
-
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
-        reset();
+        decompressor_conf.valid <= 1'b0;
+        num_values.valid        <= 1'b0;
+        hybrid_num_values.valid <= 1'b0;
+
+        hybrid_conf.valid <= 1'b0;
+        dict_type.valid   <= 1'b0;
+        plain_type.valid  <= 1'b0;
+        in_select.valid   <= 1'b0;
+        out_select.valid  <= 1'b0;
+
+        typ                        <= BYTE_T;
+        last_page                  <= 'X;
+        received_hybrid_num_values <= 'X;
+        state                      <= ST_IDLE;
     end else begin
         case (state)
             ST_IDLE: begin
-                if (column_chunk_conf.valid) begin
-                    decompressor_conf.data <= column_chunk_conf.compression;
+                if (chunk_confs[0].valid && chunk_confs[0].ready) begin
+                    decompressor_conf.data <= chunk_confs[0].data.compression;
 
-                    num_values.data <= column_chunk_conf.num_values;
+                    num_values.data  <= chunk_confs[0].data.num_values;
                     num_values.valid <= 1'b1;
 
-                    hybrid_num_values.data <= column_chunk_conf.hybrid_num_values;
+                    hybrid_num_values.data  <= chunk_confs[0].data.hybrid_num_values;
                     hybrid_num_values.valid <= 1'b1;
 
-                    typ <= column_chunk_conf.typ;
-                    state <= ST_CONFIGURED;
+                    typ                        <= chunk_confs[0].data.typ;
+                    received_hybrid_num_values <= 0;
+                    state                      <= ST_CONFIGURED;
                 end
             end
 
@@ -274,47 +295,42 @@ always_ff @(posedge clk) begin
                     // 1. Route input from the decompressor
                     // 2. Configure the module that will transform/consume the input
                     // 3. Configure the output multiplexing any
-                    case (page_conf.page_type)
+                    case (page_conf.data.page_type)
                         PAGE_TYPE_HYBRID: begin
                             in_select.data <= IN_HYBRID;
 
                             hybrid_conf.valid <= 1'b1;
-                            hybrid_conf.data <= page_conf.num_values;
+                            hybrid_conf.data  <= page_conf.data.num_values;
 
-                            if (~has_received_any_hybrid_page) begin
-                                // Only configure the output once for the first
-                                // hybrid page.
-                                out_select.valid <= 1'b1;
-                                out_select.data <= OUT_HYBRID;
-                            end
+                            out_select.valid <= 1'b1;
+                            out_select.data  <= OUT_HYBRID;
 
-                            has_received_any_hybrid_page <= 1'b1;
-                            received_hybrid_num_values <= received_hybrid_num_values + page_conf.num_values;
+                            received_hybrid_num_values <= received_hybrid_num_values + page_conf.data.num_values;
                         end
 
                         PAGE_TYPE_DICT: begin
                             in_select.data <= IN_DICT;
 
                             dict_type.valid <= 1'b1;
-                            dict_type.data <= typ;
+                            dict_type.data  <= typ;
                         end
 
                         PAGE_TYPE_PLAIN: begin
                             in_select.data <= IN_PLAIN;
 
                             plain_type.valid <= 1'b1;
-                            plain_type.data <= typ;
+                            plain_type.data  <= typ;
 
                             out_select.valid <= 1'b1;
-                            out_select.data <= OUT_PLAIN;
+                            out_select.data  <= OUT_PLAIN;
                         end
                     endcase
 
                     // Input is always consumed, thus always configured
                     in_select.valid <= 1'b1;
 
-                    last_page <= page_conf.last;
-                    state <= ST_PROCESS_PAGE;
+                    last_page <= page_conf.data.last;
+                    state     <= ST_PROCESS_PAGE;
                 end
             end
 
@@ -351,9 +367,9 @@ always_ff @(posedge clk) begin
                 //   a new column chunk configuration next.
                 // - CONFIGURED if this was not the last page and this column
                 //   chunk has more pages to be fully decoded.
-                if (~decompressor_conf.valid && ~hybrid_conf.valid && ~dict_type.valid && ~plain_type.valid && ~in_select.valid && (~is_last_hybrid_page || ~out_select.valid)) begin
+                if (!decompressor_conf.valid && !hybrid_conf.valid && !dict_type.valid && !plain_type.valid && !in_select.valid && (!is_last_hybrid_page || !out_select.valid)) begin
                     if (last_page) begin
-                        reset();
+                        state <= ST_IDLE;
                     end else begin
                         state <= ST_CONFIGURED;
                     end
@@ -373,8 +389,8 @@ always_ff @(posedge clk) begin
     end
 end
 
-assign column_chunk_conf.ready = state == ST_IDLE;
-assign page_conf.ready = state == ST_CONFIGURED;
+assign chunk_confs[0].ready = state == ST_IDLE;
+assign page_conf.ready      = state == ST_CONFIGURED;
 
 // `ifdef SYNTHESIS
 // ila_page_decoder inst_ila_page_decoder (

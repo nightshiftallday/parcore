@@ -15,7 +15,7 @@ module ColumnChunkDecoderConfig #(
     write_config_i.s write_config,
     read_config_i.s  read_config,
 
-    column_chunk_decoder_config_i.m out[NUM_DECODERS]
+    ready_valid_i.m out[NUM_DECODERS] // #(column_chunk_conf_t)
 );
 
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
@@ -52,16 +52,16 @@ for (genvar I = 0; I < NUM_DECODERS; I++) begin
     ready_valid_i #(type_t) typ(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+3, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
 
-    assign out[I].compression = compression.data;
-    assign out[I].num_values = num_values.data;
-    assign out[I].hybrid_num_values = hybrid_num_values.data;
-    assign out[I].typ = typ.data;
+    assign out[I].data.compression       = compression.data;
+    assign out[I].data.num_values        = num_values.data;
+    assign out[I].data.hybrid_num_values = hybrid_num_values.data;
+    assign out[I].data.typ               = typ.data;
     assign out[I].valid = compression.valid && num_values.valid && hybrid_num_values.valid && typ.valid;
 
-    assign compression.ready = num_values.valid && hybrid_num_values.valid && typ.valid && out[I].ready;
-    assign num_values.ready = compression.valid && hybrid_num_values.valid && typ.valid && out[I].ready;
+    assign compression.ready       = num_values.valid && hybrid_num_values.valid && typ.valid && out[I].ready;
+    assign num_values.ready        = compression.valid && hybrid_num_values.valid && typ.valid && out[I].ready;
     assign hybrid_num_values.ready = compression.valid && num_values.valid && typ.valid && out[I].ready;
-    assign typ.ready = compression.valid && num_values.valid && hybrid_num_values.valid && out[I].ready;
+    assign typ.ready               = compression.valid && num_values.valid && hybrid_num_values.valid && out[I].ready;
 end
 
 endmodule
@@ -75,7 +75,7 @@ module PageDecoderConfig #(
     write_config_i.s write_config,
     read_config_i.s  read_config,
 
-    page_decoder_config_i.m out[NUM_DECODERS]
+    ready_valid_i.m out[NUM_DECODERS] // #(page_conf_t)
 );
 
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
@@ -109,14 +109,14 @@ for (genvar I = 0; I < NUM_DECODERS; I++) begin
     ready_valid_i #(logic) last(clk, reset_synced);
     ConfigWriteFIFO #(I*NUM_WRITE_REGS+2, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_last (clk, reset_synced, write_config, last);
 
-    assign out[I].page_type = page_type.data;
-    assign out[I].num_values = num_values.data;
-    assign out[I].last = last.data;
+    assign out[I].data.page_type  = page_type.data;
+    assign out[I].data.num_values = num_values.data;
+    assign out[I].data.last       = last.data;
     assign out[I].valid = page_type.valid && num_values.valid && last.valid;
 
-    assign page_type.ready = num_values.valid && last.valid && out[I].ready;
+    assign page_type.ready  = num_values.valid && last.valid && out[I].ready;
     assign num_values.ready = page_type.valid && last.valid && out[I].ready;
-    assign last.ready = page_type.valid && num_values.valid && out[I].ready;
+    assign last.ready       = page_type.valid && num_values.valid && out[I].ready;
 end
 
 endmodule

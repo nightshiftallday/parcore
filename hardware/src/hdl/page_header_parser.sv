@@ -6,12 +6,12 @@ module PageHeaderParser #(
     input logic clk,
     input logic rst_n,
 
-    column_chunk_decoder_config_i.s chunk_conf,
+    ready_valid_i.s chunk_conf, // #(column_chunk_conf_t)
 
     ndata_i.s in,  // #(data8_t, NUM_BYTES) raw chunk
     ndata_i.m out, // #(data8_t, NUM_BYTES) payload
 
-    page_decoder_config_i.m page_conf
+    ready_valid_i.m page_conf // #(page_conf_t)
 );
 
 `RESET_RESYNC
@@ -149,26 +149,20 @@ always_comb begin
     n_page_conf_valid = page_conf_valid && !page_conf.ready;
 
     if (state == LATCH_FIRST) begin
-        // Tag byte of outer fid 1 is at in.data[0] so we always skip the first Byte
+        // Tag byte of outer fid 1 is at in.data[0] so we always skip the first byte
         n_buffer_data[NUM_BYTES - 2:0] = in.data[NUM_BYTES - 1:1];
         n_remaining_bytes              = $countones(in.keep) - 1;
     end else if (state != PAYLOAD_FLUSH_BUF && state != PAYLOAD_BYPASS) begin
         if (remaining_bytes == 3) begin
             if (in.valid) begin
-                // Append an input data beat to the 2 buffered bytes that remain after this cycle's 
-                // implicit shift.
-                n_buffer_data[1:0]             = buffer_data[2:1];
-                n_buffer_data[NUM_BYTES + 1:2] = in.data;
-                n_remaining_bytes              = $countones(in.keep) + 2;
-
-                if (skip_bytes != 0) begin
-                    n_skip_bytes = skip_bytes - 1;
-                end
+                // Append an input data beat to the 3 buffered bytes.
+                n_buffer_data[NUM_BYTES + 2:3] = in.data;
+                n_remaining_bytes              = $countones(in.keep) + 3;
 
                 in.ready = 1'b1;
             end
         end else begin
-            // We make progress one Byte each cycle
+            // We make progress one byte each cycle
             for (int i = 0; i < NUM_BYTES + 3; i++) begin
                 n_buffer_data[i] = buffer_data[i + 1];
             end
@@ -184,7 +178,7 @@ always_comb begin
     case (state)
         IDLE: begin
             if (chunk_conf.valid) begin
-                n_remaining_chunk_num_values = chunk_conf.num_values;
+                n_remaining_chunk_num_values = chunk_conf.data.num_values;
                 n_state                      = LATCH_FIRST;
             end
         end
@@ -221,7 +215,7 @@ always_comb begin
             end
         end
         IS_CRC: begin
-            if (skip_bytes == 0) begin
+            if (skip_bytes == 0 && remaining_bytes != 3) begin
                 if (buffer_data[0] == 8'h15) begin // Skip CRC
                     n_next_state = IS_CRC;
                     n_state      = SKIP_VARINT;
@@ -257,7 +251,7 @@ always_comb begin
             end
         end
         IS_END: begin
-            if (skip_bytes == 0) begin
+            if (skip_bytes == 0 && remaining_bytes != 3) begin
                 if (buffer_data[0][3:0] == 4'h1 || buffer_data[0][3:0] == 4'h2) begin // bool
                     // Do nothing
                 end else if (buffer_data[0][3:0] == 4'h5) begin // varint
@@ -311,16 +305,22 @@ always_comb begin
                     n_remaining_comp_size = remaining_comp_size - NUM_BYTES;
                 end else if (remaining_comp_size < data32_t'(remaining_bytes)) begin
                     // Buffer also holds next page's bytes (incl. fid1 tag). Go directly to
-                    // PARSE_TYPE with skip_bytes set to drain the stale payload Bytes + fid1.
+                    // PARSE_TYPE with skip_bytes set to drain the stale payload bytes + fid1.
                     // Mask off bytes beyond the page boundary.
                     n_payload_keep = (remaining_comp_size == NUM_BYTES) ? '1 : ((NUM_BYTES)'(1) << remaining_comp_size) - 1;
 
                     n_skip_bytes = remaining_comp_size + 32'd1;
 
-                    if (remaining_chunk_num_values == 0) begin
-                        n_state = IDLE;
+                    if (!n_page_conf_valid) begin
+                        if (remaining_chunk_num_values == 0) begin
+                            n_state = IDLE;
+                        end else begin
+                            n_state = PARSE_TYPE;
+                        end
                     end else begin
-                        n_state = PARSE_TYPE;
+                        n_remaining_comp_size = 0;
+
+                        n_state = PAYLOAD_BYPASS;
                     end
                 end else begin
                     // Whole buffer goes out this cycle (or exactly matches comp_size). Rest comes 
@@ -346,12 +346,12 @@ always_comb begin
 
                     if (in.valid) begin
                         if (remaining_comp_size < NUM_BYTES) begin
-                            // Last beat for this page. Mask off any Bytes that lie beyond 
+                            // Last beat for this page. Mask off any bytes that lie beyond 
                             // remaining_comp_size (they belong to a following page header).
                             n_payload_keep        = ((NUM_BYTES)'(1) << remaining_comp_size) - 1;
                             n_remaining_comp_size = 0;
 
-                            // The Bytes after remaining_comp_size in this beat belong to
+                            // The bytes after remaining_comp_size in this beat belong to
                             // the next page header. Capture them into the buffer now
                             // (skipping the fid1 tag at position remaining_comp_size).
                             n_buffer_data[NUM_BYTES - 1:0] = in.data[NUM_BYTES - 1:0];
@@ -409,9 +409,9 @@ NDataSkidBuffer #(data8_t, NUM_BYTES) inst_skid_out (
 );
 
 // ---- page_conf output ---------------------------------------------------------------------------
-assign page_conf.page_type  = parsed_page_type;
-assign page_conf.num_values = parsed_num_values;
-assign page_conf.last       = remaining_chunk_num_values == 0;
-assign page_conf.valid      = page_conf_valid;
+assign page_conf.data.page_type  = parsed_page_type;
+assign page_conf.data.num_values = parsed_num_values;
+assign page_conf.data.last       = remaining_chunk_num_values == 0;
+assign page_conf.valid           = page_conf_valid;
 
 endmodule

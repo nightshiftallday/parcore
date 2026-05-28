@@ -77,6 +77,19 @@ typedef enum logic [1:0] {
     PAGE_TYPE_PLAIN = 2
 } page_type_t;
 
+typedef struct packed {
+    compression_t compression;
+    data32_t      num_values;
+    data32_t      hybrid_num_values;
+    type_t        typ;
+} column_chunk_conf_t;
+
+typedef struct packed {
+    page_type_t page_type;
+    data32_t    num_values;
+    logic       last;
+} page_conf_t;
+
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
 
 parameter longint unsigned COLUMN_CHUNK_DECODER_CONFIG_REGS = 4;

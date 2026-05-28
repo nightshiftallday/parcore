@@ -48,7 +48,7 @@ MemConfig #(
     .out(mem_conf)
 );
 
-column_chunk_decoder_config_i column_chunk_conf[N_STREAMS](.*);
+ready_valid_i #(column_chunk_conf_t) column_chunk_conf[N_STREAMS](.*);
 ColumnChunkDecoderConfig #(
     .NUM_DECODERS(N_STREAMS)
 ) inst_column_chunk_decoder_config (
@@ -61,7 +61,7 @@ ColumnChunkDecoderConfig #(
     .out(column_chunk_conf)
 );
 
-page_decoder_config_i page_conf[N_STREAMS](.*);
+ready_valid_i #(page_conf_t) page_conf[N_STREAMS](.*);
 PageDecoderConfig #(
     .NUM_DECODERS(N_STREAMS)
 ) inst_page_decoder_config (
