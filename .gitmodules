@@ -1,9 +1,6 @@
 [submodule "benchmarks/data_csv/dbgen"]
 	path = benchmarks/data_csv/dbgen
 	url = https://github.com/electrum/tpch-dbgen.git
-[submodule "coyote"]
-	path = coyote
-	url = https://github.com/fpgasystems/coyote.git
 [submodule "arrow"]
 	path = arrow
 	url = https://github.com/apache/arrow.git
