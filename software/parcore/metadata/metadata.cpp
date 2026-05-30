@@ -1,4 +1,3 @@
-#include <cmath>
 #include <parcore/metadata/metadata.hpp>
 
 #include <iostream>
@@ -72,17 +71,6 @@ std::shared_ptr<arrow::DataType> to_arrow_type(const Type &typ) {
   }
 }
 
-std::ostream &operator<<(std::ostream &os, Encoding e) {
-  switch (e) {
-  case Encoding::PLAIN:
-    return os << "PLAIN";
-  case Encoding::HYBRID:
-    return os << "HYBRID";
-  default:
-    return os << "UNEXPECTED ENCODING";
-  }
-}
-
 std::ostream &operator<<(std::ostream &os, Compression c) {
   switch (c) {
   case Compression::RAW:
@@ -117,47 +105,22 @@ std::string read_string(std::istream &is) {
   return str;
 }
 
-Page Page::from(std::istream &is) {
-  Page p;
-  read_enum(is, &p.encoding);
-  read_exact(is, &p.offset, sizeof(p.offset));
-  read_exact(is, &p.size, sizeof(p.size));
-  read_exact(is, &p.num_values, sizeof(p.num_values));
-  return p;
-}
-
-bool Page::operator==(const Page &rhs) const {
-  return encoding == rhs.encoding && offset == rhs.offset && size == rhs.size &&
-         num_values == rhs.num_values;
-}
-
 ColumnChunk ColumnChunk::from(std::istream &is) {
   ColumnChunk c;
-  uint32_t n;
 
   read_enum(is, &c.type);
   read_exact(is, &c.num_values, sizeof(c.num_values));
-  read_exact(is, &c.hybrid_num_values, sizeof(c.hybrid_num_values));
   read_enum(is, &c.compression);
-
-  bool has_dict;
-  read_exact(is, &has_dict, sizeof(has_dict));
-  if (has_dict)
-    c.dictionary = Page::from(is);
-
-  read_exact(is, &n, sizeof(uint32_t));
-  c.data.reserve(n);
-  for (uint32_t i = 0; i < n; ++i)
-    c.data.push_back(Page::from(is));
+  read_exact(is, &c.offset, sizeof(c.offset));
+  read_exact(is, &c.total_compressed_size, sizeof(c.total_compressed_size));
 
   return c;
 }
 
 bool ColumnChunk::operator==(const ColumnChunk &rhs) const {
   return type == rhs.type && num_values == rhs.num_values &&
-         hybrid_num_values == rhs.hybrid_num_values &&
-         compression == rhs.compression && dictionary == rhs.dictionary &&
-         data == rhs.data;
+         compression == rhs.compression && offset == rhs.offset &&
+         total_compressed_size == rhs.total_compressed_size;
 }
 
 RowGroup RowGroup::from(std::istream &is) {

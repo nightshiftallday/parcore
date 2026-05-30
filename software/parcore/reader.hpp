@@ -10,8 +10,7 @@ public:
   [[nodiscard]] virtual const metadata::Metadata &metadata() const = 0;
 
   /**
-   * Submits a column chunk for parsing, which includes decompression, decoding
-   * and potentially dictionary mapping.
+   * Submits a column chunk for parsing, which includes decompression and decoding.
    *
    * @param chunk      The index of the chunk to decode
    * @param column     The index of the column to decode
@@ -35,7 +34,5 @@ public:
 
 const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
                                              size_t chunk, size_t column);
-
-const size_t num_pages(const metadata::ColumnChunk &column_chunk);
 
 } // namespace parcore

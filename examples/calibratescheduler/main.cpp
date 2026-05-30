@@ -76,12 +76,10 @@ int main(int argc, char *argv[]) {
   boost::program_options::notify(command_line_arguments);
 
   std::cout
-      << "file,i,j,compressed,num_pages,input_bytes_plain,input_bytes_hybrid,"
-         "output_bytes_plain,output_bytes_hybrid,num_values_plain,num_values_"
-         "hybrid,time"
+      << "file,i,j,compressed,input_bytes,output_bytes,num_values,time"
       << std::endl;
 
-  auto meta = parcore::metadata::from_file(path + ".meta");
+  auto meta = parcore::metadata::from_file(path);
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
@@ -105,7 +103,6 @@ int main(int argc, char *argv[]) {
   auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
       global_config.get_config<parcore::ColumnChunkDecoderConfig>();
-  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
 #ifdef ENABLE_SIMULATION
   obm = std::make_shared<libstf::OutputBufferManager>(
@@ -120,7 +117,7 @@ int main(int argc, char *argv[]) {
     num_decoders = column_chunk_config->num_decoders();
 
   auto hardware_reader = std::make_shared<parcore::fpga::PreloadFileReader>(
-      cthread, pool, tlb, obm, column_chunk_config, page_config, meta, file);
+      cthread, pool, tlb, obm, column_chunk_config, meta, file);
 
   auto rows = meta.groups.size();
   assert(rows > 0);
@@ -135,30 +132,11 @@ int main(int argc, char *argv[]) {
 
       size_t byte_size =
           libstf::size_of(parcore::metadata::to_libstf_type(typ));
-      size_t in_bytes_plain = 0, in_bytes_hybrid = 0, out_bytes_plain = 0,
-             out_bytes_hybrid = 0;
-      size_t num_values_plain = 0, num_values_hybrid = 0;
       auto cc = meta.groups[i].chunks[j];
       assert(cc.type == typ);
 
-      auto num_pages = 0;
-      if (cc.dictionary != std::nullopt) {
-        in_bytes_plain += cc.dictionary->size;
-        num_pages += 1;
-      }
-      num_pages += cc.data.size();
-
-      for (auto page : cc.data) {
-        if (page.encoding == parcore::metadata::Encoding::PLAIN) {
-          in_bytes_plain += page.size;
-          out_bytes_plain += page.num_values * byte_size;
-          num_values_plain += page.num_values;
-        } else if (page.encoding == parcore::metadata::Encoding::HYBRID) {
-          in_bytes_hybrid += page.size;
-          out_bytes_hybrid += page.num_values * byte_size;
-          num_values_hybrid += page.num_values;
-        }
-      }
+      size_t in_bytes = cc.total_compressed_size;
+      size_t out_bytes = cc.num_values * byte_size;
 
       auto start = std::chrono::high_resolution_clock::now();
       for (size_t k = 0; k < reps; ++k) {
@@ -167,7 +145,7 @@ int main(int argc, char *argv[]) {
 #ifdef ENABLE_SIMULATION
         assert(!handle->stream_has_more_output(0));
         assert(!handle->any_stream_has_more_output());
-        assert(fpga_data->size == (out_bytes_plain + out_bytes_hybrid));
+        assert(fpga_data->size == out_bytes);
 #endif
       }
       auto end = std::chrono::high_resolution_clock::now();
@@ -180,10 +158,8 @@ int main(int argc, char *argv[]) {
           cc.compression == parcore::metadata::Compression::SNAPPY;
 
       std::cout << path << "," << i << "," << j << "," << compressed << ","
-                << num_pages << "," << in_bytes_plain << "," << in_bytes_hybrid
-                << "," << out_bytes_plain << "," << out_bytes_hybrid << ","
-                << num_values_plain << "," << num_values_hybrid << "," << us
-                << std::endl;
+                << in_bytes << "," << out_bytes << "," << cc.num_values << ","
+                << us << std::endl;
     }
   }
 

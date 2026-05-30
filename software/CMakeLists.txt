@@ -40,7 +40,6 @@ target_sources(parcore PRIVATE
     parcore/multi_reader.cpp
 
     parcore/metadata/metadata.cpp
-    parcore/metadata/utils.cpp
 )
 target_include_directories(parcore
     PUBLIC
@@ -63,19 +62,13 @@ if (PARCORE_INCLUDE_CPU)
 
     message(STATUS "Adding CPU decoding support to ParCore")
 
-    target_sources(parcore PRIVATE 
+    target_sources(parcore PRIVATE
         parcore/cpu/cpu.cpp
         parcore/cpu/cpu_reader.cpp
         parcore/hybrid_reader.cpp
+        parcore/metadata/utils.cpp
     )
 endif()
-
-# Metadata utility
-add_executable(parcore-metaread parcore/metadata/parcore-metaread.cpp)
-target_link_libraries(parcore-metaread PRIVATE parcore)
-target_include_directories(parcore-metaread PRIVATE parcore/)
-target_link_libraries(parcore-metaread PRIVATE libstf)
-target_include_directories(parcore-metaread PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
 # Install the library
 install(TARGETS parcore

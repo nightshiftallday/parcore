@@ -26,8 +26,7 @@ public:
   [[nodiscard]] const libstf::stream_t &decoder() const;
 
   /**
-   * Submits a column chunk for parsing, which includes decompression, decoding
-   * and potentially dictionary mapping.
+   * Submits a column chunk for parsing, which includes decompression and decoding.
    *
    * @param chunk      The index of the chunk to decode
    * @param column     The index of the column to decode
@@ -59,9 +58,9 @@ protected:
 
   std::shared_ptr<libstf::Buffer> allocate_buffer(size_t size);
 
-  // Retrieves the data to be sent for the given page
+  // Retrieves the raw bytes for the given column chunk (header + pages)
   virtual std::shared_ptr<libstf::Buffer>
-  get_page_data(const metadata::Page &page, PageType page_type) = 0;
+  get_chunk_data(const metadata::ColumnChunk &column_chunk) = 0;
 };
 
 } // namespace parcore

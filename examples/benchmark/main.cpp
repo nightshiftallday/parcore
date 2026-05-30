@@ -83,7 +83,7 @@ static void handle_fpga_interrupt(int value) {
 
 void benchmark(std::string parquet_file, uint32_t num_decoders,
                size_t discard_reps, size_t reps) {
-  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
+  auto meta = parcore::metadata::from_file(parquet_file);
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
@@ -107,7 +107,6 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
   auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
       global_config.get_config<parcore::ColumnChunkDecoderConfig>();
-  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
 #ifdef ENABLE_SIMULATION
   obm = std::make_shared<libstf::OutputBufferManager>(
@@ -124,7 +123,7 @@ void benchmark(std::string parquet_file, uint32_t num_decoders,
   auto hardware_reader =
       parcore::make_multi_reader<parcore::fpga::PreloadFileReader>(
           num_decoders, cthread, pool, tlb, obm, column_chunk_config,
-          page_config, meta, file);
+          meta, file);
 
   auto software_reader = std::make_shared<parcore::cpu::CPUReader>(file);
 

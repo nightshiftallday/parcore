@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
   Profiler::start();
 
-  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
+  auto meta = parcore::metadata::from_file(parquet_file);
   if (end <= 0)
     end = meta.groups.size();
   if (start > meta.groups.size() || start > end || end > meta.groups.size())
@@ -132,7 +132,6 @@ int main(int argc, char *argv[]) {
   auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
       global_config.get_config<parcore::ColumnChunkDecoderConfig>();
-  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
 #ifdef ENABLE_SIMULATION
   obm = std::make_shared<libstf::OutputBufferManager>(
@@ -145,7 +144,7 @@ int main(int argc, char *argv[]) {
   std::cout << "flushed buffers" << std::endl;
 
   auto column_chunk_decoder = std::make_shared<parcore::ColumnChunkDecoder>(
-      cthread, tlb, obm, column_chunk_config, page_config, 0);
+      cthread, tlb, obm, column_chunk_config, 0);
   parcore::FileReader reader(column_chunk_decoder, pool, meta, file);
 
   for (size_t i = start; i < end; ++i) {
@@ -163,8 +162,8 @@ int main(int argc, char *argv[]) {
                 << std::endl;
       std::cout << "\tcompression: " << chunk.compression << std::endl;
       std::cout << "\ttype: " << chunk.type << std::endl;
-      std::cout << "\tdictionary: " << (chunk.dictionary != std::nullopt)
-                << std::endl;
+      std::cout << "\toffset: " << chunk.offset
+                << ", size: " << chunk.total_compressed_size << std::endl;
 
       auto start = std::chrono::high_resolution_clock::now();
 

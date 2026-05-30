@@ -5,7 +5,6 @@
 #include <parcore/configuration.hpp>
 #include <parcore/hardware_reader.hpp>
 #include <parcore/metadata/metadata.hpp>
-#include <parcore/metadata/utils.hpp>
 
 using libstf::Profiler;
 
@@ -43,11 +42,7 @@ void HardwareReader::enqueue_column_chunk(size_t chunk, size_t column) {
   auto column_chunk = get_column_chunk(meta_, chunk, column);
 
   auto handle = column_chunk_decoder_->decode_column_chunk(column_chunk);
-
-  if (column_chunk.dictionary != std::nullopt)
-    handle->add_page(get_page_data(*column_chunk.dictionary, PageType::DICT));
-  for (auto page : column_chunk.data)
-    handle->add_page(get_page_data(page, PageType::DATA));
+  handle->add_chunk(get_chunk_data(column_chunk));
 
   auto output_handle = std::move(*handle).done();
   output_queue_.push({column_chunk, output_handle});

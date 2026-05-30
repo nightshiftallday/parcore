@@ -12,7 +12,7 @@ namespace parcore {
  */
 class PreloadFileReader : public HardwareReader {
 private:
-  std::unordered_map<metadata::Page, std::shared_ptr<libstf::Buffer>> pages_;
+  std::unordered_map<metadata::ColumnChunk, std::shared_ptr<libstf::Buffer>> chunks_;
 
 public:
   PreloadFileReader(std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder,
@@ -22,11 +22,11 @@ public:
 
 protected:
   std::shared_ptr<libstf::Buffer>
-  load_page(std::shared_ptr<arrow::io::RandomAccessFile> file,
-            const metadata::Page &page);
+  load_chunk(std::shared_ptr<arrow::io::RandomAccessFile> file,
+             const metadata::ColumnChunk &column_chunk);
 
-  std::shared_ptr<libstf::Buffer> get_page_data(const metadata::Page &page,
-                                                PageType page_type) override;
+  std::shared_ptr<libstf::Buffer>
+  get_chunk_data(const metadata::ColumnChunk &column_chunk) override;
 };
 
 } // namespace parcore
