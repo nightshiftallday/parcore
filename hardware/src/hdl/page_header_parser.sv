@@ -235,13 +235,14 @@ always_comb begin
         end
         PARSE_ENC: begin
             if (skip_bytes == 0 && remaining_bytes != 3) begin
-                if (parsed_page_type == PAGE_TYPE_HYBRID) begin
-                    n_remaining_chunk_num_values = remaining_chunk_num_values - parsed_num_values;
+                // PLAIN=0, PLAIN_DICTIONARY=2, RLE_DICTIONARY=8 (Other encodings not supported)
+                if (cur_value == 32'd0) begin
+                    n_parsed_page_type = PAGE_TYPE_PLAIN;
+                end
 
-                    // PLAIN=0, PLAIN_DICTIONARY=2, RLE_DICTIONARY=8 (Other encodings are not supported)
-                    if (cur_value == 32'd0) begin
-                        n_parsed_page_type = PAGE_TYPE_PLAIN;
-                    end
+                // Decrement for data pages (hybrid and plain), not dict pages
+                if (parsed_page_type != PAGE_TYPE_DICT) begin
+                    n_remaining_chunk_num_values = remaining_chunk_num_values - parsed_num_values;
                 end
 
                 // Skip remaining varint bytes; IS_END starts on first tag byte of the inner struct

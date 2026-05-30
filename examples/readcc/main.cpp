@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 
   Profiler::start();
 
-  auto meta = parcore::metadata::from_file(parquet_file + ".meta");
+  auto meta = parcore::metadata::from_file(parquet_file);
 
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
@@ -129,7 +129,6 @@ int main(int argc, char *argv[]) {
   auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
       global_config.get_config<parcore::ColumnChunkDecoderConfig>();
-  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
 #ifdef ENABLE_SIMULATION
   obm = std::make_shared<libstf::OutputBufferManager>(
@@ -142,7 +141,7 @@ int main(int argc, char *argv[]) {
   std::cout << "flushed buffers" << std::endl;
 
   parcore::fpga::PreloadFileReader reader(
-      cthread, pool, tlb, obm, column_chunk_config, page_config, meta, file);
+      cthread, pool, tlb, obm, column_chunk_config, meta, file);
 
   if (i < 0 || i > meta.groups.size())
     throw std::runtime_error("invalid group (i)");
@@ -160,8 +159,8 @@ int main(int argc, char *argv[]) {
   std::cout << "Decoding column chunk " << i << ":" << j << ":" << std::endl;
   std::cout << "\tcompression: " << chunk.compression << std::endl;
   std::cout << "\ttype: " << chunk.type << std::endl;
-  std::cout << "\tdictionary: " << (chunk.dictionary != std::nullopt)
-            << std::endl;
+  std::cout << "\toffset: " << chunk.offset
+            << ", size: " << chunk.total_compressed_size << std::endl;
 
   auto start = std::chrono::high_resolution_clock::now();
 

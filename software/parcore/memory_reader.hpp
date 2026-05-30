@@ -12,18 +12,16 @@ public:
                const metadata::Metadata &meta,
                std::shared_ptr<libstf::Buffer> data);
 
-  void enqueue_column_chunk(size_t chunk, size_t column) override;
-
   [[nodiscard]] std::vector<std::shared_ptr<libstf::Buffer>>
   next_column_chunk() override;
 
 protected:
-  std::shared_ptr<libstf::Buffer> get_page_data(const metadata::Page &page,
-                                                PageType page_type) override;
+  std::shared_ptr<libstf::Buffer>
+  get_chunk_data(const metadata::ColumnChunk &column_chunk) override;
 
 private:
   std::shared_ptr<libstf::Buffer> data_;
-  std::deque<std::vector<std::shared_ptr<libstf::Buffer>>> buffers_;
+  std::deque<std::shared_ptr<libstf::Buffer>> buffers_;
 };
 
 } // namespace parcore

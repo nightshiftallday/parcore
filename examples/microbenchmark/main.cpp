@@ -62,7 +62,7 @@ static void handle_fpga_interrupt(int value) {
 
 void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
                size_t reps) {
-  auto meta = parcore::metadata::from_file(path + ".meta");
+  auto meta = parcore::metadata::from_file(path);
   auto cthread = std::make_shared<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(),
                                                    0, &handle_fpga_interrupt);
 #ifdef ENABLE_SIMULATION
@@ -86,7 +86,6 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
   auto mem_config = global_config.get_config<libstf::MemConfig>();
   auto column_chunk_config =
       global_config.get_config<parcore::ColumnChunkDecoderConfig>();
-  auto page_config = global_config.get_config<parcore::PageDecoderConfig>();
 
 #ifdef ENABLE_SIMULATION
   obm = std::make_shared<libstf::OutputBufferManager>(
@@ -103,7 +102,7 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
   std::vector<std::shared_ptr<parcore::ColumnChunkDecoder>> decoders;
   for (size_t i = 0; i < num_decoders; ++i)
     decoders.push_back(std::make_shared<parcore::ColumnChunkDecoder>(
-        cthread, tlb, obm, column_chunk_config, page_config, i));
+        cthread, tlb, obm, column_chunk_config, i));
 
   std::vector<std::shared_ptr<parcore::Reader>> readers;
   for (size_t i = 0; i < num_decoders; ++i)
@@ -130,10 +129,7 @@ void benchmark(std::string path, uint32_t num_decoders, size_t discard_reps,
       auto cc = meta.groups[i].chunks[j];
       assert(cc.type == typ);
 
-      if (cc.dictionary != std::nullopt)
-        in_bytes += cc.dictionary->size;
-      for (auto page : cc.data)
-        in_bytes += page.size;
+      in_bytes += cc.total_compressed_size;
 
       out_bytes += cc.num_values * byte_size;
       num_values += cc.num_values;

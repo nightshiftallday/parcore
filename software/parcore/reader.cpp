@@ -17,9 +17,5 @@ const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
   return group.chunks[column];
 }
 
-const size_t num_pages(const metadata::ColumnChunk &column_chunk) {
-  return column_chunk.data.size() +
-         (column_chunk.dictionary != std::nullopt ? 1 : 0);
-}
 
 } // namespace parcore
