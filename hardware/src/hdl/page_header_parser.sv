@@ -235,13 +235,15 @@ always_comb begin
         end
         PARSE_ENC: begin
             if (skip_bytes == 0 && remaining_bytes != 3) begin
-                // PLAIN=0, PLAIN_DICTIONARY=2, RLE_DICTIONARY=8 (Other encodings not supported)
-                if (cur_value == 32'd0) begin
-                    n_parsed_page_type = PAGE_TYPE_PLAIN;
-                end
-
-                // Decrement for data pages (hybrid and plain), not dict pages
                 if (parsed_page_type != PAGE_TYPE_DICT) begin
+                    // PLAIN=0, PLAIN_DICTIONARY=2, RLE_DICTIONARY=8 (Other encodings not supported
+                    // yet). For data pages we already use PAGE_TYPE_HYBRID as a default so only 
+                    // change for plain data pages.
+                    if (cur_value == 32'd0) begin
+                        n_parsed_page_type = PAGE_TYPE_PLAIN;
+                    end
+
+                    // Decrement only for data pages (hybrid and plain), not dict pages
                     n_remaining_chunk_num_values = remaining_chunk_num_values - parsed_num_values;
                 end
 
