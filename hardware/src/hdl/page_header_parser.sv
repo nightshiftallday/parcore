@@ -152,7 +152,7 @@ always_comb begin
         // Tag byte of outer fid 1 is at in.data[0] so we always skip the first byte
         n_buffer_data[NUM_BYTES - 2:0] = in.data[NUM_BYTES - 1:1];
         n_remaining_bytes              = $countones(in.keep) - 1;
-    end else if (state != PAYLOAD_FLUSH_BUF && state != PAYLOAD_BYPASS) begin
+    end else if (state != IDLE && state != PAYLOAD_FLUSH_BUF && state != PAYLOAD_BYPASS) begin
         if (remaining_bytes == 3) begin
             if (in.valid) begin
                 // Append an input data beat to the 3 buffered bytes.
