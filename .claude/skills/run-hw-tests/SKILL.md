@@ -15,7 +15,7 @@ description: Run the ParCore hardware unit tests using Python unittest discovery
 ## Command
 
 ```bash
-set -a && source .env && set +a && timeout 2m python3 -m unittest discover -v -s ./hardware/unit-tests -p "*_test.py" $ARGUMENTS
+set -a && source .env && set +a && timeout 2m python3 -m unittest discover -v -s ./hardware/unit-tests -p "*_test.py" ${ARGUMENTS:+-k "$ARGUMENTS"}
 ```
 
 Note: The build directory `hardware/build-sim` must exist (created by `./scripts/setup_simulation.sh`). The `-v` flag shows each test name and pass/fail as it runs.

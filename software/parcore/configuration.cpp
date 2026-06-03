@@ -24,8 +24,7 @@ inline uint64_t compression_to_hardware(metadata::Compression compression) {
 
 constexpr const uint32_t COLUMN_CHUNK_DECODER_COMPRESSION_ADDR = 0;
 constexpr const uint32_t COLUMN_CHUNK_DECODER_NUM_VALUES_ADDR = 1;
-constexpr const uint32_t COLUMN_CHUNK_DECODER_HYBRID_NUM_VALUES_ADDR = 2;
-constexpr const uint32_t COLUMN_CHUNK_DECODER_TYP_ADDR = 3;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_TYP_ADDR = 2;
 
 const std::string column_config_prefix = "parcore::ColumnChunkDecoderConfig::";
 
@@ -38,7 +37,7 @@ ColumnChunkDecoderConfig::ColumnChunkDecoderConfig(
 
 void ColumnChunkDecoderConfig::process_column_chunk(
     libstf::stream_t decoder, metadata::Compression compression,
-    uint64_t num_values, uint64_t hybrid_num_values, libstf::type_t typ) {
+    uint64_t num_values, libstf::type_t typ) {
   if (decoder >= num_decoders_) {
     throw std::runtime_error("attempted to configure ColumnChunkDecoder " +
                              std::to_string(decoder) +
@@ -53,8 +52,6 @@ void ColumnChunkDecoderConfig::process_column_chunk(
                              compression_to_hardware(compression)));
   write_register(libstf::ConfigRegister(
       offset + COLUMN_CHUNK_DECODER_NUM_VALUES_ADDR, num_values));
-  write_register(libstf::ConfigRegister(
-      offset + COLUMN_CHUNK_DECODER_HYBRID_NUM_VALUES_ADDR, hybrid_num_values));
   write_register(libstf::ConfigRegister(offset + COLUMN_CHUNK_DECODER_TYP_ADDR,
                                         static_cast<uint64_t>(typ)));
   Profiler::close_regions({column_config_prefix + "process_column_chunk"});

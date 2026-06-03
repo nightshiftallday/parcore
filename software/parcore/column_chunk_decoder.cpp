@@ -62,8 +62,7 @@ ColumnChunkDecoder::decode_column_chunk(
 
   auto type = metadata::to_libstf_type(column_chunk.type);
   column_chunk_config_->process_column_chunk(
-      decoder_, column_chunk.compression, column_chunk.num_values,
-      0, type);
+      decoder_, column_chunk.compression, column_chunk.num_values, type);
 
   column_chunk_enqueued_configs_ += 1;
 

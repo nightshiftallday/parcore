@@ -7,7 +7,7 @@
 
 namespace parcore {
 
-constexpr const uint64_t COLUMN_CHUNK_DECODER_REGS = 4;
+constexpr const uint64_t COLUMN_CHUNK_DECODER_REGS = 3;
 constexpr const uint64_t COLUMN_CHUNK_DECODER_CONFIG_ID = 0x5c19f934407065bd;
 
 class ColumnChunkDecoderConfig : public libstf::Config {
@@ -25,8 +25,7 @@ public:
    */
   void process_column_chunk(libstf::stream_t decoder,
                             metadata::Compression compression,
-                            uint64_t num_values, uint64_t hybrid_num_values,
-                            libstf::type_t typ);
+                            uint64_t num_values, libstf::type_t typ);
 
   const libstf::stream_t num_decoders() const;
   const size_t maximum_num_enqueued_configs() const;

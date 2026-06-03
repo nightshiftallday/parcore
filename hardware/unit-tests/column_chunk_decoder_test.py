@@ -8,23 +8,24 @@ from page_header_parser_test import (
     _make_data_page_header,
     _make_dict_page_header,
     _extract_parquet_column_chunks,
-    _PageType as _PHPageType,
 )
+
+from libstf_utils.common import stream_type_to_libstf_type_t
 
 
 @dataclass
 class _ColumnChunk:
     compression: bool
     num_values: int
-    hybrid_num_values: int
     chunk_bytes: bytearray   # full column-chunk: thrift headers + payloads concatenated
+    stream_type: "fpga_stream.StreamType" = fpga_stream.StreamType.SIGNED_INT_64
 
     def _registers(self) -> dict[int, bytearray]:
+        type_t = stream_type_to_libstf_type_t(self.stream_type)
         return {
             0: bytearray(int(1 if self.compression else 0).to_bytes(1, 'big')), # compression_t
             1: bytearray(self.num_values.to_bytes(4, 'little')),                # num_values
-            2: bytearray(self.hybrid_num_values.to_bytes(4, 'little')),         # hybrid_num_values
-            3: bytearray(int(2).to_bytes(1, 'big')),                            # type_t = int64_t
+            2: bytearray(type_t.to_bytes(1, 'big')),                            # type_t
         }
 
 
@@ -47,17 +48,9 @@ def _parquet_chunk(parquet_filename: str, col_idx: int = 0) -> _ColumnChunk:
     cases = _extract_parquet_column_chunks(path)
     case = cases[col_idx]
 
-    # Sum num_values across non-dict pages -> hybrid_num_values when those
-    # pages are HYBRID. ColumnChunkDecoder uses hybrid_num_values to size the
-    # output normalizer for the dictionary path.
-    hybrid_num_values = sum(
-        p.num_values for p in case.pages if p.page_type == _PHPageType.HYBRID
-    )
-
     return _ColumnChunk(
         compression=True,  # all generated parquet fixtures use SNAPPY
         num_values=col_meta.num_values,
-        hybrid_num_values=hybrid_num_values,
         chunk_bytes=case.chunk_bytes,
     )
 
@@ -97,21 +90,35 @@ def make_plain_data(items: list[int]) -> _ColumnChunk:
     return _ColumnChunk(
         compression=False,
         num_values=len(items),
-        hybrid_num_values=0,
         chunk_bytes=chunk,
     )
 
 
-# -- Synthetic "tricky" chunk: dict + repeated decompressed-hybrid pages + plain
-def make_tricky(filename: str, num_values: int, items: list[int], factor: int) -> _ColumnChunk:
-    dict_body  = read_bytes(filename + '_dict_decompressed.bin')
+# -- Synthetic "tricky" chunk: dict + repeated decompressed-hybrid pages [+ plain]
+#
+# The dictionary body holds the actual values at the column's width, so it is
+# synthesised at the column's width. The HYBRID body, by contrast, encodes
+# dictionary *indices* and is therefore width-independent — we reuse the on-disk
+# fixture for both 32- and 64-bit chunks. `dict_values` must match the values the
+# fixture's indices point at (the `*_dict_decompressed.bin` fixtures store
+# range(10, 20), i.e. 10 distinct values).
+def make_tricky(
+    filename: str,
+    num_values: int,
+    items: list[int],
+    factor: int,
+    stream_type: "fpga_stream.StreamType" = fpga_stream.StreamType.SIGNED_INT_64,
+    dict_values: list[int] = list(range(10, 20)),
+    trailing_plain: bool = True,
+) -> _ColumnChunk:
     hybrid_body = read_bytes(filename + '_chunk_decompressed.bin')
 
     chunk = bytearray()
 
-    # Dictionary page: encoding=PLAIN.
+    # Dictionary page: encoding=PLAIN, values at the column's width.
+    dict_body = bytearray(fpga_stream.Stream(stream_type, dict_values).data_to_bytearray())
     chunk += _make_dict_page_header(
-        num_values=num_values,
+        num_values=len(dict_values),
         uncompressed_size=len(dict_body),
         compressed_size=len(dict_body),
     )
@@ -129,86 +136,35 @@ def make_tricky(filename: str, num_values: int, items: list[int], factor: int) -
         )
         chunk += hybrid_body
 
-    # Trailing PLAIN page.
-    plain_stream = fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, items)
-    plain_values = plain_stream.data_to_bytearray()
-    plain_def_levels = _make_def_levels(len(items))
-    plain_body = bytearray(plain_def_levels) + bytearray(plain_values)
-    chunk += _make_data_page_header(
-        num_values=len(items),
-        uncompressed_size=len(plain_body),
-        compressed_size=len(plain_body),
-        encoding=0,  # PLAIN
-    )
-    chunk += plain_body
+    total_num_values = num_values * factor
 
-    total_num_values = num_values * factor + len(items)
-    hybrid_num_values = num_values * factor
+    # Optional trailing PLAIN page. Its presence is what forces the dictionary
+    # path to be reset via the injected dummy beat (see ColumnChunkDecoder).
+    if trailing_plain:
+        plain_values = fpga_stream.Stream(stream_type, items).data_to_bytearray()
+        plain_def_levels = _make_def_levels(len(items))
+        plain_body = bytearray(plain_def_levels) + bytearray(plain_values)
+        chunk += _make_data_page_header(
+            num_values=len(items),
+            uncompressed_size=len(plain_body),
+            compressed_size=len(plain_body),
+            encoding=0,  # PLAIN
+        )
+        chunk += plain_body
+        total_num_values += len(items)
+
     return _ColumnChunk(
         compression=False,
         num_values=total_num_values,
-        hybrid_num_values=hybrid_num_values,
         chunk_bytes=chunk,
+        stream_type=stream_type,
     )
 
 
-@dataclass
-class _TestCase:
-    inputs: list[_ColumnChunk]
-    outputs: list[list[int]]
+# Reference outputs shared across cases.
+_RLE_OUTPUT = [i for i in range(10, 20) for _ in range(i)]
+_PLAIN_OUTPUT = list(range(0, 256))
 
-
-_rle_output =  [i for i in range(10, 20) for _ in range(i)]
-_rle_input = _parquet_chunk('rle_data.parquet')
-
-_bpe_output = list(range(10, 20)) * 15
-_bpe_input = _parquet_chunk('bpe_data.parquet')
-
-_mixed_output = ([i**8 for i in range(10, 20) for _ in range(i)] +
-                list(range(128, 256)) * 2 +
-                [i**8 for i in range(10, 20) for _ in range(i)] +
-                list(range(128, 256)) * 2)
-_mixed_input = _parquet_chunk('mixed_data.parquet')
-
-_big_bpe_output = list(range(10, 100)) * 5
-_big_bpe_input = _parquet_chunk('big_bpe_data.parquet')
-
-_mixed_output_plain = list(range(0, 256))
-_mixed_input_plain = make_plain_data(_mixed_output_plain)
-
-_tricky_factor = 3
-_tricky_output_plain = list(range(0, 256))
-_tricky_output = _rle_output * _tricky_factor + _tricky_output_plain
-_tricky_input = make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
-
-# Minimal "PLAIN page directly after a HYBRID page" case: a single dictionary
-# page, a single HYBRID (RLE_DICTIONARY) page, then a trailing PLAIN page. The
-# dict page is required scaffolding because the HYBRID page references it.
-_hybrid_then_plain_output_plain = list(range(0, 256))
-_hybrid_then_plain_output = _rle_output + _hybrid_then_plain_output_plain
-_hybrid_then_plain_input = make_tricky(
-    'rle_data_rg0_col0', len(_rle_output), _hybrid_then_plain_output_plain, 1
-)
-
-_test_cases = (
-    _TestCase(inputs=[_rle_input],       outputs=[_rle_output]),
-    _TestCase(inputs=[_bpe_input],       outputs=[_bpe_output]),
-    _TestCase(inputs=[_mixed_input],     outputs=[_mixed_output]),
-    _TestCase(inputs=[_big_bpe_input],   outputs=[_big_bpe_output]),
-    _TestCase(
-        inputs=[_rle_input, _bpe_input, _mixed_input, _big_bpe_input],
-        outputs=[_rle_output, _bpe_output, _mixed_output, _big_bpe_output],
-    ),
-    _TestCase(inputs=[_mixed_input_plain], outputs=[_mixed_output_plain]),
-    _TestCase(
-        inputs=[_tricky_input, _rle_input],
-        outputs=[_tricky_output, _rle_output],
-    ),
-    _TestCase(
-        inputs=[_hybrid_then_plain_input],
-        outputs=[_hybrid_then_plain_output],
-    ),
-)
 
 class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "vfpga_tops/column_chunk_decoder_test.sv"
@@ -220,64 +176,96 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
     def setUp(self):
         return super().setUp()
 
-    def simulate_fpga(self):
-        assert self.test_case is not None, (
-            "Cannot have host test with empty test case!"
-        )
-
+    def run_chunks(self, inputs: list[_ColumnChunk], outputs: list[list[int]]):
+        """Drive the decoder with one or more column chunks and assert outputs."""
         # Chunk-level registers only — page-level configuration is now produced
         # inside ColumnChunkDecoder by PageHeaderParser. Offset 3 mirrors
         # page_header_parser_test.py (GlobalConfig occupies regs 0..2).
-        for input in self.test_case.inputs:
+        for input in inputs:
             for i, value in input._registers().items():
                 self.write_register(fpga_register.vFPGARegister(3 + i, value))
 
         # One stream input per column chunk (full thrift-wrapped bytes).
-        for input in self.test_case.inputs:
+        for input in inputs:
             self.set_stream_input(0, input.chunk_bytes)
 
-        for output in self.test_case.outputs:
-            self.set_expected_output(0, fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, output))
+        # The output value width follows each chunk's declared type_t.
+        for input, output in zip(inputs, outputs):
+            self.set_expected_output(0, fpga_stream.Stream(input.stream_type, output))
 
-        return super().simulate_fpga()
+        self.simulate_fpga()
+        self.assert_simulation_output()
 
     def test_one_rle_page(self):
-        self.test_case = _test_cases[0]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        self.run_chunks([_parquet_chunk('rle_data.parquet')], [_RLE_OUTPUT])
 
     def test_one_bpe_page(self):
-        self.test_case = _test_cases[1]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        self.run_chunks([_parquet_chunk('bpe_data.parquet')], [list(range(10, 20)) * 15])
 
     def test_one_mixed_page(self):
-        self.test_case = _test_cases[2]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        output = ([i**8 for i in range(10, 20) for _ in range(i)] +
+                  list(range(128, 256)) * 2) * 2
+        self.run_chunks([_parquet_chunk('mixed_data.parquet')], [output])
 
     def test_one_big_bpe_page(self):
-        self.test_case = _test_cases[3]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        self.run_chunks([_parquet_chunk('big_bpe_data.parquet')], [list(range(10, 100)) * 5])
 
     def test_plain_page(self):
-        self.test_case = _test_cases[5]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        self.run_chunks([make_plain_data(_PLAIN_OUTPUT)], [_PLAIN_OUTPUT])
 
     def test_tricky_page(self):
-        self.test_case = _test_cases[6]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        factor = 3
+        tricky = make_tricky('rle_data_rg0_col0', len(_RLE_OUTPUT), _PLAIN_OUTPUT, factor)
+        self.run_chunks(
+            [tricky, _parquet_chunk('rle_data.parquet')],
+            [_RLE_OUTPUT * factor + _PLAIN_OUTPUT, _RLE_OUTPUT],
+        )
 
     def test_many_hybrid_pages(self):
-        self.test_case = _test_cases[4]
         self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        mixed_output = ([i**8 for i in range(10, 20) for _ in range(i)] +
+                        list(range(128, 256)) * 2) * 2
+        self.run_chunks(
+            [
+                _parquet_chunk('rle_data.parquet'),
+                _parquet_chunk('bpe_data.parquet'),
+                _parquet_chunk('mixed_data.parquet'),
+                _parquet_chunk('big_bpe_data.parquet'),
+            ],
+            [
+                _RLE_OUTPUT,
+                list(range(10, 20)) * 15,
+                mixed_output,
+                list(range(10, 100)) * 5,
+            ],
+        )
 
     def test_plain_after_hybrid(self):
-        self.test_case = _test_cases[7]
-        self.simulate_fpga()
-        self.assert_simulation_output()
+        chunk = make_tricky('rle_data_rg0_col0', len(_RLE_OUTPUT), _PLAIN_OUTPUT, 1)
+        self.run_chunks([chunk], [_RLE_OUTPUT + _PLAIN_OUTPUT])
+
+    def test_different_types(self):
+        # Back-to-back chunks exercising the TypedDictionary reset across a chunk
+        # boundary AND a width switch:
+        #   Chunk A: 32-bit, dict + HYBRID + trailing PLAIN. The trailing PLAIN
+        #            page (with a dict page seen) triggers the injected dummy
+        #            reset beat that flushes the internal Dictionary cache.
+        #   Chunk B: 64-bit, dict + HYBRID (no PLAIN). It reloads the dictionary
+        #            from scratch. If chunk A's reset did not fully clear the
+        #            dictionary state, chunk B would either materialise stale
+        #            32-bit values or mis-size its 64-bit output, so a correct
+        #            chunk B output proves the reset.
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        chunk_a = make_tricky(
+            'rle_data_rg0_col0', len(_RLE_OUTPUT), _PLAIN_OUTPUT, 1,
+            stream_type=fpga_stream.StreamType.SIGNED_INT_32,
+        )
+        chunk_b = make_tricky(
+            'rle_data_rg0_col0', len(_RLE_OUTPUT), [], 1,
+            stream_type=fpga_stream.StreamType.SIGNED_INT_64,
+            trailing_plain=False,
+        )
+        self.run_chunks(
+            [chunk_a, chunk_b],
+            [_RLE_OUTPUT + _PLAIN_OUTPUT, _RLE_OUTPUT],
+        )

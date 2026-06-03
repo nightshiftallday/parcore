@@ -601,12 +601,11 @@ def _page_conf_record(page: _ExpectedPage) -> bytearray:
     return rec
 
 def _chunk_conf_registers(num_values: int) -> dict[int, bytearray]:
-    """ColumnChunkDecoderConfig register values (4 regs at offset 0)."""
+    """ColumnChunkDecoderConfig register values (3 regs at offset 0)."""
     return {
         0: bytearray(int(0).to_bytes(1, 'big')),          # compression=RAW
         1: bytearray(num_values.to_bytes(4, 'little')),   # num_values
-        2: bytearray(int(0).to_bytes(4, 'little')),       # hybrid_num_values (unused here)
-        3: bytearray(int(2).to_bytes(1, 'big')),          # type=INT64 (unused here)
+        2: bytearray(int(2).to_bytes(1, 'big')),          # type=INT64 (unused here)
     }
 
 
