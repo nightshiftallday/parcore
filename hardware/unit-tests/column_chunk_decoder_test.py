@@ -181,6 +181,15 @@ _tricky_output_plain = list(range(0, 256))
 _tricky_output = _rle_output * _tricky_factor + _tricky_output_plain
 _tricky_input = make_tricky('rle_data_rg0_col0', len(_rle_output), _tricky_output_plain, _tricky_factor)
 
+# Minimal "PLAIN page directly after a HYBRID page" case: a single dictionary
+# page, a single HYBRID (RLE_DICTIONARY) page, then a trailing PLAIN page. The
+# dict page is required scaffolding because the HYBRID page references it.
+_hybrid_then_plain_output_plain = list(range(0, 256))
+_hybrid_then_plain_output = _rle_output + _hybrid_then_plain_output_plain
+_hybrid_then_plain_input = make_tricky(
+    'rle_data_rg0_col0', len(_rle_output), _hybrid_then_plain_output_plain, 1
+)
+
 _test_cases = (
     _TestCase(inputs=[_rle_input],       outputs=[_rle_output]),
     _TestCase(inputs=[_bpe_input],       outputs=[_bpe_output]),
@@ -194,6 +203,10 @@ _test_cases = (
     _TestCase(
         inputs=[_tricky_input, _rle_input],
         outputs=[_tricky_output, _rle_output],
+    ),
+    _TestCase(
+        inputs=[_hybrid_then_plain_input],
+        outputs=[_hybrid_then_plain_output],
     ),
 )
 
@@ -243,14 +256,8 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
         self.simulate_fpga()
         self.assert_simulation_output()
 
-    def test_one_big_bpe_pages(self):
+    def test_one_big_bpe_page(self):
         self.test_case = _test_cases[3]
-        self.simulate_fpga()
-        self.assert_simulation_output()
-
-    def test_all_pages(self):
-        self.test_case = _test_cases[4]
-        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
         self.simulate_fpga()
         self.assert_simulation_output()
 
@@ -261,5 +268,16 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
 
     def test_tricky_page(self):
         self.test_case = _test_cases[6]
+        self.simulate_fpga()
+        self.assert_simulation_output()
+
+    def test_many_hybrid_pages(self):
+        self.test_case = _test_cases[4]
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        self.simulate_fpga()
+        self.assert_simulation_output()
+
+    def test_plain_after_hybrid(self):
+        self.test_case = _test_cases[7]
         self.simulate_fpga()
         self.assert_simulation_output()

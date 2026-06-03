@@ -22,7 +22,7 @@ module HybridPageDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s conf,     // #(data32_t) for num_values
+    data_i.s conf,           // #(data32_t) for num_values
 
     ndata_i.s in,            // #(data8_t, NUM_BYTES)
     ndata_i.m out            // #(data_t, NUM_ELEMENTS)
@@ -35,10 +35,13 @@ localparam int NUM_BYTES_OFFSET = 4;
 offset_t    offset;
 bit_width_t bit_width;
 data32_t    num_values, next_num_values; 
+logic       page_last;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES)   run_decoder_in(clk, reset_synced);
 ndata_i #(data_t, NUM_ELEMENTS) out_inner(clk, reset_synced);
+// out_inner with per-page `last` masked when the page is not the last one (conf.last).
+ndata_i #(data_t, NUM_ELEMENTS) out_masked(clk, reset_synced);
 
 run_decoder_config_t run_decoder_conf_data;
 ready_valid_i #(run_decoder_config_t) run_decoder_conf(clk, reset_synced);
@@ -66,16 +69,17 @@ NDataSkidBuffer #(data_t, NUM_ELEMENTS) inst_skid_buffer (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(out_inner),
+    .in(out_masked),
     .out(out)
 );
 
 // ------- State machine ---------
-typedef enum logic [1:0] {
+typedef enum logic [2:0] {
     ST_IDLE,
     ST_WAIT,
     ST_CONSUME,
-    ST_PIPE
+    ST_PIPE,
+    ST_DUMMY
 } state_t;
 state_t state;
 
@@ -122,12 +126,19 @@ always_ff @(posedge clk) begin
         case (state)
             ST_IDLE: begin
                 if (conf.valid) begin
-                    num_values <= conf.data;
+                    page_last <= conf.last;
 
-                    if (in.valid) begin
-                        process_first_databeat();
+                    if (!conf.keep) begin
+                        // Emit a single empty data beat with the last set high to end the stream.
+                        state <= ST_DUMMY;
                     end else begin
-                        state <= ST_WAIT;
+                        num_values <= conf.data;
+
+                        if (in.valid) begin
+                            process_first_databeat();
+                        end else begin
+                            state <= ST_WAIT;
+                        end
                     end
                 end
             end
@@ -171,7 +182,37 @@ always_ff @(posedge clk) begin
                     end
                 end
             end
+
+            ST_DUMMY: begin
+                if (out_masked.ready && out_masked.valid) begin
+                    reset();
+                end
+            end
         endcase
+    end
+end
+
+// ------- Masking output / dummy injection ---------
+// The RunDecoder asserts `last` at the end of every run, but a single page may
+// span many runs. We only want a single `last` once the page's num_values are
+// exhausted, and only on the last page of the hybrid-page group (page_last).
+// The dummy reset beat is a single empty last beat injected directly.
+logic page_exhausted;
+assign page_exhausted = next_num_values == 0;
+
+always_comb begin
+    out_masked.data  = out_inner.data;
+
+    if (state == ST_DUMMY) begin
+        out_masked.keep  = '0;
+        out_masked.last  = 1'b1;
+        out_masked.valid = 1'b1;
+        out_inner.ready  = 1'b0;
+    end else begin
+        out_masked.keep  = out_inner.keep;
+        out_masked.last  = page_exhausted && page_last;
+        out_masked.valid = out_inner.valid;
+        out_inner.ready  = out_masked.ready;
     end
 end
 

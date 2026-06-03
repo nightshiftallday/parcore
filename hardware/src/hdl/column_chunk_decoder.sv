@@ -44,7 +44,7 @@ typedef enum logic {
 `ASSERT_ELAB(NUM_OUT <= 2**$bits(out_selector_t))
 typed_ndata_i #(DATABEAT_SIZE) outs[NUM_OUT](clk, reset_synced);
 
-ready_valid_i #(in_selector_t) in_select(clk, reset_synced);
+ready_valid_i #(in_selector_t)  in_select(clk, reset_synced);
 ready_valid_i #(out_selector_t) out_select(clk, reset_synced);
 
 // ------ PageHeaderParser wiring -----------------
@@ -98,9 +98,9 @@ DataDemultiplexer #(NUM_IN) inst_multiplexer (
 );
 
 // ------ Hybrid decoder + dictionary wiring ------
-ready_valid_i #(data32_t) hybrid_conf(clk, reset_synced);
+data_i #(data32_t) hybrid_conf(clk, reset_synced);
 
-ndata_i #(id_t, NUM_IDS) hybrid_out(clk, reset_synced);
+ndata_i #(id_t, NUM_IDS) dict_ids(clk, reset_synced);
 HybridPageDecoder #(
     .data_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -112,18 +112,6 @@ HybridPageDecoder #(
     .conf(hybrid_conf),
     .in(ins[IN_HYBRID]),
 
-    .out(hybrid_out)
-);
-
-ndata_i       #(id_t, NUM_IDS) dict_ids(clk, reset_synced);
-ready_valid_i #(data32_t)      hybrid_num_values(clk, reset_synced);
-NormalizeUntil #(id_t, data32_t, NUM_IDS) inst_normalize_until_hybrid (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .size(hybrid_num_values),
-
-    .in(hybrid_out),
     .out(dict_ids)
 );
 
@@ -139,6 +127,7 @@ NDataToTypedNData #(DATABEAT_SIZE) inst_dict_typed_conversion (
     .out(dict_values)
 );
 
+typed_ndata_i #(DATABEAT_SIZE) hybrid_typed(clk, reset_synced);
 TypedDictionary #(
     .id_t(id_t),
     .NUM_ELEMENTS(NUM_IDS),
@@ -150,6 +139,22 @@ TypedDictionary #(
     .in_values(dict_values),
     .in_ids(dict_ids),
 
+    .out(hybrid_typed)
+);
+
+// The TypedDictionary emits a single `last` per dictionary (hybrid-page
+// group), but the output multiplexer consumes out_select per page. This
+// re-injects a per-page `last` after each page's num_values worth of values.
+ready_valid_i #(data32_t) hybrid_num_values(clk, reset_synced);
+TypedRewriteLast #(
+    .DATABEAT_SIZE(DATABEAT_SIZE)
+) inst_hybrid_set_last (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .num_elements(hybrid_num_values),
+
+    .in(hybrid_typed),
     .out(outs[OUT_HYBRID])
 );
 
@@ -245,13 +250,9 @@ state_t state;
 type_t typ;
 logic last_page;
 
-// This is used to track how many values the hybrid pages received so far have
-// provided. When this matches the number in hybrid_num_values, then the data
-// normalizer should be re-configured for the next series of plain decodings.
-data32_t received_hybrid_num_values;
-logic is_last_hybrid_page;
-
-assign is_last_hybrid_page = received_hybrid_num_values == hybrid_num_values.data;
+// Whether this chunk has had a dictionary page (and thus whether the dictionary path needs a last 
+// data beat) for the TypedDictionary to reset it's internal state.
+logic dict_seen;
 
 always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
@@ -265,10 +266,9 @@ always_ff @(posedge clk) begin
         in_select.valid   <= 1'b0;
         out_select.valid  <= 1'b0;
 
-        typ                        <= BYTE_T;
-        last_page                  <= 'X;
-        received_hybrid_num_values <= 'X;
-        state                      <= ST_IDLE;
+        typ       <= BYTE_T;
+        last_page <= 'X;
+        state     <= ST_IDLE;
     end else begin
         case (state)
             ST_IDLE: begin
@@ -278,17 +278,19 @@ always_ff @(posedge clk) begin
                     num_values.data  <= chunk_confs[0].data.num_values;
                     num_values.valid <= 1'b1;
 
-                    hybrid_num_values.data  <= chunk_confs[0].data.hybrid_num_values;
-                    hybrid_num_values.valid <= 1'b1;
-
-                    typ                        <= chunk_confs[0].data.typ;
-                    received_hybrid_num_values <= 0;
-                    state                      <= ST_CONFIGURED;
+                    typ       <= chunk_confs[0].data.typ;
+                    dict_seen <= 1'b0;
+                    state     <= ST_CONFIGURED;
                 end
             end
-
             ST_CONFIGURED: begin
                 if (page_conf.valid) begin
+                    // Input is always consumed, thus always configured
+                    in_select.valid <= 1'b1;
+
+                    last_page <= page_conf.data.last;
+                    state     <= ST_PROCESS_PAGE;
+
                     decompressor_conf.valid <= 1'b1;
 
                     // In each switch case we:
@@ -299,41 +301,46 @@ always_ff @(posedge clk) begin
                         PAGE_TYPE_HYBRID: begin
                             in_select.data <= IN_HYBRID;
 
-                            hybrid_conf.valid <= 1'b1;
                             hybrid_conf.data  <= page_conf.data.num_values;
+                            hybrid_conf.keep  <= 1'b1;
+                            hybrid_conf.last  <= page_conf.data.last;
+                            hybrid_conf.valid <= 1'b1;
 
-                            out_select.valid <= 1'b1;
+                            hybrid_num_values.data  <= page_conf.data.num_values;
+                            hybrid_num_values.valid <= 1'b1;
+
                             out_select.data  <= OUT_HYBRID;
-
-                            received_hybrid_num_values <= received_hybrid_num_values + page_conf.data.num_values;
+                            out_select.valid <= 1'b1;
                         end
-
                         PAGE_TYPE_DICT: begin
                             in_select.data <= IN_DICT;
 
-                            dict_type.valid <= 1'b1;
                             dict_type.data  <= typ;
-                        end
+                            dict_type.valid <= 1'b1;
 
+                            dict_seen <= 1'b1;
+                        end
                         PAGE_TYPE_PLAIN: begin
                             in_select.data <= IN_PLAIN;
 
-                            plain_type.valid <= 1'b1;
                             plain_type.data  <= typ;
+                            plain_type.valid <= 1'b1;
 
-                            out_select.valid <= 1'b1;
                             out_select.data  <= OUT_PLAIN;
+                            out_select.valid <= 1'b1;
+
+                            if (page_conf.data.last && dict_seen) begin
+                                // The chunk ends on a non-hybrid page but there was a 
+                                // dictionary page. Inject a dummy reset beat (keep=0, last=1).
+                                hybrid_conf.data  <= '0;
+                                hybrid_conf.keep  <= 1'b0;
+                                hybrid_conf.last  <= 1'b1;
+                                hybrid_conf.valid <= 1'b1;
+                            end
                         end
                     endcase
-
-                    // Input is always consumed, thus always configured
-                    in_select.valid <= 1'b1;
-
-                    last_page <= page_conf.data.last;
-                    state     <= ST_PROCESS_PAGE;
                 end
             end
-
             ST_PROCESS_PAGE: begin
                 if (decompressor_conf.ready) begin
                     decompressor_conf.valid <= 1'b0;
@@ -359,6 +366,10 @@ always_ff @(posedge clk) begin
                     out_select.valid <= 1'b0;
                 end
 
+                if (hybrid_num_values.ready) begin
+                    hybrid_num_values.valid <= 1'b0;
+                end
+
                 // If all configurations/selectors are invalid, it means they
                 // have been successfully consumed by the multiplexers/decoders
                 // (or not been set in the first place) and thus we can move
@@ -367,7 +378,7 @@ always_ff @(posedge clk) begin
                 //   a new column chunk configuration next.
                 // - CONFIGURED if this was not the last page and this column
                 //   chunk has more pages to be fully decoded.
-                if (!decompressor_conf.valid && !hybrid_conf.valid && !dict_type.valid && !plain_type.valid && !in_select.valid && (!is_last_hybrid_page || !out_select.valid)) begin
+                if (!decompressor_conf.valid && !hybrid_conf.valid && !dict_type.valid && !plain_type.valid && !in_select.valid && !out_select.valid) begin
                     if (last_page) begin
                         state <= ST_IDLE;
                     end else begin
@@ -380,10 +391,6 @@ always_ff @(posedge clk) begin
         if (state != ST_IDLE) begin
             if (num_values.ready) begin
                 num_values.valid <= 1'b0;
-            end
-
-            if (hybrid_num_values.ready) begin
-                hybrid_num_values.valid <= 1'b0;
             end
         end
     end

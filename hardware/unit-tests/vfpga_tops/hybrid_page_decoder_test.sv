@@ -67,48 +67,49 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
     .out(in)
 );
 
-/* -- OUTPUT ------------------------------------------------------------ */
-
-AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
-`AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
-
-ndata_i #(data32_t, 16) out(clk, rst_n);
-NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .in(out),
-    .out(axi_host_send_0)
-);
-
 /* -- DESIGN WIRING ----------------------------------------------------- */
-
-ready_valid_i #(data32_t) confs[1:0](clk, rst_n);
-ReadyValidDuplicator #(2) inst_conf_duplicator (
-    .clk(clk),
-    .rst_n(rst_n),
-
-    .in(conf),
-    .out(confs)
-);
+// Wrap the per-page num_values config into the data_i conf interface. Each
+// configured page is treated as its own hybrid-page group (keep=1, last=1),
+// so the decoder emits one last per page.
+data_i #(data32_t) hp_conf(clk, rst_n);
+assign hp_conf.data    = conf.data;
+assign hp_conf.keep    = 1'b1;
+assign hp_conf.last    = 1'b1;
+assign hp_conf.valid   = conf.valid;
+assign conf.ready = hp_conf.ready;
 
 ndata_i #(data32_t, 16) hybrid_out(clk, rst_n);
 HybridPageDecoder #(data32_t, 16) inst_hybrid_page_decoder (
     .clk(clk),
     .rst_n(rst_n),
 
-    .conf(confs[0]),
+    .conf(hp_conf),
 
     .in(in),
     .out(hybrid_out)
 );
 
-NormalizeUntil #(data32_t, data32_t, 16) inst_normalize_until (
+ndata_i #(data32_t, 16) out(clk, rst_n);
+DataNormalizer #(
+    .data_t(data32_t),
+    .NUM_ELEMENTS(16)
+) inst_normalizer (
     .clk(clk),
     .rst_n(rst_n),
 
-    .size(confs[1]),
-
     .in(hybrid_out),
     .out(out)
+);
+
+/* -- OUTPUT ------------------------------------------------------------ */
+
+AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
+`AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
+
+NDataToAXI #(data32_t, 16) inst_ndata_to_axi (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(out),
+    .out(axi_host_send_0)
 );
