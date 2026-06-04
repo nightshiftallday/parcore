@@ -160,7 +160,7 @@ TypedRewriteLast #(
 
 // ------ Plain wiring ----------------------------
 ready_valid_i #(type_t) plain_type(clk, reset_synced);
-ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped(clk, reset_synced), plain_normalize(clk, reset_synced), plain_normalized(clk, reset_synced), plain_out(clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped(clk, reset_synced), plain_out(clk, reset_synced);
 
 StripLevels #(
     .NUM_BYTES(DATABEAT_SIZE)
@@ -173,36 +173,15 @@ StripLevels #(
     .out(plain_stripped)
 );
 
-NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_stripped_skid_buffer (
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_stripped_skid_buffer  (
     .clk(clk),
     .rst_n(reset_synced),
 
     .in(plain_stripped),
-    .out(plain_normalize)
-);
-
-DataNormalizer #(
-    .data_t(data8_t),
-    .NUM_ELEMENTS(DATABEAT_SIZE),
-    .ENABLE_COMPACTOR(1),
-    .COMPACTOR_REGISTER_LEVELS(8)
-) inst_compactor_plain (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .in(plain_normalize),
-    .out(plain_normalized)
-);
-
-NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_normalized_skid_buffer  (
-    .clk(clk),
-    .rst_n(reset_synced),
-
-    .in(plain_normalized),
     .out(plain_out)
 );
 
-NDataToTypedNData #(DATABEAT_SIZE) inst_plain_normalize_after (
+NDataToTypedNData #(DATABEAT_SIZE) inst_plain_type (
     .clk(clk),
     .rst_n(reset_synced),
 
