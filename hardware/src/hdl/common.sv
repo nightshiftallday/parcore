@@ -25,8 +25,10 @@ parameter int ID_BITS = 19;
 parameter int VALUES_BITS = 20;
 parameter int BPE_MASK_SIZE = ID_BITS;
 
-// We want to have 1MiB dictionaries. That would take 20 bits to index fully.
-// Since the TypedDictionary uses 32bit elements (4 bytes), we take 2 bits of (log2(4)).
+// Real-world dictionaries tend to sit slightly over 1MiB, so to have headroom
+// we support up to 2MiB dictionaries. That is 2^21 bytes. Since the
+// TypedDictionary uses 32bit elements (4 bytes), we subtract 2 bits (log2(4)),
+// leaving 2^19 entries. Thus 19 bits are enough to index any entry fully.
 typedef logic [ID_BITS - 1:0] id_t;
 
 typedef enum logic {
@@ -43,7 +45,7 @@ typedef enum logic {
 // which tend to stick to slighly over 1MiB.
 typedef logic [ID_BITS - 1:0] bit_width_t; 
 
-// Here we're using one extra bit to handle the case where we have exactly 1Mi
+// Here we're using one extra bit to handle the case where we have exactly 1M
 // values, which can happen for RLE series, but not for BPE series.
 typedef logic [VALUES_BITS:0] rle_count_t;
 
