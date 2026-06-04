@@ -49,8 +49,6 @@ module RunDecoderConfig (
     ready_valid_i.m out // #(run_decoder_config_t)
 );
 
-localparam longint unsigned RUN_DECODER_CONFIG_ID = 64'hd6736a190f91fa01;
-
 `RESET_RESYNC // Reset pipelining
 
 // -- Read -----------------------------------------------------------------------------------------
@@ -72,21 +70,21 @@ ready_valid_i #(bit_width_t) bit_width(clk, reset_synced);
 ConfigWriteFIFO #(0, 8, bit_width_t) inst_bit_width (clk, reset_synced, write_config, bit_width);
 
 ready_valid_i #(offset_t) offset(clk, reset_synced);
-ConfigWriteFIFO #(0, 8, offset_t) inst_offset (clk, reset_synced, write_config, offset);
+ConfigWriteFIFO #(1, 8, offset_t) inst_offset (clk, reset_synced, write_config, offset);
 
 ready_valid_i #(data32_t) num_values(clk, reset_synced);
-ConfigWriteFIFO #(0, 8, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
+ConfigWriteFIFO #(2, 8, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
 
-bpe_config_t data;
-assign data.bit_width = bit_width.data;
-assign data.offset = offset.data;
+run_decoder_config_t data;
+assign data.bit_width  = bit_width.data;
+assign data.offset     = offset.data;
 assign data.num_values = num_values.data;
 
-assign out.data = data;
-assign out.valid = bit_width.valid && offset.valid && num_values.data;
+assign out.data  = data;
+assign out.valid = bit_width.valid && offset.valid && num_values.valid;
 
-assign bit_width.ready = offset.ready && num_values.ready && out.ready;
-assign offset.ready = bit_width.ready && num_values.ready && out.ready;
-assign num_values.ready = bit_width.ready && offset.ready && out.ready;
+assign bit_width.ready  = offset.valid && num_values.valid && out.ready;
+assign offset.ready     = bit_width.valid && num_values.valid && out.ready;
+assign num_values.ready = bit_width.valid && offset.valid && out.ready;
 
 endmodule
