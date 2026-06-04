@@ -470,12 +470,22 @@ task finish_bpe();
         // which we're trying to decode and move to a state waiting for more input).
         goto_decode(next_remaining_values);
     end else begin
+        offset_t actual_varint_offset;
+
+        // varint_offset is stored trimmed (mod NUM_BYTES). If it isn't ahead of
+        // offset the run wrapped into the second buffer half, so add NUM_BYTES:
+        // update_offset() then performs the shift and lands on the trimmed
+        // varint_offset, and the varint data is read from the pre-shift
+        // second-half location. (Mirrors the rem==1 path in advance_bpe().)
+        actual_varint_offset = (varint_offset <= offset) ? varint_offset + NUM_BYTES
+                                                         : varint_offset;
+
         // NOTE: this update here is needed as this last BPE decoding might
         // have involved receiving more input, meaning that the varint may now
         // be valid.
-        update_varint_data(data, varint_offset);
-        varint_in.valid <= next_varint_valid(keep, last_received, varint_offset);
-        update_offset(varint_offset);
+        update_varint_data(data, actual_varint_offset);
+        varint_in.valid <= next_varint_valid(keep, last_received, actual_varint_offset);
+        update_offset(actual_varint_offset);
 
         // If ~varint_out.valid we need to fetch more input to
         // satisfy it.
