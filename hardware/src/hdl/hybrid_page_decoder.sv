@@ -34,8 +34,12 @@ localparam int NUM_BYTES_OFFSET = 4;
 
 offset_t    offset;
 bit_width_t bit_width;
-data32_t    num_values, next_num_values; 
+data32_t    num_values, next_num_values;
 logic       page_last;
+// Set once the input `last` beat for the current page has been consumed. Used
+// to decide whether the page still has trailing (padding) bytes to drain after
+// the RunDecoder has produced num_values.
+logic       seen_last;
 
 // ------- Run decoder wiring ------
 ndata_i #(data8_t, NUM_BYTES)   run_decoder_in(clk, reset_synced);
@@ -79,6 +83,7 @@ typedef enum logic [2:0] {
     ST_WAIT,
     ST_CONSUME,
     ST_PIPE,
+    ST_DRAIN,
     ST_DUMMY
 } state_t;
 state_t state;
@@ -101,6 +106,7 @@ task reset();
     bit_width_offset <= '0;
     keep_bit_width.valid <= 1'b0;
     run_decoder_conf_valid <= 1'b0;
+    seen_last <= 1'b0;
 endtask
 
 task process_first_databeat();
@@ -123,6 +129,11 @@ always_ff @(posedge clk) begin
     if (reset_synced == 1'b0) begin
         reset();
     end else begin
+        // Remember once the page's `last` input beat has been consumed.
+        if (in.valid && in.ready && in.last) begin
+            seen_last <= 1'b1;
+        end
+
         case (state)
             ST_IDLE: begin
                 if (conf.valid) begin
@@ -142,13 +153,11 @@ always_ff @(posedge clk) begin
                     end
                 end
             end
-
             ST_WAIT: begin
                 if (in.valid) begin
                     process_first_databeat();
                 end
             end
-
             ST_CONSUME: begin
                 if (in.valid) begin
                     if (offset == NUM_BYTES - 1) begin
@@ -164,7 +173,6 @@ always_ff @(posedge clk) begin
                     end
                 end
             end
-
             ST_PIPE: begin
                 // If in.valid then the bitwidth field is valid, thus the
                 // whole run decoder config, and as such if the handshake
@@ -178,11 +186,29 @@ always_ff @(posedge clk) begin
                     num_values <= next_num_values;
 
                     if (next_num_values == 0) begin
-                        reset();
+                        // The RunDecoder stops after num_values, but a BPE page
+                        // is padded to whole runs (e.g. multiples of 256), so
+                        // the final input databeat(s) may carry trailing
+                        // padding bytes and the page's `last`. If the page's
+                        // `last` beat has already been consumed (now or earlier)
+                        // there is nothing left to drain and we can reset;
+                        // otherwise drain the remaining payload until `last`.
+                        if (seen_last || (in.valid && in.last)) begin
+                            reset();
+                        end else begin
+                            run_decoder_conf_valid <= 1'b0;
+                            state <= ST_DRAIN;
+                        end
                     end
                 end
             end
-
+            // Swallow the remaining (padding) payload bytes of the finished
+            // page until the input `last` beat, then accept the next page.
+            ST_DRAIN: begin
+                if (in.valid && in.last) begin
+                    reset();
+                end
+            end
             ST_DUMMY: begin
                 if (out_masked.ready && out_masked.valid) begin
                     reset();
@@ -218,7 +244,8 @@ end
 
 // ------- Driving input ---------
 assign conf.ready = state == ST_IDLE;
-assign in.ready = state == ST_CONSUME || (state == ST_PIPE && run_decoder_in.ready);
+assign in.ready = state == ST_CONSUME || state == ST_DRAIN
+              || (state == ST_PIPE && run_decoder_in.ready);
 
 assign run_decoder_in.valid = state == ST_PIPE && in.valid;
 assign run_decoder_in.data = in.data;
