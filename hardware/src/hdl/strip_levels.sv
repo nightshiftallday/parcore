@@ -108,7 +108,8 @@ assign shifter_in.valid = (state == ST_PIPE) && in.valid;
 
 BarrelShifter #(
     .data_t(data8_t),
-    .NUM_ELEMENTS(NUM_BYTES)
+    .NUM_ELEMENTS(NUM_BYTES),
+    .REGISTER_LEVELS(1)
 ) inst_barrel_shifter (
     .clk(clk),
     .rst_n(reset_synced),

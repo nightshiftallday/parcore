@@ -160,7 +160,16 @@ TypedRewriteLast #(
 
 // ------ Plain wiring ----------------------------
 ready_valid_i #(type_t) plain_type(clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) plain_in(clk, reset_synced);
 ndata_i #(data8_t, DATABEAT_SIZE) plain_stripped(clk, reset_synced), plain_out(clk, reset_synced);
+
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_plain_in_skid_buffer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(ins[IN_PLAIN]),
+    .out(plain_in)
+);
 
 StripLevels #(
     .NUM_BYTES(DATABEAT_SIZE)
@@ -168,8 +177,7 @@ StripLevels #(
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(ins[IN_PLAIN]),
-
+    .in(plain_in),
     .out(plain_stripped)
 );
 
