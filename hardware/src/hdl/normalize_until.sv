@@ -95,7 +95,8 @@ endmodule
 module TypedNormalizeUntil #(
     type size_t,
     parameter DATABEAT_SIZE = AXI_DATA_BITS / 8,
-    parameter ENABLE_COMPACTOR = 0
+    parameter ENABLE_COMPACTOR = 0,
+    parameter BARREL_SHIFTER_REGISTER_LEVELS = 1
 ) (
     input logic clk,
     input logic rst_n,
@@ -230,7 +231,8 @@ assign normalizer_in.last = in_inner.last && next_remaining == 0;
 DataNormalizer #(
     .data_t(data8_t),
     .NUM_ELEMENTS(DATABEAT_SIZE),
-    .ENABLE_COMPACTOR(ENABLE_COMPACTOR)
+    .ENABLE_COMPACTOR(ENABLE_COMPACTOR),
+    .BARREL_SHIFTER_REGISTER_LEVELS(BARREL_SHIFTER_REGISTER_LEVELS)
 ) inst_data_normalizer (
     .clk(clk),
     .rst_n(reset_synced),
