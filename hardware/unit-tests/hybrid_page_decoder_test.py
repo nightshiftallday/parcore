@@ -8,6 +8,39 @@ def read_data(filename: str) -> bytearray:
         return bytearray(f.read())
 
 
+def _decode_rle_bpe(body: bytes, bit_width: int, num_values: int) -> list[int]:
+    """Reference decoder for a parquet RLE/bit-packing hybrid run sequence.
+
+    `body` is the encoded payload *after* the bit_width byte. Used to derive the
+    expected HybridPageDecoder output (dictionary ids) for a fixture page.
+    """
+    def read_varint(i: int) -> tuple[int, int]:
+        shift = res = 0
+        while True:
+            byte = body[i]; i += 1
+            res |= (byte & 0x7f) << shift
+            if not (byte & 0x80):
+                return res, i
+            shift += 7
+
+    byte_width = (bit_width + 7) // 8
+    out: list[int] = []
+    i = 0
+    while len(out) < num_values:
+        header, i = read_varint(i)
+        if header & 1:  # bit-packed: (header >> 1) groups of 8 values
+            count = (header >> 1) * 8
+            nbytes = (count * bit_width + 7) // 8
+            bits = int.from_bytes(body[i:i + nbytes], 'little'); i += nbytes
+            mask = (1 << bit_width) - 1
+            out.extend((bits >> (k * bit_width)) & mask for k in range(count))
+        else:  # RLE run of (header >> 1) copies
+            run = header >> 1
+            val = int.from_bytes(body[i:i + byte_width], 'little'); i += byte_width
+            out.extend([val] * run)
+    return out[:num_values]
+
+
 def custom_page_header(data: bytearray, size: int) -> bytearray:
     skip = int.from_bytes(data[:4], 'little')
     bit_width = data[skip+4]
@@ -88,6 +121,25 @@ class HybridPageDecoderTestCase(fpga_test_case.FPGATestCase):
             [read_data('back_to_back_bpe_chunk_decompressed.bin'),
              read_data('rle_data_rg0_col0_chunk_decompressed.bin')],
             [[i % 200 for i in range(256)] + [0], _RLE_OUTPUT],
+        )
+
+    def test_run_decoder_not_ready_drain(self):
+        # Regression for a lock-up reproduced from lineitem's l_suppkey column
+        # (RLE_DICTIONARY, bit_width=4, 6005 values). The page's last value lands
+        # on the final input databeat, which also carries `last` plus trailing
+        # padding bytes. The decode finishes (next_num_values == 0) on the exact
+        # cycle that `last` beat is *present but not yet consumed*. The decoder
+        # previously reset() on a merely-present `last` beat, stranding it (ST_IDLE
+        # deasserts in.ready), which deadlocked the upstream pipeline. It must
+        # instead drain that beat.
+        fixture = read_data('lineitem_suppkey_hybrid_decompressed.bin')
+        skip = int.from_bytes(fixture[:4], 'little')
+        bit_width = fixture[skip + 4]
+        body = bytes(fixture[skip + 5:])
+        expected = _decode_rle_bpe(body, bit_width, 6005)
+        self.run_pages(
+            [fixture, read_data('rle_data_rg0_col0_chunk_decompressed.bin')],
+            [expected, _RLE_OUTPUT],
         )
 
     def test_mixed_pages(self):

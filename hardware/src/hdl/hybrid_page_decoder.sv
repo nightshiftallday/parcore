@@ -190,10 +190,11 @@ always_ff @(posedge clk) begin
                         // is padded to whole runs (e.g. multiples of 256), so
                         // the final input databeat(s) may carry trailing
                         // padding bytes and the page's `last`. If the page's
-                        // `last` beat has already been consumed (now or earlier)
-                        // there is nothing left to drain and we can reset;
-                        // otherwise drain the remaining payload until `last`.
-                        if (seen_last || (in.valid && in.last)) begin
+                        // `last` beat has already been consumed (earlier) or is
+                        // being consumed on this very cycle there is nothing left
+                        // to drain and we can reset; otherwise drain the
+                        // remaining payload until `last`.
+                        if (seen_last || (in.valid && in.last && run_decoder_in.ready)) begin
                             reset();
                         end else begin
                             run_decoder_conf_valid <= 1'b0;
