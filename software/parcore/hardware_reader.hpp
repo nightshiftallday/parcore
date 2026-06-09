@@ -10,7 +10,6 @@
 #include <parcore/column_chunk_decoder.hpp>
 #include <parcore/configuration.hpp>
 #include <parcore/metadata/metadata.hpp>
-#include <parcore/reader.hpp>
 #include <queue>
 
 namespace parcore {

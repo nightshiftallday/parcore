@@ -11,7 +11,7 @@ add_subdirectory(../../libstf/software libstf)
 target_link_libraries(calibratescheduler PUBLIC libstf)
 target_include_directories(calibratescheduler PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
-set(PARCORE_INCLUDE_CPU ON)
+set(PARCORE_WITHOUT_ARROW OFF)
 add_subdirectory(../../software parcore)
 target_link_libraries(calibratescheduler PUBLIC Parcore)
 target_include_directories(calibratescheduler PRIVATE ${PARCORE_INCLUDE_DIRS})

@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <arrow/type.h>
 #include <libstf/common.hpp>
 
 namespace parcore {
@@ -27,7 +26,6 @@ enum class Type : unsigned char {
 std::ostream &operator<<(std::ostream &os, Type typ);
 bool is_libstf_type(const Type &typ);
 libstf::type_t to_libstf_type(const Type &typ);
-std::shared_ptr<arrow::DataType> to_arrow_type(const Type &typ);
 
 struct ColumnChunk {
   Type type;
@@ -54,6 +52,12 @@ struct Metadata {
   static Metadata from(std::istream &is);
   bool operator==(const Metadata &rhs) const;
 };
+
+/**
+ * Looks up the column chunk at (chunk, column) in the metadata, bounds-checked.
+ */
+const ColumnChunk get_column_chunk(const Metadata &meta, size_t chunk,
+                                   size_t column);
 
 namespace utils {
 /**

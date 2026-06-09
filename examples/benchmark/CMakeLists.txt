@@ -11,7 +11,7 @@ add_subdirectory(../../libstf/software libstf)
 target_link_libraries(benchmark PUBLIC libstf)
 target_include_directories(benchmark PRIVATE ${LIBSTF_INCLUDE_DIRS})
 
-set(PARCORE_INCLUDE_CPU ON)
+set(PARCORE_WITHOUT_ARROW OFF)
 add_subdirectory(../../software parcore)
 target_link_libraries(benchmark PUBLIC Parcore)
 target_include_directories(benchmark PRIVATE ${PARCORE_INCLUDE_DIRS})

@@ -54,23 +54,6 @@ libstf::type_t to_libstf_type(const Type &typ) {
   }
 }
 
-std::shared_ptr<arrow::DataType> to_arrow_type(const Type &typ) {
-  switch (typ) {
-  case Type::BYTE_T:
-    return arrow::boolean();
-  case Type::INT32_T:
-    return arrow::int32();
-  case Type::INT64_T:
-    return arrow::int64();
-  case Type::FLOAT_T:
-    return arrow::float32();
-  case Type::DOUBLE_T:
-    return arrow::float64();
-  default:
-    throw std::runtime_error("cannot convert type to arrow::DataType");
-  }
-}
-
 std::ostream &operator<<(std::ostream &os, Compression c) {
   switch (c) {
   case Compression::RAW:
@@ -155,6 +138,21 @@ Metadata Metadata::from(std::istream &is) {
 
 bool Metadata::operator==(const Metadata &rhs) const {
   return column_names == rhs.column_names && groups == rhs.groups;
+}
+
+const ColumnChunk get_column_chunk(const Metadata &meta, size_t chunk,
+                                   size_t column) {
+  if (chunk >= meta.groups.size()) {
+    throw std::runtime_error("attempted to parse chunk which is out of bounds");
+  }
+  auto group = meta.groups[chunk];
+
+  if (column >= group.chunks.size()) {
+    throw std::runtime_error(
+        "attempted to parse column chunk which is out of bounds");
+  }
+
+  return group.chunks[column];
 }
 
 } // namespace metadata

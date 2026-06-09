@@ -41,7 +41,7 @@ public:
   const metadata::Metadata &metadata() const override { return hw_.metadata(); }
 
   void enqueue_column_chunk(size_t chunk, size_t column) override {
-    auto column_chunk = get_column_chunk(metadata(), chunk, column);
+    auto column_chunk = metadata::get_column_chunk(metadata(), chunk, column);
 
     auto handle = Handle{
         .num_values = column_chunk.num_values,

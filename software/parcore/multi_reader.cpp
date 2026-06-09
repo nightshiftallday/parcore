@@ -27,7 +27,7 @@ const metadata::Metadata &MultiReader::metadata() const {
 }
 
 void MultiReader::enqueue_column_chunk(size_t chunk, size_t column) {
-  auto column_chunk = get_column_chunk(metadata(), chunk, column);
+  auto column_chunk = metadata::get_column_chunk(metadata(), chunk, column);
   double cost = compute_cost(column_chunk);
 
   auto state = decoder_heap_.top();

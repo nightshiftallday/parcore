@@ -17,7 +17,7 @@ const metadata::Metadata &HybridReader::metadata() const {
 }
 
 void HybridReader::enqueue_column_chunk(size_t chunk, size_t column) {
-  auto column_chunk = get_column_chunk(metadata(), chunk, column);
+  auto column_chunk = metadata::get_column_chunk(metadata(), chunk, column);
 
   if (metadata::is_libstf_type(column_chunk.type)) {
     chosen_decoder_.push(Decoder::HARDWARE);

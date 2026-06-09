@@ -39,7 +39,7 @@ const libstf::stream_t &HardwareReader::decoder() const { return decoder_; }
 void HardwareReader::enqueue_column_chunk(size_t chunk, size_t column) {
   Profiler::open_regions({reader_prefix + "enqueue_column_chunk"});
 
-  auto column_chunk = get_column_chunk(meta_, chunk, column);
+  auto column_chunk = metadata::get_column_chunk(meta_, chunk, column);
 
   auto handle = column_chunk_decoder_->decode_column_chunk(column_chunk);
   handle->add_chunk(get_chunk_data(column_chunk));

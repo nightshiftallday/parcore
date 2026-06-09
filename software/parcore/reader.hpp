@@ -32,7 +32,4 @@ public:
   next_column_chunk() = 0;
 };
 
-const metadata::ColumnChunk get_column_chunk(const metadata::Metadata &meta,
-                                             size_t chunk, size_t column);
-
 } // namespace parcore

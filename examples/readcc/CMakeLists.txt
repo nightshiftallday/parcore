@@ -17,7 +17,7 @@ add_subdirectory(../../libstf/software libstf)
 target_link_libraries(readcc PRIVATE Coyote)
 target_include_directories(readcc PRIVATE ${COYOTE_INCLUDE_DIRS})
 
-set(PARCORE_INCLUDE_CPU ON)
+set(PARCORE_WITHOUT_ARROW OFF)
 add_subdirectory(../../software parcore)
 target_link_libraries(readcc PUBLIC Parcore)
 target_include_directories(readcc PRIVATE ${PARCORE_INCLUDE_DIRS})
