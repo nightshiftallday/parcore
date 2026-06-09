@@ -24,12 +24,13 @@ localparam NUM_WRITE_REGS = COLUMN_CHUNK_DECODER_CONFIG_REGS;
 `RESET_RESYNC // Reset pipelining
 
 // -- Read -----------------------------------------------------------------------------------------
-logic[AXIL_DATA_BITS - 1:0] values[2];
+logic[AXIL_DATA_BITS - 1:0] values[3];
 assign values[0] = COLUMN_CHUNK_DECODER_CONFIG_ID;
 assign values[1] = NUM_DECODERS;
+assign values[2] = MAX_NUM_ENQUEUED_BUFFERS;
 
 ConfigReadRegisterFile #(
-    .NUM_REGS(2)
+    .NUM_REGS(3)
 ) inst_read_regs (
     .clk(clk),
     .rst_n(reset_synced),

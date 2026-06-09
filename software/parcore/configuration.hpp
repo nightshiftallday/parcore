@@ -23,7 +23,7 @@ public:
    * @param num_values  The total number of values in this chunk.
    * @param typ         The type of values in this chunk.
    */
-  void process_column_chunk(libstf::stream_t decoder,
+  void enqueue_column_chunk(libstf::stream_t decoder,
                             metadata::Compression compression,
                             uint64_t num_values, libstf::type_t typ);
 

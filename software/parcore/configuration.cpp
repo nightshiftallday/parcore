@@ -33,9 +33,9 @@ ColumnChunkDecoderConfig::ColumnChunkDecoderConfig(
     uint32_t num_regs)
     : Config(cthread, addr_offset, num_regs),
       num_decoders_(read_register(1).value()),
-      maximum_num_enqueued_configs_(64 /* TODO: read from config */) {}
+      maximum_num_enqueued_configs_(read_register(2).value()) {}
 
-void ColumnChunkDecoderConfig::process_column_chunk(
+void ColumnChunkDecoderConfig::enqueue_column_chunk(
     libstf::stream_t decoder, metadata::Compression compression,
     uint64_t num_values, libstf::type_t typ) {
   if (decoder >= num_decoders_) {
@@ -45,7 +45,7 @@ void ColumnChunkDecoderConfig::process_column_chunk(
                              std::to_string(num_decoders_) + " decoders");
   }
 
-  Profiler::open_regions({column_config_prefix + "process_column_chunk"});
+  Profiler::open_regions({column_config_prefix + "enqueue_column_chunk"});
   auto offset = decoder * COLUMN_CHUNK_DECODER_REGS;
   write_register(
       libstf::ConfigRegister(offset + COLUMN_CHUNK_DECODER_COMPRESSION_ADDR,
@@ -54,7 +54,7 @@ void ColumnChunkDecoderConfig::process_column_chunk(
       offset + COLUMN_CHUNK_DECODER_NUM_VALUES_ADDR, num_values));
   write_register(libstf::ConfigRegister(offset + COLUMN_CHUNK_DECODER_TYP_ADDR,
                                         static_cast<uint64_t>(typ)));
-  Profiler::close_regions({column_config_prefix + "process_column_chunk"});
+  Profiler::close_regions({column_config_prefix + "enqueue_column_chunk"});
 }
 
 const libstf::stream_t ColumnChunkDecoderConfig::num_decoders() const {
