@@ -18,7 +18,6 @@ module PageHeaderParser #(
 
 typedef enum logic [3:0] {
     IDLE,              // Wait for column chunk configuration
-    LATCH_FIRST,
     PARSE_TYPE,
     SKIP_UNCOMP,
     PARSE_COMP,
@@ -29,7 +28,8 @@ typedef enum logic [3:0] {
     SKIP_VARINT,
     SKIP_BINARY,
     PAYLOAD_FLUSH_BUF, // Emit one beat from buffer_data residue
-    PAYLOAD_BYPASS     // Steady-state: Route in.data to payload
+    PAYLOAD_BYPASS,    // Steady-state: Route in.data to payload
+    FLUSH_CONF
 } state_t;
 
 state_t state, n_state;
@@ -148,16 +148,13 @@ always_comb begin
     // Hold valid until accepted, then deassert
     n_page_conf_valid = page_conf_valid && !page_conf.ready;
 
-    if (state == LATCH_FIRST) begin
-        // Tag byte of outer fid 1 is at in.data[0] so we always skip the first byte
-        n_buffer_data[NUM_BYTES - 2:0] = in.data[NUM_BYTES - 1:1];
-        n_remaining_bytes              = $countones(in.keep) - 1;
-    end else if (state != IDLE && state != PAYLOAD_FLUSH_BUF && state != PAYLOAD_BYPASS) begin
-        if (remaining_bytes == 3) begin
+    if (state != IDLE && state != PAYLOAD_FLUSH_BUF && state != PAYLOAD_BYPASS && state != FLUSH_CONF) begin
+        if (remaining_bytes < 4) begin
             if (in.valid) begin
-                // Append an input data beat to the 3 buffered bytes.
-                n_buffer_data[NUM_BYTES + 2:3] = in.data;
-                n_remaining_bytes              = $countones(in.keep) + 3;
+                // Append the input data beat behind the bytes already buffered. We clamp the 
+                // remaining_bytes to two bits because it can be at max 3.
+                n_buffer_data[remaining_bytes[1:0] +: NUM_BYTES] = in.data;
+                n_remaining_bytes                                = remaining_bytes + $countones(in.keep);
 
                 in.ready = 1'b1;
             end
@@ -179,18 +176,14 @@ always_comb begin
         IDLE: begin
             if (chunk_conf.valid) begin
                 n_remaining_chunk_num_values = chunk_conf.data.num_values;
-                n_state                      = LATCH_FIRST;
-            end
-        end
-        LATCH_FIRST: begin
-            if (in.valid) begin
-                in.ready     = 1'b1;
-                n_skip_bytes = '0;
-                n_state      = PARSE_TYPE;
+                n_remaining_bytes            = 0;
+                // Tag byte of outer fid 1 is first byte of first beat so we always skip it
+                n_skip_bytes                 = 1;
+                n_state                      = PARSE_TYPE;
             end
         end
         PARSE_TYPE: begin
-            if (skip_bytes == 0 && remaining_bytes != 3) begin
+            if (skip_bytes == 0 && remaining_bytes > 3) begin
                 // buffer_data[0] holds varint byte 0 of page_type; prefetch already consumed it.
                 // DATA_PAGE=0, DICTIONARY_PAGE=2 (IndexPageHeader and DataPageHeaderV2 are currently not supported)
                 n_parsed_page_type = (cur_value == 32'd2) ? PAGE_TYPE_DICT : PAGE_TYPE_HYBRID;
@@ -312,19 +305,10 @@ always_comb begin
                     // Mask off bytes beyond the page boundary.
                     n_payload_keep = (remaining_comp_size == NUM_BYTES) ? '1 : ((NUM_BYTES)'(1) << remaining_comp_size) - 1;
 
-                    n_skip_bytes = remaining_comp_size + 32'd1;
+                    n_remaining_comp_size = 0;
+                    n_skip_bytes          = remaining_comp_size + 32'd1;
 
-                    if (!n_page_conf_valid) begin
-                        if (remaining_chunk_num_values == 0) begin
-                            n_state = IDLE;
-                        end else begin
-                            n_state = PARSE_TYPE;
-                        end
-                    end else begin
-                        n_remaining_comp_size = 0;
-
-                        n_state = PAYLOAD_BYPASS;
-                    end
+                    n_state = FLUSH_CONF;
                 end else begin
                     // Whole buffer goes out this cycle (or exactly matches comp_size). Rest comes 
                     // from `in` via PAYLOAD_BYPASS.
@@ -332,8 +316,13 @@ always_comb begin
 
                     n_remaining_bytes     = '0;
                     n_remaining_comp_size = remaining_comp_size - remaining_bytes;
+                    n_skip_bytes          = 1; // Need to skip the first byte of the following header
 
-                    n_state = PAYLOAD_BYPASS;
+                    if (remaining_comp_size == remaining_bytes) begin
+                        n_state = FLUSH_CONF;
+                    end else begin
+                        n_state = PAYLOAD_BYPASS;
+                    end
                 end
             end
         end
@@ -349,7 +338,7 @@ always_comb begin
 
                     if (in.valid) begin
                         if (remaining_comp_size < NUM_BYTES) begin
-                            // Last beat for this page. Mask off any bytes that lie beyond 
+                            // Last beat for this page. Mask off any bytes that lie beyond
                             // remaining_comp_size (they belong to a following page header).
                             n_payload_keep        = ((NUM_BYTES)'(1) << remaining_comp_size) - 1;
                             n_remaining_comp_size = 0;
@@ -361,22 +350,21 @@ always_comb begin
                             n_remaining_bytes              = $countones(in.keep);
                             n_skip_bytes                   = remaining_comp_size + 1;
 
-                            if (!n_page_conf_valid) begin
-                                if (remaining_chunk_num_values == 0) begin
-                                    n_state = IDLE;
-                                end else begin
-                                    n_state = PARSE_TYPE;
-                                end
-                            end
+                            n_state = FLUSH_CONF;
                         end else begin
                             n_payload_keep        = '1;
                             n_remaining_comp_size = remaining_comp_size - NUM_BYTES;
+
+                            if (remaining_comp_size == NUM_BYTES) begin
+                                n_state = FLUSH_CONF;
+                            end
                         end
                     end
                 end
             end
-
-            if (remaining_comp_size == 0 && !n_page_conf_valid) begin
+        end
+        FLUSH_CONF: begin
+            if (!n_page_conf_valid) begin
                 if (remaining_chunk_num_values == 0) begin
                     n_state = IDLE;
                 end else begin

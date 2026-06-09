@@ -240,6 +240,59 @@ def _make_synthetic_dict(num_values: int, payload_size: int) -> tuple[bytearray,
     return chunk, page
 
 
+# Real PLAIN dictionary payload from column chunk 5 of l_discount (TPC-H SF1
+# lineitem, col 6). It is exactly 50 bytes, which together with the 14-byte
+# dictionary page header lands the *following* data-page header on a 64-byte
+# AXI-beat boundary — the alignment that triggers the header misparse below.
+_L_DISCOUNT_CC5_DICT_PAYLOAD = bytes.fromhex(
+    '580406000901000709070400050d0800010d0800020d0800090d0800030d'
+    '0800040d08000a0d0811011c0800000000000000'
+)
+
+def _page_boundary_aligned_case() -> _TestCase:
+    """Synthetic repro of the l_discount header misparse (drain lock-up root cause).
+
+    Uses the real dictionary payload from column chunk 5 of l_discount. That
+    payload is 50 bytes; with the 14-byte dictionary page header the dict page is
+    exactly 64 bytes, so it ends *on* a 64-byte AXI-beat boundary (NUM_BYTES=64)
+    and the following data-page header starts at byte 0 of the next beat.
+
+    In that alignment the parser used to misread the data page's num_values
+    varint: the first header byte (0x15, the page_type tag) was consumed as the
+    num_values varint (15 -> zigzag -8 -> 0xFFFFFFF8) instead of decoding the real
+    num_values (122880). Downstream that bogus count wedges the RunDecoder and
+    deadlocks the pipeline; here it surfaces directly as a wrong page_conf
+    num_values / mis-sized payload passthrough.
+
+    The data page is a RLE_DICT (hybrid) page. Its payload size is chosen so the
+    data page also ends cleanly; only the header alignment matters for the bug.
+    """
+    dict_payload = bytearray(_L_DISCOUNT_CC5_DICT_PAYLOAD)
+    dict_ps      = len(dict_payload)            # 50 (compressed)
+    dict_us      = 88                           # uncompressed: real value, a 2-byte
+                                                # varint that makes the header 14 bytes
+    dict_nv      = 11
+    dict_hdr     = _make_dict_page_header(dict_nv, dict_us, dict_ps)
+    assert len(dict_hdr) == 14, len(dict_hdr)
+    assert len(dict_hdr) + dict_ps == 64, "dict page must end on a 64-byte beat boundary"
+    dict_page = _ExpectedPage(
+        page_type  = _PageType.DICT,
+        num_values = dict_nv,
+        last       = False,
+        payload    = bytearray(dict_payload),
+    )
+
+    data_nv, data_ps = 122880, 96
+    data_chunk, data_page = _make_synthetic_hybrid(data_nv, data_ps, last=True)
+
+    chunk = bytearray(dict_hdr) + dict_payload + bytearray(data_chunk)
+    return _TestCase(
+        chunk_num_values = data_nv,
+        chunk_bytes      = chunk,
+        pages            = [dict_page, data_page],
+    )
+
+
 def _single_plain_page_case() -> _TestCase:
     num_values = 20
     payload_size = 64
@@ -623,6 +676,7 @@ _SYNTHETIC_CASES = [
     _data_page_all_optional_fields_case(),
     _data_page_sparse_stats_case(),
     _deep_header_small_payload_case(),
+    _page_boundary_aligned_case(),
 ]
 
 _PARQUET_CASES = _extract_parquet_column_chunks(_PARQUET_PATH)
@@ -718,3 +772,9 @@ class PageHeaderParserTestCase(fpga_test_case.FPGATestCase):
         Verifies that IDLE fully resets internal state between chunks so the
         second chunk is parsed correctly after the first completes."""
         self._run_sequential([_PARQUET_CASES[0], _PARQUET_CASES[6]])
+
+    def test_beat_boundary_aligned_header(self):
+        """The first page ends *exactly* on a 64-byte AXI-beat boundary (header 14 + 
+        payload 50 = 64) and the following page header starts at byte 0 of the next beat. In that 
+        alignment the parser used to get misaligned."""
+        self._run(_SYNTHETIC_CASES[7])
