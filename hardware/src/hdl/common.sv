@@ -91,12 +91,22 @@ typedef struct packed {
     logic       last;
 } page_conf_t;
 
+typedef struct packed {
+    stream_profile_t in;
+    stream_profile_t out;
+} decoder_profile_t;
+
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
 
 parameter longint unsigned COLUMN_CHUNK_DECODER_CONFIG_REGS = 3;
 parameter longint unsigned COLUMN_CHUNK_DECODER_CONFIG_ID = 64'h5c19f934407065bd;
 
-parameter longint unsigned PAGE_DECODER_CONFIG_REGS = 3;
-parameter longint unsigned PAGE_DECODER_CONFIG_ID = 64'hc0779792c320630e;
+// Read address space of the ColumnChunkDecoderConfig: 3 info registers plus
+// 8 profiling counters (4 input + 4 output) per decoder.
+parameter longint unsigned COLUMN_CHUNK_DECODER_INFO_REGS    = 3;
+parameter longint unsigned COLUMN_CHUNK_DECODER_PROFILE_REGS = 8;
+function automatic longint unsigned COLUMN_CHUNK_DECODER_READ_REGS(input int num_decoders);
+    return COLUMN_CHUNK_DECODER_INFO_REGS + COLUMN_CHUNK_DECODER_PROFILE_REGS * num_decoders;
+endfunction
 
 endpackage

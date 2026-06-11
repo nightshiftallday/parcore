@@ -34,7 +34,7 @@ read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_CONFIG_REGS*1})
+    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_READ_REGS(1)})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -45,6 +45,10 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
+// No decoder is instantiated in this test, so the profiling counters are tied off.
+decoder_profile_t profile[1];
+assign profile[0] = '0;
+
 ready_valid_i #(column_chunk_conf_t) chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(
     .NUM_DECODERS(1)
@@ -54,6 +58,8 @@ ColumnChunkDecoderConfig #(
 
     .write_config(write_configs[0]),
     .read_config(read_configs[0]),
+
+    .profile(profile),
 
     .out(chunk_conf)
 );

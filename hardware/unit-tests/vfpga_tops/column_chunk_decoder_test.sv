@@ -29,7 +29,7 @@ read_config_i  read_configs [1](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
     .NUM_CONFIGS(1),
-    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_CONFIG_REGS})
+    .ADDR_SPACE_SIZES({COLUMN_CHUNK_DECODER_READ_REGS(1)})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -39,6 +39,8 @@ GlobalConfig #(
     .write_configs(write_configs),
     .read_configs(read_configs)
 );
+
+decoder_profile_t profile[1];
 
 ready_valid_i #(column_chunk_conf_t) column_chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(
@@ -50,7 +52,9 @@ ColumnChunkDecoderConfig #(
     .write_config(write_configs[0]),
     .read_config(read_configs[0]),
 
-    .out(column_chunk_conf)
+    .out(column_chunk_conf),
+
+    .profile(profile)
 );
 
 /* -- INPUT ------------------------------------------------------------- */
@@ -93,8 +97,10 @@ ColumnChunkDecoder #(
     .clk(clk),
     .rst_n(rst_n),
 
-    .column_chunk_conf(column_chunk_conf[0]),
+    .conf(column_chunk_conf[0]),
 
     .in(in),
-    .out(out)
+    .out(out),
+
+    .profile(profile[0])
 );

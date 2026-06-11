@@ -1,5 +1,11 @@
 `timescale 1ns / 1ps
 
+import lynxTypes::AXI_DATA_BITS;
+import libstf::data8_t;
+import libstf::data32_t;
+import libstf::type_t;
+import parcore::*;
+
 module PageHeaderParser #(
     parameter NUM_BYTES = AXI_DATA_BITS / 8
 ) (

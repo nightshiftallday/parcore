@@ -15,10 +15,12 @@ module ColumnChunkDecoder #(
     input logic clk,
     input logic rst_n,
 
-    ready_valid_i.s column_chunk_conf, // #(column_chunk_conf_t)
+    ready_valid_i.s conf, // #(column_chunk_conf_t)
 
-    ndata_i.s       in,      // #(data8_t, DATABEAT_SIZE) raw column-chunk bytes
-    typed_ndata_i.m out      // #(DATABEAT_SIZE)
+    ndata_i.s       in,  // #(data8_t, DATABEAT_SIZE) raw column-chunk bytes
+    typed_ndata_i.m out, // #(DATABEAT_SIZE)
+
+    output decoder_profile_t profile
 );
 
 `RESET_RESYNC // Reset pipelining
@@ -55,7 +57,7 @@ ReadyValidDuplicator #(2) inst_chunk_conf_duplicator (
     .clk(clk),
     .rst_n(reset_synced),
 
-    .in(column_chunk_conf),
+    .in(conf),
     .out(chunk_confs)
 );
 ndata_i #(data8_t, DATABEAT_SIZE) page_payload(clk, reset_synced);
@@ -389,6 +391,33 @@ end
 
 assign chunk_confs[0].ready = state == ST_IDLE;
 assign page_conf.ready      = state == ST_CONFIGURED;
+
+// ------ Stream profiling ------------------------
+StreamProfiler inst_profile_in (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .last (in.last),
+    .valid(in.valid),
+    .ready(in.ready),
+
+    .stop(1'b0),
+
+    .profile(profile.in)
+);
+
+StreamProfiler inst_profile_out (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .last (out.last),
+    .valid(out.valid),
+    .ready(out.ready),
+
+    .stop(1'b0),
+
+    .profile(profile.out)
+);
 
 // `ifdef SYNTHESIS
 // ila_page_decoder inst_ila_page_decoder (
