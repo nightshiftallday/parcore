@@ -57,6 +57,27 @@ void ColumnChunkDecoderConfig::enqueue_column_chunk(
   Profiler::close_regions({column_config_prefix + "enqueue_column_chunk"});
 }
 
+DecoderProfile ColumnChunkDecoderConfig::read_profile(libstf::stream_t decoder) {
+  if (decoder >= num_decoders_) {
+    throw std::runtime_error("Attempted to read profile of ColumnChunkDecoder " + 
+                             std::to_string(decoder) + ", out of " + std::to_string(num_decoders_) + 
+                             " decoders");
+  }
+
+  auto base = COLUMN_CHUNK_DECODER_INFO_REGS + decoder * COLUMN_CHUNK_DECODER_PROFILE_REGS;
+
+  DecoderProfile profile;
+  profile.in.handshakes_cycles = read_register(base + 0).value();
+  profile.in.starved_cycles = read_register(base + 1).value();
+  profile.in.stalled_cycles = read_register(base + 2).value();
+  profile.in.idle_cycles = read_register(base + 3).value();
+  profile.out.handshakes_cycles = read_register(base + 4).value();
+  profile.out.starved_cycles = read_register(base + 5).value();
+  profile.out.stalled_cycles = read_register(base + 6).value();
+  profile.out.idle_cycles = read_register(base + 7).value();
+  return profile;
+}
+
 const libstf::stream_t ColumnChunkDecoderConfig::num_decoders() const {
   return num_decoders_;
 }
