@@ -20,13 +20,13 @@ class _ColumnChunk:
     chunk_bytes: bytearray   # full column-chunk: thrift headers + payloads concatenated
     stream_type: "fpga_stream.StreamType" = fpga_stream.StreamType.SIGNED_INT_64
 
-    def _registers(self) -> dict[int, bytearray]:
+    def _register(self) -> bytearray:
         type_t = stream_type_to_libstf_type_t(self.stream_type)
-        return {
-            0: bytearray(int(1 if self.compression else 0).to_bytes(1, 'big')), # compression_t
-            1: bytearray(self.num_values.to_bytes(4, 'little')),                # num_values
-            2: bytearray(type_t.to_bytes(1, 'big')),                            # type_t
-        }
+        # column_chunk_conf_t packs (MSB -> LSB) as:
+        #   compression_t [1 bit] | num_values [32 bits] | type_t [3 bits]
+        compression = 1 if self.compression else 0
+        packed = (compression << 35) | ((self.num_values & 0xFFFFFFFF) << 3) | (type_t & 0x7)
+        return bytearray(packed.to_bytes(8, 'little'))
 
 
 def read_bytes(filename: str) -> bytearray:
@@ -182,8 +182,7 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
         # inside ColumnChunkDecoder by PageHeaderParser. Offset 3 mirrors
         # page_header_parser_test.py (GlobalConfig occupies regs 0..2).
         for input in inputs:
-            for i, value in input._registers().items():
-                self.write_register(fpga_register.vFPGARegister(3 + i, value))
+            self.write_register(fpga_register.vFPGARegister(3, input._register()))
 
         # One stream input per column chunk (full thrift-wrapped bytes).
         for input in inputs:

@@ -21,7 +21,6 @@ module ColumnChunkDecoderConfig #(
 );
 
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
-localparam NUM_WRITE_REGS = COLUMN_CHUNK_DECODER_CONFIG_REGS;
 
 // Info registers followed by the per-decoder profiling counters. Each decoder
 // contributes 8 counters (4 input + 4 output stream profile counters).
@@ -60,23 +59,7 @@ ConfigReadRegisterFile #(
 
 // -- Write ----------------------------------------------------------------------------------------
 for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    ready_valid_i #(compression_t) compression(clk, reset_synced);
-    ConfigWriteFIFO #(I*NUM_WRITE_REGS+0, MAX_NUM_ENQUEUED_BUFFERS, compression_t) inst_compression (clk, reset_synced, write_config, compression);
-
-    ready_valid_i #(data32_t) num_values(clk, reset_synced);
-    ConfigWriteFIFO #(I*NUM_WRITE_REGS+1, MAX_NUM_ENQUEUED_BUFFERS, data32_t) inst_num_values (clk, reset_synced, write_config, num_values);
-
-    ready_valid_i #(type_t) typ(clk, reset_synced);
-    ConfigWriteFIFO #(I*NUM_WRITE_REGS+2, MAX_NUM_ENQUEUED_BUFFERS, type_t) inst_typ (clk, reset_synced, write_config, typ);
-
-    assign out[I].data.compression       = compression.data;
-    assign out[I].data.num_values        = num_values.data;
-    assign out[I].data.typ               = typ.data;
-    assign out[I].valid = compression.valid && num_values.valid && typ.valid;
-
-    assign compression.ready       = num_values.valid && typ.valid && out[I].ready;
-    assign num_values.ready        = compression.valid && typ.valid && out[I].ready;
-    assign typ.ready               = compression.valid && num_values.valid && out[I].ready;
+    ConfigWriteFIFO #(I, MAX_NUM_ENQUEUED_BUFFERS, column_chunk_conf_t) inst_conf (clk, reset_synced, write_config, out[I]);
 end
 
 endmodule

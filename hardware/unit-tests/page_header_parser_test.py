@@ -653,13 +653,16 @@ def _page_conf_record(page: _ExpectedPage) -> bytearray:
     rec[5] = 1 if page.last else 0
     return rec
 
-def _chunk_conf_registers(num_values: int) -> dict[int, bytearray]:
-    """ColumnChunkDecoderConfig register values (3 regs at offset 0)."""
-    return {
-        0: bytearray(int(0).to_bytes(1, 'big')),          # compression=RAW
-        1: bytearray(num_values.to_bytes(4, 'little')),   # num_values
-        2: bytearray(int(2).to_bytes(1, 'big')),          # type=INT64 (unused here)
-    }
+def _chunk_conf_register(num_values: int) -> bytearray:
+    """ColumnChunkDecoderConfig packed register value (single reg at offset 3).
+
+    column_chunk_conf_t packs (MSB -> LSB) as:
+      compression_t [1 bit] | num_values [32 bits] | type_t [3 bits]
+    """
+    compression = 0  # RAW
+    type_t      = 2  # INT64 (unused here)
+    packed = (compression << 35) | ((num_values & 0xFFFFFFFF) << 3) | (type_t & 0x7)
+    return bytearray(packed.to_bytes(8, 'little'))
 
 
 # ---------------------------------------------------------------------------
@@ -690,12 +693,14 @@ class PageHeaderParserTestCase(fpga_test_case.FPGATestCase):
     alternative_vfpga_top_file = "vfpga_tops/page_header_parser_test.sv"
     debug_mode = True
 
-    def _run_sequential(self, tcs: list[_TestCase]) -> None:
-        """Drive multiple column chunks back-to-back in a single simulation run."""
+    def _run(self, tcs: list[_TestCase]) -> None:
         for tc in tcs:
-            for reg_idx, value in _chunk_conf_registers(tc.chunk_num_values).items():
-                self.write_register(fpga_register.vFPGARegister(3 + reg_idx, value))
+            self.write_register(fpga_register.vFPGARegister(3, _chunk_conf_register(tc.chunk_num_values)))
+
             self.set_stream_input(0, tc.chunk_bytes)
+
+            # Expected output stream 0: one transfer per page (each ends with last=1)
+            # Expected output stream 1: one 6-byte page_conf record per page
             for page in tc.pages:
                 self.set_expected_output(0, page.payload)
                 self.set_expected_output(1, _page_conf_record(page))
@@ -703,78 +708,61 @@ class PageHeaderParserTestCase(fpga_test_case.FPGATestCase):
         self.simulate_fpga()
         self.assert_simulation_output()
 
-    def _run(self, tc: _TestCase) -> None:
-        # Write chunk_conf registers
-        for reg_idx, value in _chunk_conf_registers(tc.chunk_num_values).items():
-            self.write_register(fpga_register.vFPGARegister(3 + reg_idx, value))
-
-        # Input: raw column-chunk bytes
-        self.set_stream_input(0, tc.chunk_bytes)
-
-        # Expected output stream 0: one transfer per page (each ends with last=1)
-        # Expected output stream 1: one 6-byte page_conf record per page
-        for page in tc.pages:
-            self.set_expected_output(0, page.payload)
-            self.set_expected_output(1, _page_conf_record(page))
-
-        self.simulate_fpga()
-        self.assert_simulation_output()
-
     # -- Synthetic tests -----------------------------------------------------
 
     def test_single_plain_page(self):
-        self._run(_SYNTHETIC_CASES[0])
+        self._run([_SYNTHETIC_CASES[0]])
 
     def test_single_hybrid_page(self):
-        self._run(_SYNTHETIC_CASES[1])
+        self._run([_SYNTHETIC_CASES[1]])
 
     def test_dict_plus_hybrid(self):
-        self._run(_SYNTHETIC_CASES[2])
+        self._run([_SYNTHETIC_CASES[2]])
 
     def test_large_plain_page(self):
-        self._run(_SYNTHETIC_CASES[3])
+        self._run([_SYNTHETIC_CASES[3]])
 
     def test_data_page_all_optional_fields(self):
         """DataPageHeader with CRC and all 8 Statistics fields populated."""
-        self._run(_SYNTHETIC_CASES[4])
+        self._run([_SYNTHETIC_CASES[4]])
 
     def test_data_page_sparse_statistics(self):
         """Statistics with non-sequential fids (deltas 1, 4, 3) — exercises
         high-nibble dispatch in IS_END."""
-        self._run(_SYNTHETIC_CASES[5])
+        self._run([_SYNTHETIC_CASES[5]])
 
     def test_overfull_header_buffer(self):
         """Long header (CRC + full Statistics with binary fields) forces a buffer
         refill inside IS_END, leaving remaining_bytes > NUM_BYTES when
         PAYLOAD_DRAIN_BUF is entered."""
-        self._run(_SYNTHETIC_CASES[6])
+        self._run([_SYNTHETIC_CASES[6]])
 
     # -- lineitem.parquet tests ----------------------------------------------
 
     def test_parquet_l_orderkey(self):
         """Plain data page: INT64, no dictionary."""
-        self._run(_PARQUET_CASES[0])
+        self._run([_PARQUET_CASES[0]])
 
     def test_parquet_l_discount(self):
         """Dictionary page + RLE_DICT data page: INT64."""
-        self._run(_PARQUET_CASES[6])
+        self._run([_PARQUET_CASES[6]])
 
     def test_parquet_l_extendedprice(self):
         """Plain data page: INT64, no dictionary (large payload)."""
-        self._run(_PARQUET_CASES[5])
+        self._run([_PARQUET_CASES[5]])
 
     def test_parquet_l_shipdate(self):
         """Plain data page: INT32, no dictionary."""
-        self._run(_PARQUET_CASES[10])
+        self._run([_PARQUET_CASES[10]])
 
     def test_sequential_column_chunks(self):
         """Two different column chunks driven back-to-back in one simulation.
         Verifies that IDLE fully resets internal state between chunks so the
         second chunk is parsed correctly after the first completes."""
-        self._run_sequential([_PARQUET_CASES[0], _PARQUET_CASES[6]])
+        self._run([_PARQUET_CASES[0], _PARQUET_CASES[6]])
 
     def test_beat_boundary_aligned_header(self):
         """The first page ends *exactly* on a 64-byte AXI-beat boundary (header 14 + 
         payload 50 = 64) and the following page header starts at byte 0 of the next beat. In that 
         alignment the parser used to get misaligned."""
-        self._run(_SYNTHETIC_CASES[7])
+        self._run([_SYNTHETIC_CASES[7]])
