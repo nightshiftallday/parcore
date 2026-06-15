@@ -89,7 +89,9 @@ valid_i #(output_t) next_out(clk, reset_synced), curr_out(clk, reset_synced);
 logic can_decode_next;
 
 always_comb begin
-    next_out.valid = 0;
+    // Default assignments prevent latch inference on next_out.data.
+    next_out.data  = OUTPUT_RLE;
+    next_out.valid = 1'b0;
 
     case (state)
         ST_DECODE_RLE: begin
