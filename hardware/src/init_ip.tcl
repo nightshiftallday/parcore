@@ -1,4 +1,16 @@
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_run_decoder
+# Select the correct ILA IP for the target architecture.
+# NOTE: On Versal (e.g. V80) the IP is called axis_ila instead of ila,
+#       and the versioned -version flag of the UltraScale+ ila core does not apply.
+if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+    set ila_create_args [list -name ila -vendor xilinx.com -library ip -version 6.2]
+} elseif {$cfg(fpga_arch) eq "versal"} {
+    set ila_create_args [list -name axis_ila -vendor xilinx.com -library ip]
+} else {
+    puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+    exit 1
+}
+
+create_ip {*}$ila_create_args -module_name ila_run_decoder
 set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {40} \
     CONFIG.C_EN_STRG_QUAL {1} \
@@ -44,7 +56,7 @@ set_property -dict [list \
     CONFIG.C_PROBE39_WIDTH {32} \
 ] [get_ips ila_run_decoder]
 
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_page_decoder
+create_ip {*}$ila_create_args -module_name ila_page_decoder
 set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {30} \
     CONFIG.C_EN_STRG_QUAL {1} \
@@ -80,7 +92,7 @@ set_property -dict [list \
     CONFIG.C_PROBE29_WIDTH {1} \
 ] [get_ips ila_page_decoder]
 
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_hybrid_page_decoder
+create_ip {*}$ila_create_args -module_name ila_hybrid_page_decoder
 set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {10} \
     CONFIG.C_EN_STRG_QUAL {1} \
@@ -96,7 +108,7 @@ set_property -dict [list \
     CONFIG.C_PROBE9_WIDTH {64} \
 ] [get_ips ila_hybrid_page_decoder]
 
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_decompressor
+create_ip {*}$ila_create_args -module_name ila_decompressor
 set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {18} \
     CONFIG.C_EN_STRG_QUAL {1} \
@@ -120,7 +132,7 @@ set_property -dict [list \
     CONFIG.C_PROBE17_WIDTH {64} \
 ] [get_ips ila_decompressor]
 
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_top
+create_ip {*}$ila_create_args -module_name ila_top
 set_property -dict [list \
     CONFIG.C_NUM_OF_PROBES {9} \
     CONFIG.C_EN_STRG_QUAL {1} \
