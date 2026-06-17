@@ -6,6 +6,21 @@ import parcore::*;
 `include "libstf_macros.svh"
 `include "config_macros.svh"
 
+interface decoder_profile_i;
+    decoder_profile_t counters;
+    logic             stop;
+
+    modport m (
+        input  stop,
+        output counters
+    );
+
+    modport s (
+        input  counters,
+        output stop
+    );
+endinterface
+
 module ColumnChunkDecoderConfig #(
     parameter NUM_DECODERS
 ) (
@@ -17,7 +32,7 @@ module ColumnChunkDecoderConfig #(
 
     ready_valid_i.m out[NUM_DECODERS], // #(column_chunk_conf_t)
 
-    input decoder_profile_t profile[NUM_DECODERS]
+    decoder_profile_i.s profile[NUM_DECODERS]
 );
 
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
@@ -37,14 +52,14 @@ assign values[1] = NUM_DECODERS;
 assign values[2] = MAX_NUM_ENQUEUED_BUFFERS;
 
 for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 0] = profile[I].in.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 1] = profile[I].in.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 2] = profile[I].in.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 3] = profile[I].in.idle_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 4] = profile[I].out.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 5] = profile[I].out.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 6] = profile[I].out.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 7] = profile[I].out.idle_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 0] = profile[I].counters.in.handshakes_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 1] = profile[I].counters.in.starved_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 2] = profile[I].counters.in.stalled_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 3] = profile[I].counters.in.idle_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 4] = profile[I].counters.out.handshakes_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 5] = profile[I].counters.out.starved_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 6] = profile[I].counters.out.stalled_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 7] = profile[I].counters.out.idle_cycles;
 end
 
 ConfigReadRegisterFile #(
@@ -56,6 +71,17 @@ ConfigReadRegisterFile #(
     .in(read_config),
     .values(values)
 );
+
+// -- Profile stop ---------------------------------------------------------------------------------
+// The host reads a decoder's 8 profile counters in ascending order. We detect the last read 
+// handshake and pulse stop[I] so the profilers reset once the full snapshot has been read out.
+logic read_handshake;
+assign read_handshake = read_config.read_valid && read_config.read_ready;
+
+for (genvar I = 0; I < NUM_DECODERS; I++) begin
+    localparam int LAST_PROFILE_REG = NUM_INFO_REGS + NUM_PROFILE_REGS * (I + 1) - 1;
+    assign profile[I].stop = read_handshake && (read_config.read_addr == LAST_PROFILE_REG);
+end
 
 // -- Write ----------------------------------------------------------------------------------------
 for (genvar I = 0; I < NUM_DECODERS; I++) begin

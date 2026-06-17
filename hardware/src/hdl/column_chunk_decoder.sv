@@ -20,7 +20,7 @@ module ColumnChunkDecoder #(
     ndata_i.s       in,  // #(data8_t, DATABEAT_SIZE) raw column-chunk bytes
     typed_ndata_i.m out, // #(DATABEAT_SIZE)
 
-    output decoder_profile_t profile
+    decoder_profile_i.m profile
 );
 
 `RESET_RESYNC // Reset pipelining
@@ -392,6 +392,14 @@ assign chunk_confs[0].ready = state == ST_IDLE;
 assign page_conf.ready      = state == ST_CONFIGURED;
 
 // ------ Stream profiling ------------------------
+stream_profile_i profile_in ();
+stream_profile_i profile_out();
+
+assign profile.counters.in  = profile_in.counters;
+assign profile.counters.out = profile_out.counters;
+assign profile_in.stop      = profile.stop;
+assign profile_out.stop     = profile.stop;
+
 StreamProfiler inst_profile_in (
     .clk(clk),
     .rst_n(reset_synced),
@@ -400,9 +408,7 @@ StreamProfiler inst_profile_in (
     .valid(in.valid),
     .ready(in.ready),
 
-    .stop(1'b0),
-
-    .profile(profile.in)
+    .profile(profile_in)
 );
 
 StreamProfiler inst_profile_out (
@@ -413,9 +419,7 @@ StreamProfiler inst_profile_out (
     .valid(out.valid),
     .ready(out.ready),
 
-    .stop(1'b0),
-
-    .profile(profile.out)
+    .profile(profile_out)
 );
 
 // `ifdef SYNTHESIS

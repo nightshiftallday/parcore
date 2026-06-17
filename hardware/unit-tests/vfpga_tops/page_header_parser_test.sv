@@ -46,8 +46,8 @@ GlobalConfig #(
 );
 
 // No decoder is instantiated in this test, so the profiling counters are tied off.
-decoder_profile_t profile[1];
-assign profile[0] = '0;
+decoder_profile_i profile[1]();
+assign profile[0].counters = '0;
 
 ready_valid_i #(column_chunk_conf_t) chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(

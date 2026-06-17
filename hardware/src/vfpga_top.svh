@@ -48,7 +48,7 @@ MemConfig #(
     .out(mem_conf)
 );
 
-decoder_profile_t profile[N_STREAMS];
+decoder_profile_i profile[N_STREAMS]();
 
 ready_valid_i #(column_chunk_conf_t) column_chunk_conf[N_STREAMS](.*);
 ColumnChunkDecoderConfig #(

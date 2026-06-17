@@ -40,7 +40,7 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-decoder_profile_t profile[1];
+decoder_profile_i profile[1]();
 
 ready_valid_i #(column_chunk_conf_t) column_chunk_conf[1](.*);
 ColumnChunkDecoderConfig #(
