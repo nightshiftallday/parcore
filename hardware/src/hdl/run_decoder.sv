@@ -637,7 +637,7 @@ localparam FIFO_DEPTH = MAX_IN_TRANSIT * 8;
 
 logic fifo_out_ready;
 logic[$clog2(FIFO_DEPTH):0] filling_level;
-FIFO #(
+MehdiFIFO #(
     .DEPTH(FIFO_DEPTH),
     .WIDTH($bits(output_t))
 ) inst_output_fifo (

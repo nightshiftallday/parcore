@@ -194,7 +194,7 @@ always_ff @(posedge clk) begin
     end
 end
 
-FIFO #(
+MehdiFIFO #(
     .DEPTH(MAX_IN_TRANSIT),
     .WIDTH($bits(type_t))
 ) inst_type_fifo (
