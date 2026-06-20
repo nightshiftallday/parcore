@@ -114,7 +114,7 @@ AXI4S axi_host_recv_1 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axis_host_recv[1], axi_host_recv_1)
 
 data_i #(data32_t) in_lens_with_bubbles (.clk(clk), .rst_n(rst_n));
-AXIToData #(data32_t) inst_axi_to_ndata_lens (
+AXIToData #(.data_t(data32_t), .PRUNE_EMPTY_DATA(1)) inst_axi_to_ndata_lens (
     .clk(clk),
     .rst_n(rst_n),
 
