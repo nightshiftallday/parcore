@@ -86,6 +86,11 @@ typedef struct packed {
 } column_chunk_conf_t;
 
 typedef struct packed {
+    data32_t      num_values;
+    offset_t      offset;
+} plain_str_decoder_conf_t;
+
+typedef struct packed {
     page_type_t page_type;
     data32_t    num_values;
     logic       last;
