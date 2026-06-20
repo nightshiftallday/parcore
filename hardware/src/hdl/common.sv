@@ -91,6 +91,11 @@ typedef struct packed {
 } plain_str_decoder_conf_t;
 
 typedef struct packed {
+    vaddress_t  buffer_addr;
+    offset_t    offset;
+} german_str_encoder_conf_t;
+
+typedef struct packed {
     page_type_t page_type;
     data32_t    num_values;
     logic       last;
@@ -100,6 +105,15 @@ typedef struct packed {
     stream_profile_t in;
     stream_profile_t out;
 } decoder_profile_t;
+
+// Umbra / German string view. Packed MSB-first, so fields are declared in
+// reverse of their in-memory byte order: serialised little-endian this gives
+// length @ bytes 0..3, prefix @ 4..7, inline-or-address @ 8..15.
+typedef struct packed {
+    data8_t [7:0] short_str_or_addr;
+    data8_t [3:0] prefix;
+    data8_t [3:0] length;
+} german_str_t;
 
 parameter longint unsigned PARCORE_SYSTEM_ID = 64'hfd888c49aec6e141;
 
