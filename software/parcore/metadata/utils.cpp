@@ -71,7 +71,15 @@ Metadata from_file(const std::string &path) {
       chunk.type = from_parquet_type(schema->Column(j)->physical_type());
       chunk.num_values = static_cast<uint64_t>(cc->num_values());
       chunk.compression = from_parquet_compression(cc->compression());
-      chunk.offset = static_cast<uint64_t>(cc->data_page_offset());
+      // A column chunk that is dictionary-encoded begins with a dictionary page, so the chunk's
+      // first byte is dictionary_page_offset, not data_page_offset (which points *past* the
+      // dictionary page). total_compressed_size covers the whole chunk including that dictionary
+      // page, so reading total_compressed_size bytes from data_page_offset would start too late and
+      // overrun the chunk. Prefer the dictionary page offset when present -- matching how the DuckDB
+      // extension computes it (parcore_metadata_util.cpp).
+      chunk.offset = static_cast<uint64_t>(cc->has_dictionary_page()
+                                               ? cc->dictionary_page_offset()
+                                               : cc->data_page_offset());
       chunk.total_compressed_size =
           static_cast<uint64_t>(cc->total_compressed_size());
       group.chunks.push_back(chunk);
