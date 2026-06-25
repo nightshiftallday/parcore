@@ -71,7 +71,7 @@ module VHSNUnzipWrapperInternal #(
     // Decompressor parameters. DECOMP_DATA_BYTES must match C_BYTES in
     // vhsnunzip's vhsnunzip_utils_pkg.vhd (the datapath lane width); the cnt
     // widths are derived from it exactly as C_IDX / C_CNT are in the VHDL.
-    localparam DECOMP_DATA_BYTES = 16;
+    localparam DECOMP_DATA_BYTES = 8;
     localparam DECOMP_DATA_BITS = DECOMP_DATA_BYTES * 8;
     localparam DECOMP_IN_CNT_BITS = $clog2(DECOMP_DATA_BYTES);
     localparam DECOMP_OUT_CNT_BITS = $clog2(DECOMP_DATA_BYTES) + 1;
@@ -262,7 +262,7 @@ module VHSNUnzipWrapperInternal #(
 
     vhsnunzip_unbuffered #(
         .LONG_CHUNKS(1),
-        .SPECULATIVE(SPECULATIVE),
+        // .SPECULATIVE(SPECULATIVE),
         .RAM_STYLE("ultra")
     ) decompressor (
         .clk(clk),

@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from enum import IntEnum
 from coyote_test import fpga_test_case, fpga_register
@@ -669,7 +670,7 @@ def _chunk_conf_register(num_values: int) -> bytearray:
 # Test case instances
 # ---------------------------------------------------------------------------
 
-_PARQUET_PATH = '/local/home/jodann/parcore/hardware/unit-tests/data/lineitem.parquet'
+_PARQUET_PATH = os.path.join(os.path.dirname(__file__), 'data', 'lineitem.parquet')
 
 _SYNTHETIC_CASES = [
     _single_plain_page_case(),

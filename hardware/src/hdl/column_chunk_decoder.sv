@@ -216,7 +216,8 @@ TypedNDataMultiplexer #(DATABEAT_SIZE, NUM_OUT) inst_demultiplexer (
 ready_valid_i #(data32_t) num_values(clk, reset_synced);
 TypedNormalizeUntil #(
     .size_t(data32_t), 
-    .DATABEAT_SIZE(DATABEAT_SIZE)
+    .DATABEAT_SIZE(DATABEAT_SIZE),
+    .BARREL_SHIFTER_REGISTER_LEVELS(2)
 ) inst_normalize_until_out (
     .clk(clk),
     .rst_n(reset_synced),
