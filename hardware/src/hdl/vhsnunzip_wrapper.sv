@@ -5,9 +5,7 @@ import libstf::*;
 
 module VHSNUnzipWrapper #(
     parameter NUM_BYTES = AXI_DATA_BITS / 8,
-    // Enable the speculative dual-issue decoder in vhsnunzip (reserved; not
-    // implemented yet). Maps to the VHDL SPECULATIVE boolean generic.
-    parameter SPECULATIVE = 0
+    parameter DUAL_ISSUE = 1
 ) (
     input logic clk,
     input logic rst_n,
@@ -22,7 +20,7 @@ reg [1:0] decompressor_reset_counter;
 
 ndata_i #(data8_t, NUM_BYTES) out_inner(clk, rst_n);
 
-VHSNUnzipWrapperInternal #(NUM_BYTES, SPECULATIVE) inst_vhsnunzip_wrapper_internal (
+VHSNUnzipWrapperInternal #(NUM_BYTES, DUAL_ISSUE) inst_vhsnunzip_wrapper_internal (
     .clk(clk),
     .rst_n(rst_n && decompressor_reset_counter == 3'd0),
 
@@ -60,7 +58,7 @@ endmodule
 
 module VHSNUnzipWrapperInternal #(
     parameter NUM_BYTES = AXI_DATA_BITS / 8,
-    parameter SPECULATIVE = 0
+    parameter DUAL_ISSUE = 1
 ) (
     input logic clk,
     input logic rst_n,
@@ -262,7 +260,7 @@ module VHSNUnzipWrapperInternal #(
 
     vhsnunzip_unbuffered #(
         .LONG_CHUNKS(1),
-        // .SPECULATIVE(SPECULATIVE),
+        .DUAL_ISSUE(DUAL_ISSUE),
         .RAM_STYLE("ultra")
     ) decompressor (
         .clk(clk),
