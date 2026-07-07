@@ -51,15 +51,28 @@ assign values[0] = COLUMN_CHUNK_DECODER_CONFIG_ID;
 assign values[1] = NUM_DECODERS;
 assign values[2] = MAX_NUM_ENQUEUED_BUFFERS;
 
-for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 0] = profile[I].counters.in.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 1] = profile[I].counters.in.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 2] = profile[I].counters.in.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 3] = profile[I].counters.in.idle_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 4] = profile[I].counters.out.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 5] = profile[I].counters.out.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 6] = profile[I].counters.out.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 7] = profile[I].counters.out.idle_cycles;
+decoder_profile_t registered_counters[NUM_DECODERS];
+
+for (genvar I = 0; I < NUM_DECODERS; I++) begin : gen_profile_regs
+    ShiftRegister #(
+        .WIDTH($bits(decoder_profile_t)),
+        .LEVELS(2)
+    ) inst_counters_sr (
+        .i_clk(clk),
+        .i_rst_n(reset_synced),
+
+        .i_data(profile[I].counters),
+        .o_data(registered_counters[I])
+    );
+
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 0] = registered_counters[I].in.handshakes_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 1] = registered_counters[I].in.starved_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 2] = registered_counters[I].in.stalled_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 3] = registered_counters[I].in.idle_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 4] = registered_counters[I].out.handshakes_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 5] = registered_counters[I].out.starved_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 6] = registered_counters[I].out.stalled_cycles;
+    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 7] = registered_counters[I].out.idle_cycles;
 end
 
 ConfigReadRegisterFile #(
