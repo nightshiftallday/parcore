@@ -11,8 +11,11 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
+// recv[0] carries the input chunk; send[0] = values, send[1] = heap.
 for (genvar I = 1; I < N_STRM_AXI; I++) begin
     always_comb axis_host_recv[I].tie_off_s();
+end
+for (genvar I = 2; I < N_STRM_AXI; I++) begin
     always_comb axis_host_send[I].tie_off_m();
 end
 
@@ -73,21 +76,33 @@ AXIToNData #(data8_t, 64) inst_axi_to_ndata (
 
 /* -- OUTPUT ------------------------------------------------------------ */
 
+// Two native decoder outputs: values (typed, discarded to bytes) on host
+// stream 0, heap bytes on stream 1.
+typed_ndata_i #(64) dec_out(clk, rst_n);
+ndata_i #(data8_t, 64) dec_out_bytes(clk, rst_n);
+`DATA_ASSIGN(dec_out, dec_out_bytes)
+
+ndata_i #(data8_t, 64) dec_heap(clk, rst_n);
+
 AXI4S axi_host_send_0 (.aclk(clk), .aresetn(rst_n));
 `AXIS_ASSIGN(axi_host_send_0, axis_host_send[0])
-
-ndata_i #(data8_t, 64) out_u8(clk, rst_n);
-NDataToAXI #(data8_t, 64) inst_ndata_to_axi (
+NDataToAXI #(data8_t, 64) inst_values_to_axi (
     .clk(clk),
     .rst_n(rst_n),
 
-    .in(out_u8),
+    .in(dec_out_bytes),
     .out(axi_host_send_0)
 );
 
-// discard typed interface
-typed_ndata_i #(64) out(clk, rst_n);
-`DATA_ASSIGN(out, out_u8);
+AXI4S axi_host_send_1 (.aclk(clk), .aresetn(rst_n));
+`AXIS_ASSIGN(axi_host_send_1, axis_host_send[1])
+NDataToAXI #(data8_t, 64) inst_heap_to_axi (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(dec_heap),
+    .out(axi_host_send_1)
+);
 
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
@@ -100,7 +115,8 @@ ColumnChunkDecoder #(
     .conf(column_chunk_conf[0]),
 
     .in(in),
-    .out(out),
+    .out(dec_out),
+    .heap_out(dec_heap),
 
     .profile(profile[0])
 );

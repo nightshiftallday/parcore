@@ -80,15 +80,22 @@ typedef enum logic [1:0] {
 } page_type_t;
 
 typedef struct packed {
+    vaddress_t    heap_base_addr;
     compression_t compression;
     data32_t      num_values;
     type_t        typ;
 } column_chunk_conf_t;
 
 typedef struct packed {
+    vaddress_t    buffer_addr;
     data32_t      num_values;
     offset_t      offset;
 } plain_str_decoder_conf_t;
+
+typedef struct packed {
+    data32_t   num_values;
+    vaddress_t heap_addr;
+} str_decoder_conf_t;
 
 typedef struct packed {
     vaddress_t  buffer_addr;
