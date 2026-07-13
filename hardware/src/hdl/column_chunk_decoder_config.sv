@@ -84,8 +84,52 @@ for (genvar I = 0; I < NUM_DECODERS; I++) begin
 end
 
 // -- Write ----------------------------------------------------------------------------------------
-for (genvar I = 0; I < NUM_DECODERS; I++) begin
-    ConfigWriteFIFO #(I, MAX_NUM_ENQUEUED_BUFFERS, column_chunk_conf_t) inst_conf (clk, reset_synced, write_config, out[I]);
+// Two write registers per decoder: register 2I = chunk's heap base address
+// register 2I+1 = the packed {compression, num_values, typ}
+// Fixed-width chunks may skip the address write. ()
+for (genvar I = 0; I < NUM_DECODERS; I++) begin : gen_conf
+    vaddress_t heap_base_addr;
+    logic      conf_valid;
+
+    always_ff @(posedge clk) begin
+        if (reset_synced == 1'b0) begin
+            heap_base_addr <= '0;
+        end else if (write_config.valid && write_config.addr == 2 * I) begin
+            heap_base_addr <= vaddress_t'(write_config.data);
+        end
+    end
+
+    assign conf_valid = write_config.valid && write_config.addr == 2 * I + 1;
+
+    ready_valid_i #(column_chunk_conf_t) internal(clk, reset_synced);
+    logic [$bits(column_chunk_conf_t) - 1:0] fifo_out;
+
+    MehdiFIFO #(
+        .DEPTH(MAX_NUM_ENQUEUED_BUFFERS),
+        .WIDTH($bits(column_chunk_conf_t))
+    ) inst_conf_fifo (
+        .i_clk(clk),
+        .i_rst_n(reset_synced),
+
+        .i_data({heap_base_addr, write_config.data[35:0]}),
+        .i_valid(conf_valid),
+        .i_ready(),
+
+        .o_data(fifo_out),
+        .o_valid(internal.valid),
+        .o_ready(internal.ready),
+
+        .o_filling_level()
+    );
+    assign internal.data = column_chunk_conf_t'(fifo_out);
+
+    ReadyValidShiftRegister #(column_chunk_conf_t, 1) inst_conf_reg (
+        .clk(clk),
+        .rst_n(reset_synced),
+
+        .in(internal),
+        .out(out[I])
+    );
 end
 
 endmodule
