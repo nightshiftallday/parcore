@@ -13,20 +13,44 @@ from page_header_parser_test import (
 from libstf_utils.common import stream_type_to_libstf_type_t
 
 
+GERMAN_STR_T = 5
+
+INLINE_LEN = 12
+DEFAULT_HEAP_ADDR = 0x1000
+
+
 @dataclass
 class _ColumnChunk:
     compression: bool
     num_values: int
     chunk_bytes: bytearray   # full column-chunk: thrift headers + payloads concatenated
     stream_type: "fpga_stream.StreamType" = fpga_stream.StreamType.SIGNED_INT_64
+    # BYTE_ARRAY columns have no fpga_stream.StreamType equivalent, so their
+    # type_t is given directly.
+    type_t_override: int | None = None
+    heap_addr: int = 0
+    # String chunks only: the raw PLAIN bytes the decoder echoes on heap_out.
+    expected_heap: bytearray | None = None
+
+    @property
+    def type_t(self) -> int:
+        if self.type_t_override is not None:
+            return self.type_t_override
+        return stream_type_to_libstf_type_t(self.stream_type)
+
+    @property
+    def is_string(self) -> bool:
+        return self.type_t == GERMAN_STR_T
 
     def _register(self) -> bytearray:
-        type_t = stream_type_to_libstf_type_t(self.stream_type)
         # column_chunk_conf_t packs (MSB -> LSB) as:
         #   compression_t [1 bit] | num_values [32 bits] | type_t [3 bits]
         compression = 1 if self.compression else 0
-        packed = (compression << 35) | ((self.num_values & 0xFFFFFFFF) << 3) | (type_t & 0x7)
+        packed = (compression << 35) | ((self.num_values & 0xFFFFFFFF) << 3) | (self.type_t & 0x7)
         return bytearray(packed.to_bytes(8, 'little'))
+
+    def _heap_register(self) -> bytearray:
+        return bytearray(self.heap_addr.to_bytes(8, 'little'))
 
 
 def read_bytes(filename: str) -> bytearray:
@@ -75,8 +99,11 @@ def _make_def_levels(num_values: int) -> bytes:
     return len(rle_body).to_bytes(4, 'little') + rle_body
 
 
-def make_plain_data(items: list[int]) -> _ColumnChunk:
-    stream = fpga_stream.Stream(fpga_stream.StreamType.SIGNED_INT_64, items)
+def make_plain_data(
+    items: list,
+    stream_type: "fpga_stream.StreamType" = fpga_stream.StreamType.SIGNED_INT_64,
+) -> _ColumnChunk:
+    stream = fpga_stream.Stream(stream_type, items)
     values = stream.data_to_bytearray()
     def_levels = _make_def_levels(len(items))
     payload = bytearray(def_levels) + bytearray(values)
@@ -91,6 +118,66 @@ def make_plain_data(items: list[int]) -> _ColumnChunk:
         compression=False,
         num_values=len(items),
         chunk_bytes=chunk,
+        stream_type=stream_type,
+    )
+
+
+# -- Synthetic PLAIN BYTE_ARRAY (german string) chunk ------------------------
+
+def _encode_strings(strings: list[bytes]) -> bytearray:
+    """PLAIN BYTE_ARRAY encoding: 4-byte LE length prefix followed by payload."""
+    buf = bytearray()
+    for s in strings:
+        buf += len(s).to_bytes(4, 'little')
+        buf += s
+    return buf
+
+
+def _german_records(strings: list[bytes], heap_addr: int) -> list[int]:
+    """The german_str_t records the decoder emits, serialised LSB-first.
+
+    Each 16-byte record is length[0:4] | prefix[4:8] | payload[8:16], where the
+    payload is the inline bytes 4..11 for strings of at most INLINE_LEN bytes and
+    an 8-byte heap address otherwise. The heap mirrors the encoded page verbatim,
+    length prefixes included, so a string's address is its payload offset within
+    that stream. Mirrors _expected_strings in plain_string_decoder_test.py.
+    """
+    out = bytearray()
+    element_offset = 4  # the first payload sits after its own length prefix
+    for s in strings:
+        n = len(s)
+        rec = bytearray(16)
+        rec[0:4] = n.to_bytes(4, 'little')
+        rec[4:8] = s[:4].ljust(4, b'\x00')
+        if n <= INLINE_LEN:
+            rec[8:16] = s[4:12].ljust(8, b'\x00')
+        else:
+            rec[8:16] = (heap_addr + element_offset).to_bytes(8, 'little')
+        out += rec
+        element_offset += n + 4
+    return list(out)
+
+
+def make_string_data(
+    strings: list[bytes],
+    heap_addr: int = DEFAULT_HEAP_ADDR,
+) -> _ColumnChunk:
+    values = _encode_strings(strings)
+    def_levels = _make_def_levels(len(strings))
+    payload = bytearray(def_levels) + values
+    hdr = _make_data_page_header(
+        num_values=len(strings),
+        uncompressed_size=len(payload),
+        compressed_size=len(payload),
+        encoding=0,  # PLAIN
+    )
+    return _ColumnChunk(
+        compression=False,
+        num_values=len(strings),
+        chunk_bytes=bytearray(hdr) + payload,
+        type_t_override=GERMAN_STR_T,
+        heap_addr=heap_addr,
+        expected_heap=values,
     )
 
 
@@ -183,14 +270,33 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
         # page_header_parser_test.py (GlobalConfig occupies regs 0..2).
         for input in inputs:
             self.write_register(fpga_register.vFPGARegister(3, input._register()))
+            # The heap base lives in a second register that ColumnChunkDecoderConfig
+            # only consumes for german string chunks, so it is written only for
+            # those - writing it otherwise would desynchronise the two FIFOs.
+            if input.is_string:
+                self.write_register(fpga_register.vFPGARegister(4, input._heap_register()))
 
         # One stream input per column chunk (full thrift-wrapped bytes).
         for input in inputs:
             self.set_stream_input(0, input.chunk_bytes)
 
-        # The output value width follows each chunk's declared type_t.
+        # The output value width follows each chunk's declared type_t. String
+        # chunks emit fixed 16-byte german_str_t records, so they are compared as
+        # raw bytes rather than through a typed stream.
         for input, output in zip(inputs, outputs):
-            self.set_expected_output(0, fpga_stream.Stream(input.stream_type, output))
+            if input.is_string:
+                self.set_expected_output(
+                    0, fpga_stream.Stream(fpga_stream.StreamType.UNSIGNED_INT_8, output))
+            else:
+                self.set_expected_output(0, fpga_stream.Stream(input.stream_type, output))
+
+        # heap_out carries the raw string bytes for long strings; it stays idle
+        # for fixed-width chunks.
+        for input in inputs:
+            if input.expected_heap is not None:
+                self.set_expected_output(
+                    1, fpga_stream.Stream(fpga_stream.StreamType.UNSIGNED_INT_8,
+                                          list(input.expected_heap)))
 
         self.simulate_fpga()
         self.assert_simulation_output()
@@ -267,4 +373,120 @@ class ColumnChunkDecoderTestCase(fpga_test_case.FPGATestCase):
         self.run_chunks(
             [chunk_a, chunk_b],
             [_RLE_OUTPUT + _PLAIN_OUTPUT, _RLE_OUTPUT],
+        )
+
+    # -- German strings -----------------------------------------------------
+    #
+    # A PLAIN BYTE_ARRAY chunk takes the string path: StripLevels -> PlainRouter
+    # -> StringRouter -> PlainStringDecoder -> GermanStrToNData -> out. Values
+    # land on stream 0 as 16-byte german_str_t records and the raw bytes are
+    # echoed on heap_out (stream 1).
+
+    def _run_strings(self, strings: list[bytes], heap_addr: int = DEFAULT_HEAP_ADDR):
+        chunk = make_string_data(strings, heap_addr)
+        self.run_chunks([chunk], [_german_records(strings, heap_addr)])
+
+    def test_string_single_short(self):
+        self._run_strings([b'abc'])
+
+    def test_string_all_inline(self):
+        # Every string fits in the 12 inline bytes, so no heap address is used.
+        self._run_strings([b'a', b'bb', b'ccc', b'abcdefghijkl'])
+
+    def test_string_inline_boundary(self):
+        # 12 bytes is the last inline length; 13 is the first that spills.
+        self._run_strings([b'a' * INLINE_LEN, b'b' * (INLINE_LEN + 1)])
+
+    def test_string_all_long(self):
+        # Every record stores a heap address rather than inline bytes.
+        self._run_strings([b'x' * 20, b'y' * 33, b'z' * 17])
+
+    def test_string_mixed_lengths(self):
+        self._run_strings([b'ab', b'c' * 40, b'defghijkl', b'm' * 13, b'', b'no'])
+
+    def test_string_multi_beat(self):
+        # More than four records per 64-byte beat, forcing GermanStrToNData to
+        # emit several full beats plus a partial final one.
+        strings = [bytes([0x41 + (i % 26)]) * (1 + i % 30) for i in range(37)]
+        self._run_strings(strings)
+
+    def test_string_nondefault_heap_addr(self):
+        self._run_strings([b'p' * 25, b'q' * 14], heap_addr=0xDEAD0000)
+
+    # -- Mixed data types ---------------------------------------------------
+
+    def test_mixed_fixed_widths(self):
+        # One chunk per fixed width, back to back. Each chunk reconfigures the
+        # byte scaling that NormalizeUntil and DataRewriteLast are driven with,
+        # so a wrong shift shows up as a truncated or never-terminating output.
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        bytes_out = list(range(0, 200))
+        i32 = list(range(-100, 100))
+        i64 = list(range(0, 150))
+        self.run_chunks(
+            [
+                make_plain_data(bytes_out, fpga_stream.StreamType.UNSIGNED_INT_8),
+                make_plain_data(i32, fpga_stream.StreamType.SIGNED_INT_32),
+                make_plain_data(i64, fpga_stream.StreamType.SIGNED_INT_64),
+            ],
+            [bytes_out, i32, i64],
+        )
+
+    def test_mixed_float_widths(self):
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        f32 = [float(i) for i in range(0, 128)]
+        f64 = [float(i) * 0.5 for i in range(0, 96)]
+        self.run_chunks(
+            [
+                make_plain_data(f32, fpga_stream.StreamType.FLOAT_32),
+                make_plain_data(f64, fpga_stream.StreamType.FLOAT_64),
+            ],
+            [f32, f64],
+        )
+
+    def test_string_then_fixed(self):
+        # The type switch that matters most: the string path must fully drain and
+        # the PSD's first-page latch must re-arm before the fixed chunk runs.
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        strings = [b'alpha', b'b' * 30, b'gamma']
+        self.run_chunks(
+            [make_string_data(strings), make_plain_data(_PLAIN_OUTPUT)],
+            [_german_records(strings, DEFAULT_HEAP_ADDR), _PLAIN_OUTPUT],
+        )
+
+    def test_fixed_then_string(self):
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        strings = [b'x' * 18, b'yz']
+        self.run_chunks(
+            [make_plain_data(_PLAIN_OUTPUT), make_string_data(strings)],
+            [_PLAIN_OUTPUT, _german_records(strings, DEFAULT_HEAP_ADDR)],
+        )
+
+    def test_back_to_back_string_chunks(self):
+        # Two string chunks in a row: the second must pick up its own heap base,
+        # which only happens if psd_first_page re-arms on the chunk boundary.
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        first = [b'a' * 20, b'bb']
+        second = [b'c' * 15, b'dddd', b'e' * 40]
+        self.run_chunks(
+            [make_string_data(first, 0x1000), make_string_data(second, 0x9000)],
+            [_german_records(first, 0x1000), _german_records(second, 0x9000)],
+        )
+
+    def test_string_between_hybrid_chunks(self):
+        # A string chunk sandwiched between dictionary-encoded chunks, exercising
+        # the dictionary flush and the string path in the same run.
+        self.overwrite_simulation_time(simulation_time.SimulationTime.till_finished())
+        strings = [b'mid', b'f' * 22]
+        self.run_chunks(
+            [
+                _parquet_chunk('rle_data.parquet'),
+                make_string_data(strings),
+                _parquet_chunk('bpe_data.parquet'),
+            ],
+            [
+                _RLE_OUTPUT,
+                _german_records(strings, DEFAULT_HEAP_ADDR),
+                list(range(10, 20)) * 15,
+            ],
         )
