@@ -60,9 +60,14 @@ HardwareReader::next_column_chunk() {
   auto [column_chunk, output_handle] = output_queue_.front();
   output_queue_.pop();
 
+  // Values live on the decoder's values stream, which is no longer the decoder
+  // index itself: PairedOutputWriter puts values on 2I and the string heap on
+  // 2I + 1. This path only surfaces values, so it cannot serve BYTE_ARRAY
+  // columns - see examples/readparquet for the two-stream handling.
+  auto values_stream = column_chunk_decoder_->values_stream();
   std::vector<std::shared_ptr<libstf::Buffer>> chunks;
-  while (output_handle->stream_has_more_output(decoder_)) {
-    auto buf = output_handle->get_next_stream_output(decoder_);
+  while (output_handle->stream_has_more_output(values_stream)) {
+    auto buf = output_handle->get_next_stream_output(values_stream);
     chunks.push_back(std::move(buf));
   }
 

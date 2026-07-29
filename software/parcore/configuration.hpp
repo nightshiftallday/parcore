@@ -41,13 +41,16 @@ class ColumnChunkDecoderConfig : public libstf::Config {
     /**
      * Configures the ColumnChunkDecoder to process the provided column chunk.
      *
-     * @param decoder     The decoder to configure.
-     * @param compression Whether this chunk is SNAPPY compressed or not.
-     * @param num_values  The total number of values in this chunk.
-     * @param typ         The type of values in this chunk.
+     * @param decoder          The decoder to configure.
+     * @param compression      Whether this chunk is SNAPPY compressed or not.
+     * @param num_values       The total number of values in this chunk.
+     * @param typ              The type of values in this chunk.
+     * @param string_heap_addr Base address of the buffer receiving the string heap.
+     *                         Only meaningful for GERMAN_STR_T; ignored otherwise.
      */
     void enqueue_column_chunk(libstf::stream_t decoder, metadata::Compression compression,
-                              uint64_t num_values, libstf::type_t typ);
+                              uint64_t num_values, libstf::type_t typ,
+                              uint64_t string_heap_addr = 0);
 
     const libstf::stream_t num_decoders() const;
     const size_t           maximum_num_enqueued_configs() const;
