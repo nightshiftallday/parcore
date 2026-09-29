@@ -1,0 +1,1299 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2024.2.2 (lin64) Build 6060944 Thu Mar 06 19:10:09 MST 2025
+| Date              : Tue Sep 29 16:20:40 2026
+| Host              : vm running 64-bit Ubuntu 24.04.5 LTS
+| Command           : report_timing_summary -max_paths 10 -file /home/skwon/Projects/parcore/.claude/worktrees/typed-dict-conv-analysis/hardware/tmp/typed_dictionary_synth/build_inline_w18_p4.0/reports/place_timing_summary.rpt
+| Design            : td_synth_top
+| Device            : xcu55c-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postPlace
+| Temperature Grade : E
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Summary Report
+
+------------------------------------------------------------------------------------------------
+| Timer Settings
+| --------------
+------------------------------------------------------------------------------------------------
+
+  Enable Multi Corner Analysis               :  Yes
+  Enable Pessimism Removal                   :  Yes
+  Pessimism Removal Resolution               :  Nearest Common Node
+  Enable Input Delay Default Clock           :  No
+  Enable Preset / Clear Arcs                 :  No
+  Disable Flight Delays                      :  No
+  Ignore I/O Paths                           :  No
+  Timing Early Launch at Borrowing Latches   :  No
+  Borrow Time for Max Delay Exceptions       :  Yes
+  Merge Timing Exceptions                    :  Yes
+  Inter-SLR Compensation                     :  Conservative
+
+  Corner  Analyze    Analyze    
+  Name    Max Paths  Min Paths  
+  ------  ---------  ---------  
+  Slow    Yes        Yes        
+  Fast    Yes        Yes        
+
+
+------------------------------------------------------------------------------------------------
+| Report Methodology
+| ------------------
+------------------------------------------------------------------------------------------------
+
+No report available as report_methodology has not been run prior. Run report_methodology on the current design for the summary of methodology violations.
+
+
+
+check_timing report
+
+Table of Contents
+-----------------
+1. checking no_clock (0)
+2. checking constant_clock (0)
+3. checking pulse_width_clock (0)
+4. checking unconstrained_internal_endpoints (0)
+5. checking no_input_delay (825)
+6. checking no_output_delay (583)
+7. checking multiple_clock (0)
+8. checking generated_clocks (0)
+9. checking loops (0)
+10. checking partial_input_delay (0)
+11. checking partial_output_delay (0)
+12. checking latch_loops (0)
+
+1. checking no_clock (0)
+------------------------
+ There are 0 register/latch pins with no clock.
+
+
+2. checking constant_clock (0)
+------------------------------
+ There are 0 register/latch pins with constant_clock.
+
+
+3. checking pulse_width_clock (0)
+---------------------------------
+ There are 0 register/latch pins which need pulse_width check
+
+
+4. checking unconstrained_internal_endpoints (0)
+------------------------------------------------
+ There are 0 pins that are not constrained for maximum delay.
+
+ There are 0 pins that are not constrained for maximum delay due to constant clock.
+
+
+5. checking no_input_delay (825)
+--------------------------------
+ There are 825 input ports with no input delay specified. (HIGH)
+
+ There are 0 input ports with no input delay but user has a false path constraint.
+
+
+6. checking no_output_delay (583)
+---------------------------------
+ There are 583 ports with no output delay specified. (HIGH)
+
+ There are 0 ports with no output delay but user has a false path constraint
+
+ There are 0 ports with no output delay but with a timing clock defined on it or propagating through it
+
+
+7. checking multiple_clock (0)
+------------------------------
+ There are 0 register/latch pins with multiple clocks.
+
+
+8. checking generated_clocks (0)
+--------------------------------
+ There are 0 generated clocks that are not connected to a clock source.
+
+
+9. checking loops (0)
+---------------------
+ There are 0 combinational loops in the design.
+
+
+10. checking partial_input_delay (0)
+------------------------------------
+ There are 0 input ports with partial input delay specified.
+
+
+11. checking partial_output_delay (0)
+-------------------------------------
+ There are 0 ports with partial output delay specified.
+
+
+12. checking latch_loops (0)
+----------------------------
+ There are 0 combinational latch loops in the design through latch input
+
+
+
+------------------------------------------------------------------------------------------------
+| Design Timing Summary
+| ---------------------
+------------------------------------------------------------------------------------------------
+
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+    -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+      0.509        0.000                      0               189268        0.020        0.000                      0               189268        1.300        0.000                       0                 94625  
+
+
+All user specified timing constraints are met.
+
+
+------------------------------------------------------------------------------------------------
+| Clock Summary
+| -------------
+------------------------------------------------------------------------------------------------
+
+Clock  Waveform(ns)         Period(ns)      Frequency(MHz)
+-----  ------------         ----------      --------------
+clk    {0.000 2.000}        4.000           250.000         
+
+
+------------------------------------------------------------------------------------------------
+| Intra Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+-----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+clk                 0.509        0.000                      0               189268        0.020        0.000                      0               189268        1.300        0.000                       0                 94625  
+
+
+------------------------------------------------------------------------------------------------
+| Inter Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Other Path Groups Table
+| -----------------------
+------------------------------------------------------------------------------------------------
+
+Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    ----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Timing Details
+| --------------
+------------------------------------------------------------------------------------------------
+
+
+---------------------------------------------------------------------------------------------------
+From Clock:  clk
+  To Clock:  clk
+
+Setup :            0  Failing Endpoints,  Worst Slack        0.509ns,  Total Violation        0.000ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.020ns,  Total Violation        0.000ns
+PW    :            0  Failing Endpoints,  Worst Slack        1.300ns,  Total Violation        0.000ns
+---------------------------------------------------------------------------------------------------
+
+
+Max Delay Paths
+--------------------------------------------------------------------------------------
+Slack (MET) :             0.509ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][2]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.473ns  (logic 0.696ns (20.040%)  route 2.777ns (79.960%))
+  Logic Levels:           8  (LUT2=1 LUT5=2 LUT6=5)
+  Clock Path Skew:        -0.008ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.028     0.028    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X125Y47        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X125Y47        FDRE (Prop_AFF_SLICEL_C_Q)
+                                                      0.079     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/Q
+                         net (fo=32, estimated)       0.397     0.504    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0_0
+    SLICE_X126Y37        LUT2 (Prop_D5LUT_SLICEM_I0_O)
+                                                      0.110     0.614 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6/O
+                         net (fo=1, estimated)        0.499     1.113    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6_n_0
+    SLICE_X127Y47        LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090     1.203 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_6__6/O
+                         net (fo=1, estimated)        0.286     1.489    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_reg_6
+    SLICE_X126Y47        LUT6 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.089     1.578 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_2__6/O
+                         net (fo=8, estimated)        0.227     1.805    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][3]_i_7__6_1
+    SLICE_X123Y48        LUT5 (Prop_C5LUT_SLICEL_I2_O)
+                                                      0.068     1.873 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6/O
+                         net (fo=1, estimated)        0.169     2.042    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6_n_0
+    SLICE_X123Y48        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.050     2.092 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_5__6/O
+                         net (fo=24, estimated)       0.438     2.530    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][12]_i_2__6
+    SLICE_X133Y46        LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     2.583 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][2]_i_8__6/O
+                         net (fo=1, estimated)        0.244     2.827    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[id][2]_4
+    SLICE_X130Y44        LUT6 (Prop_A6LUT_SLICEL_I5_O)
+                                                      0.035     2.862 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][2]_i_2__6/O
+                         net (fo=1, estimated)        0.468     3.330    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][2]_i_2__6_n_0
+    SLICE_X123Y45        LUT5 (Prop_D6LUT_SLICEL_I0_O)
+                                                      0.122     3.452 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][2]_i_1__6/O
+                         net (fo=1, routed)           0.049     3.501    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/selected\\.data[id][2]
+    SLICE_X123Y45        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][2]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/clk
+    SLICE_X123Y45        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][2]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X123Y45        FDRE (Setup_DFF_SLICEL_C_D)
+                                                      0.025     4.010    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][2]
+  -------------------------------------------------------------------
+                         required time                          4.010    
+                         arrival time                          -3.501    
+  -------------------------------------------------------------------
+                         slack                                  0.509    
+
+Slack (MET) :             0.563ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/seen_reg[9]/R
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.320ns  (logic 0.419ns (12.620%)  route 2.901ns (87.380%))
+  Logic Levels:           4  (LUT2=2 LUT6=2)
+  Clock Path Skew:        -0.008ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.028     0.028    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X144Y139       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X144Y139       FDRE (Prop_CFF2_SLICEL_C_Q)
+                                                      0.080     0.108 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/Q
+                         net (fo=6, estimated)        0.612     0.720    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg_n_0
+    SLICE_X147Y176       LUT2 (Prop_D6LUT_SLICEL_I0_O)
+                                                      0.089     0.809 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_13__10/O
+                         net (fo=1, estimated)        0.689     1.498    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/internal[14][0]\\.ready
+    SLICE_X138Y124       LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.050     1.548 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_10__10/O
+                         net (fo=1, estimated)        0.381     1.929    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen_reg[0]_3
+    SLICE_X137Y92        LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.039     1.968 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_4__10/O
+                         net (fo=2, estimated)        0.378     2.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/skid_pipe[12][4]\\.ready
+    SLICE_X133Y77        LUT2 (Prop_H5LUT_SLICEM_I0_O)
+                                                      0.161     2.507 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_1__10/O
+                         net (fo=16, estimated)       0.841     3.348    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer_n_3
+    SLICE_X136Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/seen_reg[9]/R
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/clk
+    SLICE_X136Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/seen_reg[9]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X136Y136       FDRE (Setup_AFF_SLICEL_C_R)
+                                                     -0.074     3.911    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[12].inst_duplicator/seen_reg[9]
+  -------------------------------------------------------------------
+                         required time                          3.911    
+                         arrival time                          -3.348    
+  -------------------------------------------------------------------
+                         slack                                  0.563    
+
+Slack (MET) :             0.563ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[0]/R
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.318ns  (logic 0.307ns (9.253%)  route 3.011ns (90.747%))
+  Logic Levels:           4  (LUT2=2 LUT6=2)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.030     0.030    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X146Y138       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X146Y138       FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/Q
+                         net (fo=6, estimated)        0.500     0.607    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg_n_0
+    SLICE_X146Y177       LUT2 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.090     0.697 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_13__4/O
+                         net (fo=1, estimated)        0.649     1.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/internal[14][0]\\.ready
+    SLICE_X142Y125       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     1.399 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_10__4/O
+                         net (fo=1, estimated)        0.407     1.806    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen_reg[0]_3
+    SLICE_X141Y101       LUT6 (Prop_F6LUT_SLICEM_I5_O)
+                                                      0.037     1.843 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_4__4/O
+                         net (fo=2, estimated)        0.503     2.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/skid_pipe[3][4]\\.ready
+    SLICE_X134Y78        LUT2 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.050     2.396 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_1__4/O
+                         net (fo=16, estimated)       0.952     3.348    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer_n_1
+    SLICE_X147Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[0]/R
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/clk
+    SLICE_X147Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[0]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X147Y136       FDRE (Setup_EFF_SLICEL_C_R)
+                                                     -0.074     3.911    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[0]
+  -------------------------------------------------------------------
+                         required time                          3.911    
+                         arrival time                          -3.348    
+  -------------------------------------------------------------------
+                         slack                                  0.563    
+
+Slack (MET) :             0.563ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[1]/R
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.318ns  (logic 0.307ns (9.253%)  route 3.011ns (90.747%))
+  Logic Levels:           4  (LUT2=2 LUT6=2)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.030     0.030    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X146Y138       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X146Y138       FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/Q
+                         net (fo=6, estimated)        0.500     0.607    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg_n_0
+    SLICE_X146Y177       LUT2 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.090     0.697 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_13__4/O
+                         net (fo=1, estimated)        0.649     1.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/internal[14][0]\\.ready
+    SLICE_X142Y125       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     1.399 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_10__4/O
+                         net (fo=1, estimated)        0.407     1.806    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen_reg[0]_3
+    SLICE_X141Y101       LUT6 (Prop_F6LUT_SLICEM_I5_O)
+                                                      0.037     1.843 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_4__4/O
+                         net (fo=2, estimated)        0.503     2.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/skid_pipe[3][4]\\.ready
+    SLICE_X134Y78        LUT2 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.050     2.396 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_1__4/O
+                         net (fo=16, estimated)       0.952     3.348    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer_n_1
+    SLICE_X147Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[1]/R
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/clk
+    SLICE_X147Y136       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[1]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X147Y136       FDRE (Setup_EFF2_SLICEL_C_R)
+                                                     -0.074     3.911    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[1]
+  -------------------------------------------------------------------
+                         required time                          3.911    
+                         arrival time                          -3.348    
+  -------------------------------------------------------------------
+                         slack                                  0.563    
+
+Slack (MET) :             0.565ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][4]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.417ns  (logic 0.694ns (20.310%)  route 2.723ns (79.690%))
+  Logic Levels:           8  (LUT2=1 LUT5=2 LUT6=5)
+  Clock Path Skew:        -0.008ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.028     0.028    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X125Y47        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X125Y47        FDRE (Prop_AFF_SLICEL_C_Q)
+                                                      0.079     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/Q
+                         net (fo=32, estimated)       0.397     0.504    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0_0
+    SLICE_X126Y37        LUT2 (Prop_D5LUT_SLICEM_I0_O)
+                                                      0.110     0.614 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6/O
+                         net (fo=1, estimated)        0.499     1.113    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6_n_0
+    SLICE_X127Y47        LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090     1.203 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_6__6/O
+                         net (fo=1, estimated)        0.286     1.489    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_reg_6
+    SLICE_X126Y47        LUT6 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.089     1.578 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_2__6/O
+                         net (fo=8, estimated)        0.227     1.805    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][3]_i_7__6_1
+    SLICE_X123Y48        LUT5 (Prop_C5LUT_SLICEL_I2_O)
+                                                      0.068     1.873 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6/O
+                         net (fo=1, estimated)        0.169     2.042    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6_n_0
+    SLICE_X123Y48        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.050     2.092 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_5__6/O
+                         net (fo=24, estimated)       0.507     2.599    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][12]_i_2__6
+    SLICE_X131Y46        LUT6 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.051     2.650 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][4]_i_8__6/O
+                         net (fo=1, estimated)        0.180     2.830    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[id][4]_4
+    SLICE_X130Y45        LUT6 (Prop_A6LUT_SLICEL_I5_O)
+                                                      0.035     2.865 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][4]_i_2__6/O
+                         net (fo=1, estimated)        0.409     3.274    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][4]_i_2__6_n_0
+    SLICE_X125Y42        LUT5 (Prop_D6LUT_SLICEL_I0_O)
+                                                      0.122     3.396 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][4]_i_1__6/O
+                         net (fo=1, routed)           0.049     3.445    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/selected\\.data[id][4]
+    SLICE_X125Y42        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][4]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/clk
+    SLICE_X125Y42        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][4]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X125Y42        FDRE (Setup_DFF_SLICEL_C_D)
+                                                      0.025     4.010    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[id][4]
+  -------------------------------------------------------------------
+                         required time                          4.010    
+                         arrival time                          -3.445    
+  -------------------------------------------------------------------
+                         slack                                  0.565    
+
+Slack (MET) :             0.576ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/CLKARDCLK
+                            (rising edge-triggered cell RAMB18E2 clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/ADDRARDADDR[6]
+                            (rising edge-triggered cell RAMB18E2 clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.087ns  (logic 1.335ns (43.246%)  route 1.752ns (56.754%))
+  Logic Levels:           4  (LUT3=1 LUT5=1 LUT6=2)
+  Clock Path Skew:        -0.035ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.041ns = ( 4.041 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.076ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.076     0.076    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/clk
+    RAMB18_X6Y82         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/CLKARDCLK
+  -------------------------------------------------------------------    -------------------
+    RAMB18_X6Y82         RAMB18E2 (Prop_RAMB18E2_L_RAMB180_CLKARDCLK_DOUTADOUT[1])
+                                                      0.926     1.002 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/DOUTADOUT[1]
+                         net (fo=6, estimated)        0.305     1.307    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/DOUTADOUT[1]
+    SLICE_X93Y200        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.149     1.456 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_4/O
+                         net (fo=1, estimated)        0.285     1.741    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_4_n_0
+    SLICE_X91Y203        LUT5 (Prop_C6LUT_SLICEM_I1_O)
+                                                      0.098     1.839 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_2__272/O
+                         net (fo=34, estimated)       0.334     2.173    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/valid_reg_35
+    SLICE_X88Y199        LUT6 (Prop_A6LUT_SLICEM_I2_O)
+                                                      0.053     2.226 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/ram_reg_i_7__7/O
+                         net (fo=68, estimated)       0.442     2.668    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_read_addr_reg[1]_0
+    SLICE_X84Y187        LUT3 (Prop_H5LUT_SLICEL_I1_O)
+                                                      0.109     2.777 r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg_i_5__7/O
+                         net (fo=3, estimated)        0.386     3.163    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/D[1]
+    RAMB18_X5Y75         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/ADDRARDADDR[6]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.041     4.041    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/clk
+    RAMB18_X5Y75         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/CLKARDCLK
+                         clock pessimism              0.000     4.041    
+                         clock uncertainty           -0.035     4.006    
+    RAMB18_X5Y75         RAMB18E2 (Setup_RAMB18E2_U_RAMB181_CLKARDCLK_ADDRARDADDR[6])
+                                                     -0.267     3.739    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg
+  -------------------------------------------------------------------
+                         required time                          3.739    
+                         arrival time                          -3.163    
+  -------------------------------------------------------------------
+                         slack                                  0.576    
+
+Slack (MET) :             0.576ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[serial][9]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.407ns  (logic 0.695ns (20.399%)  route 2.712ns (79.601%))
+  Logic Levels:           8  (LUT2=1 LUT5=2 LUT6=5)
+  Clock Path Skew:        -0.007ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.021ns = ( 4.021 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.028     0.028    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X125Y47        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X125Y47        FDRE (Prop_AFF_SLICEL_C_Q)
+                                                      0.079     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0/Q
+                         net (fo=32, estimated)       0.397     0.504    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg__0_0
+    SLICE_X126Y37        LUT2 (Prop_D5LUT_SLICEM_I0_O)
+                                                      0.110     0.614 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6/O
+                         net (fo=1, estimated)        0.499     1.113    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_11__6_n_0
+    SLICE_X127Y47        LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090     1.203 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[0].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_6__6/O
+                         net (fo=1, estimated)        0.286     1.489    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_reg_6
+    SLICE_X126Y47        LUT6 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.089     1.578 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[7].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/keep_i_2__6/O
+                         net (fo=8, estimated)        0.227     1.805    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][3]_i_7__6_1
+    SLICE_X123Y48        LUT5 (Prop_C5LUT_SLICEL_I2_O)
+                                                      0.068     1.873 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6/O
+                         net (fo=1, estimated)        0.169     2.042    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_7__6_n_0
+    SLICE_X123Y48        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.050     2.092 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[8].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/last_seen[11]_i_5__6/O
+                         net (fo=24, estimated)       0.453     2.545    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[id][12]_i_2__6
+    SLICE_X131Y48        LUT6 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.051     2.596 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[11].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][9]_i_8__6/O
+                         net (fo=1, estimated)        0.264     2.860    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[serial][9]_4
+    SLICE_X127Y46        LUT6 (Prop_E6LUT_SLICEL_I5_O)
+                                                      0.035     2.895 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][9]_i_2__6/O
+                         net (fo=1, estimated)        0.351     3.246    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][9]_i_2__6_n_0
+    SLICE_X126Y42        LUT5 (Prop_C6LUT_SLICEM_I0_O)
+                                                      0.123     3.369 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[serial][9]_i_1__6/O
+                         net (fo=1, routed)           0.066     3.435    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/genblk1[5].inst_internal_buffer_n_2
+    SLICE_X126Y42        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[serial][9]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.021     4.021    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/clk
+    SLICE_X126Y42        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[serial][9]/C
+                         clock pessimism              0.000     4.021    
+                         clock uncertainty           -0.035     3.986    
+    SLICE_X126Y42        FDRE (Setup_CFF_SLICEM_C_D)
+                                                      0.025     4.011    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk4[3].inst_mux/data_reg[serial][9]
+  -------------------------------------------------------------------
+                         required time                          4.011    
+                         arrival time                          -3.435    
+  -------------------------------------------------------------------
+                         slack                                  0.576    
+
+Slack (MET) :             0.576ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[14]/R
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.305ns  (logic 0.307ns (9.289%)  route 2.998ns (90.711%))
+  Logic Levels:           4  (LUT2=2 LUT6=2)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.030     0.030    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X146Y138       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X146Y138       FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg/Q
+                         net (fo=6, estimated)        0.500     0.607    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/valid_reg_n_0
+    SLICE_X146Y177       LUT2 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.090     0.697 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[14].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_13__4/O
+                         net (fo=1, estimated)        0.649     1.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/internal[14][0]\\.ready
+    SLICE_X142Y125       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     1.399 f  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[15].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_10__4/O
+                         net (fo=1, estimated)        0.407     1.806    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen_reg[0]_3
+    SLICE_X141Y101       LUT6 (Prop_F6LUT_SLICEM_I5_O)
+                                                      0.037     1.843 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_4__4/O
+                         net (fo=2, estimated)        0.503     2.346    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/skid_pipe[3][4]\\.ready
+    SLICE_X134Y78        LUT2 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.050     2.396 r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/seen[15]_i_1__4/O
+                         net (fo=16, estimated)       0.939     3.335    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer_n_1
+    SLICE_X147Y135       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[14]/R
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/clk
+    SLICE_X147Y135       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[14]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X147Y135       FDRE (Setup_EFF_SLICEL_C_R)
+                                                     -0.074     3.911    gen_inline.inst_dut/inst_dictionary/inst_pre_crossbar/genblk3[3].inst_duplicator/seen_reg[14]
+  -------------------------------------------------------------------
+                         required time                          3.911    
+                         arrival time                          -3.335    
+  -------------------------------------------------------------------
+                         slack                                  0.576    
+
+Slack (MET) :             0.579ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/high_mask_reg[4]/C
+                            (rising edge-triggered cell FDSE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/data_reg[value][7]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.401ns  (logic 0.657ns (19.318%)  route 2.744ns (80.682%))
+  Logic Levels:           7  (LUT5=1 LUT6=6)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 4.020 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.030     0.030    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/clk
+    SLICE_X104Y147       FDSE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/high_mask_reg[4]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X104Y147       FDSE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 f  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/high_mask_reg[4]/Q
+                         net (fo=38, estimated)       0.420     0.527    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[4].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/Q[0]
+    SLICE_X100Y146       LUT5 (Prop_B5LUT_SLICEM_I0_O)
+                                                      0.167     0.694 f  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[4].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_7__33/O
+                         net (fo=2, estimated)        0.457     1.151    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[4].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/high_mask_reg[4]_34
+    SLICE_X104Y145       LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.150     1.301 f  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[4].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_4__82/O
+                         net (fo=10, estimated)       0.231     1.532    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_3__226_0
+    SLICE_X103Y149       LUT6 (Prop_F6LUT_SLICEL_I2_O)
+                                                      0.035     1.567 f  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[9].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_4__78/O
+                         net (fo=5, estimated)        0.268     1.835    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_2__596_0
+    SLICE_X106Y146       LUT6 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.037     1.872 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_3__223/O
+                         net (fo=96, estimated)       0.226     2.098    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/high_mask_reg[13]
+    SLICE_X106Y147       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.090     2.188 f  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_2__594/O
+                         net (fo=41, estimated)       0.584     2.772    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/valid__0_i_2__594_n_0
+    SLICE_X100Y140       LUT6 (Prop_C6LUT_SLICEM_I3_O)
+                                                      0.051     2.823 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[13].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[value][7]_i_6__4/O
+                         net (fo=1, estimated)        0.509     3.332    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[12].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[value][7]_1
+    SLICE_X103Y152       LUT6 (Prop_D6LUT_SLICEL_I4_O)
+                                                      0.050     3.382 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/genblk1[12].inst_internal_buffer/inst_skid_buffer/inst_skid_buffer/data[value][7]_i_1__4/O
+                         net (fo=1, routed)           0.049     3.431    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/selected\\.data[value][7]
+    SLICE_X103Y152       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/data_reg[value][7]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.020     4.020    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/clk
+    SLICE_X103Y152       FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/data_reg[value][7]/C
+                         clock pessimism              0.000     4.020    
+                         clock uncertainty           -0.035     3.985    
+    SLICE_X103Y152       FDRE (Setup_DFF_SLICEL_C_D)
+                                                      0.025     4.010    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk4[5].inst_mux/data_reg[value][7]
+  -------------------------------------------------------------------
+                         required time                          4.010    
+                         arrival time                          -3.431    
+  -------------------------------------------------------------------
+                         slack                                  0.579    
+
+Slack (MET) :             0.580ns  (required time - arrival time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/CLKARDCLK
+                            (rising edge-triggered cell RAMB18E2 clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/ADDRARDADDR[7]
+                            (rising edge-triggered cell RAMB18E2 clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.000ns  (clk rise@4.000ns - clk rise@0.000ns)
+  Data Path Delay:        3.067ns  (logic 1.337ns (43.593%)  route 1.730ns (56.407%))
+  Logic Levels:           4  (LUT4=1 LUT5=1 LUT6=2)
+  Clock Path Skew:        -0.035ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.041ns = ( 4.041 - 4.000 ) 
+    Source Clock Delay      (SCD):    0.076ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.076     0.076    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/clk
+    RAMB18_X6Y82         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/CLKARDCLK
+  -------------------------------------------------------------------    -------------------
+    RAMB18_X6Y82         RAMB18E2 (Prop_RAMB18E2_L_RAMB180_CLKARDCLK_DOUTADOUT[1])
+                                                      0.926     1.002 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/s_memory_reg_bram_0/DOUTADOUT[1]
+                         net (fo=6, estimated)        0.305     1.307    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/DOUTADOUT[1]
+    SLICE_X93Y200        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.149     1.456 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_4/O
+                         net (fo=1, estimated)        0.285     1.741    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_4_n_0
+    SLICE_X91Y203        LUT5 (Prop_C6LUT_SLICEM_I1_O)
+                                                      0.098     1.839 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_mask_fifo/valid_i_2__272/O
+                         net (fo=34, estimated)       0.334     2.173    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/valid_reg_35
+    SLICE_X88Y199        LUT6 (Prop_A6LUT_SLICEM_I2_O)
+                                                      0.053     2.226 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/ram_reg_i_7__7/O
+                         net (fo=68, estimated)       0.479     2.705    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_read_addr_reg[1]_0
+    SLICE_X86Y187        LUT4 (Prop_G5LUT_SLICEL_I1_O)
+                                                      0.111     2.816 r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg_i_4__7/O
+                         net (fo=3, estimated)        0.327     3.143    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/D[2]
+    RAMB18_X5Y75         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/ADDRARDADDR[7]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.000     4.000 r  
+                                                      0.000     4.000 r  clk (IN)
+                         net (fo=94624, unset)        0.041     4.041    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/clk
+    RAMB18_X5Y75         RAMB18E2                                     r  gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg/CLKARDCLK
+                         clock pessimism              0.000     4.041    
+                         clock uncertainty           -0.035     4.006    
+    RAMB18_X5Y75         RAMB18E2 (Setup_RAMB18E2_U_RAMB181_CLKARDCLK_ADDRARDADDR[7])
+                                                     -0.283     3.723    gen_inline.inst_dut/inst_dictionary/genblk3[7].inst_reorder/inst_ram/ram_reg
+  -------------------------------------------------------------------
+                         required time                          3.723    
+                         arrival time                          -3.143    
+  -------------------------------------------------------------------
+                         slack                                  0.580    
+
+
+
+
+
+Min Delay Paths
+--------------------------------------------------------------------------------------
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/genblk3[11].inst_reorder/out\\.data_reg[9]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][11][9]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.018ns
+    Source Clock Delay      (SCD):    0.012ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.012     0.012    gen_inline.inst_dut/inst_dictionary/genblk3[11].inst_reorder/clk
+    SLICE_X84Y196        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/genblk3[11].inst_reorder/out\\.data_reg[9]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X84Y196        FDRE (Prop_DFF_SLICEL_C_Q)
+                                                      0.039     0.051 r  gen_inline.inst_dut/inst_dictionary/genblk3[11].inst_reorder/out\\.data_reg[9]/Q
+                         net (fo=1, estimated)        0.034     0.085    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][11][31]_0[9]
+    SLICE_X84Y196        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][11][9]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.018     0.018    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X84Y196        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][11][9]/C
+                         clock pessimism              0.000     0.018    
+    SLICE_X84Y196        FDRE (Hold_CFF2_SLICEL_C_D)
+                                                      0.047     0.065    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][11][9]
+  -------------------------------------------------------------------
+                         required time                         -0.065    
+                         arrival time                           0.085    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X83Y198        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12]_3[14]
+    SLICE_X83Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X83Y198        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][14]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.018ns
+    Source Clock Delay      (SCD):    0.012ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.012     0.012    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X84Y202        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X84Y202        FDRE (Prop_DFF_SLICEL_C_Q)
+                                                      0.039     0.051 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]/Q
+                         net (fo=2, estimated)        0.034     0.085    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12]_3[17]
+    SLICE_X84Y202        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.018     0.018    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X84Y202        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]__0/C
+                         clock pessimism              0.000     0.018    
+    SLICE_X84Y202        FDRE (Hold_CFF2_SLICEL_C_D)
+                                                      0.047     0.065    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][17]__0
+  -------------------------------------------------------------------
+                         required time                         -0.065    
+                         arrival time                           0.085    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.018ns
+    Source Clock Delay      (SCD):    0.012ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.012     0.012    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X86Y225        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X86Y225        FDRE (Prop_DFF_SLICEL_C_Q)
+                                                      0.039     0.051 r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]/Q
+                         net (fo=2, estimated)        0.034     0.085    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7]_8[25]
+    SLICE_X86Y225        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.018     0.018    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X86Y225        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]__0/C
+                         clock pessimism              0.000     0.018    
+    SLICE_X86Y225        FDRE (Hold_CFF2_SLICEL_C_D)
+                                                      0.047     0.065    gen_inline.inst_dut/inst_dictionary/inst_coupler/inst_skid_buffer/inst_skid_buffer/data_reg[data][7][25]__0
+  -------------------------------------------------------------------
+                         required time                         -0.065    
+                         arrival time                           0.085    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y222        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X83Y222        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12]_3[21]
+    SLICE_X83Y222        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y222        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X83Y222        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][12][21]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y227        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X83Y227        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14]_1[24]
+    SLICE_X83Y227        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y227        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X83Y227        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_duplicate/inst_skid_buffer/inst_skid_buffer/data_reg[data][14][24]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X79Y165        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X79Y165        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value_n_0_][24]
+    SLICE_X79Y165        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X79Y165        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X79Y165        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[2].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X69Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X69Y198        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value_n_0_][14]
+    SLICE_X69Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X69Y198        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X69Y198        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][14]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X69Y195        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X69Y195        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value_n_0_][24]
+    SLICE_X69Y195        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X69Y195        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X69Y195        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[3].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][24]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+Slack (MET) :             0.020ns  (arrival time - required time)
+  Source:                 gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Destination:            gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]__0/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.000ns period=4.000ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.073ns  (logic 0.039ns (53.425%)  route 0.034ns (46.575%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.006ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.013ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.013     0.013    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y136        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X83Y136        FDRE (Prop_HFF_SLICEL_C_Q)
+                                                      0.039     0.052 r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]/Q
+                         net (fo=2, estimated)        0.034     0.086    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value_n_0_][26]
+    SLICE_X83Y136        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]__0/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clk (IN)
+                         net (fo=94624, unset)        0.019     0.019    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/clk
+    SLICE_X83Y136        FDRE                                         r  gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]__0/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X83Y136        FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    gen_inline.inst_dut/inst_dictionary/inst_post_crossbar/genblk3[0].inst_duplicator/genblk1[6].genblk1[0].inst_skid_buffer/inst_skid_buffer/inst_skid_buffer/data_reg[data][data][value][26]__0
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.086    
+  -------------------------------------------------------------------
+                         slack                                  0.020    
+
+
+
+
+
+Pulse Width Checks
+--------------------------------------------------------------------------------------
+Clock Name:         clk
+Waveform(ns):       { 0.000 2.000 }
+Period(ns):         4.000
+Sources:            { clk }
+
+Check Type        Corner  Lib Pin      Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location       Pin
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X2Y32  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X2Y33  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y24  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y25  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y20  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y21  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y32  gen_inline.inst_dut/inst_dictionary/genblk2[12].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y33  gen_inline.inst_dut/inst_dictionary/genblk2[12].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y34  gen_inline.inst_dut/inst_dictionary/genblk2[13].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Min Period        n/a     URAM288/CLK  n/a            2.000         4.000       2.000      URAM288_X1Y35  gen_inline.inst_dut/inst_dictionary/genblk2[13].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Low Pulse Width   Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y32  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Low Pulse Width   Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y32  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Low Pulse Width   Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y33  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Low Pulse Width   Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y33  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Low Pulse Width   Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y24  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Low Pulse Width   Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y24  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Low Pulse Width   Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y25  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Low Pulse Width   Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y25  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+Low Pulse Width   Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y20  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+Low Pulse Width   Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y20  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y32  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y32  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y33  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+High Pulse Width  Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X2Y33  gen_inline.inst_dut/inst_dictionary/genblk2[0].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+High Pulse Width  Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y24  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y24  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y25  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+High Pulse Width  Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y25  gen_inline.inst_dut/inst_dictionary/genblk2[10].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_1/CLK
+High Pulse Width  Slow    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y20  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+High Pulse Width  Fast    URAM288/CLK  n/a            0.700         2.000       1.300      URAM288_X1Y20  gen_inline.inst_dut/inst_dictionary/genblk2[11].inst_bank/inst_value_uram/inst_ram/ram_reg_uram_0/CLK
+
+
+
