@@ -6,16 +6,19 @@
 # Sources are taken from PARCORE_ROOT (default: the checkout containing this script), so the script
 # also works from a worktree whose libstf submodule is not populated.
 # Optional environment:
-#   VARIANTS="inline itc"  variants to run
+#   VARIANTS="inline itc"  variants to run; "td2" runs libstf's TypedDictionary2 (typed ids,
+#                          untyped values) from libstf's typed_dictionary.sv
+#   DEFINES="NO_FLOAT"     extra testbench defines
 #   SRC_UNIT=<file>        compile this single SystemVerilog file (e.g. the sources_unit.sv written
 #                          by ../typed_dictionary_synth/synth.tcl) instead of the libstf sources, so
 #                          simulation and synthesis use the same snapshot
+#   RESULTS=<dir>          where logs and metrics go (default: results/)
 set -euo pipefail
 
 TB="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${PARCORE_ROOT:-$(cd "$TB/../../.." && pwd)}"
 HDL="$ROOT/libstf/hardware/src/hdl"
-OUT="$TB/results"
+OUT="${RESULTS:-$TB/results}"
 mkdir -p "$OUT"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -46,14 +49,20 @@ SRCS=(
     "$TB/typed_dictionary_itc.sv"
 )
 [[ -n ${SRC_UNIT:-} ]] && SRCS=("$SRC_UNIT")
+# TypedDictionary2 lives next to libstf's TypedDictionary, which clashes with the local copy.
+TD2_SRCS=("${SRCS[@]:0:${#SRCS[@]}-2}" "$HDL/dict/typed_dictionary.sv")
 
 xvhdl -2008 "$HDL/fifo/fifo.vhd" "$HDL/fifo/multi_insert_fifo.vhd" > "$OUT/xvhdl.log"
 
+failed=0
 for variant in ${VARIANTS:-inline itc}; do
     define=()
-    [[ $variant == itc ]] && define=(-d DUT_ITC)
+    for d in ${DEFINES:-}; do define+=(-d "$d"); done
+    srcs=("${SRCS[@]}")
+    [[ $variant == itc ]] && define+=(-d DUT_ITC)
+    [[ $variant == td2 ]] && define+=(-d DUT_TD2) && srcs=("${TD2_SRCS[@]}")
     rm -f "$OUT/"*"_${variant}"*
-    xvlog -sv -i "$HDL" "${define[@]}" "${SRCS[@]}" "$TB/typed_dictionary_tb.sv" > "$OUT/xvlog_$variant.log" \
+    xvlog -sv -i "$HDL" "${define[@]}" "${srcs[@]}" "$TB/typed_dictionary_tb.sv" > "$OUT/xvlog_$variant.log" \
         || { echo "$variant: xvlog failed, see $OUT/xvlog_$variant.log"; exit 1; }
     xelab -debug typical typed_dictionary_tb -s "tb_$variant" > "$OUT/xelab_$variant.log" \
         || { echo "$variant: xelab failed, see $OUT/xelab_$variant.log"; exit 1; }
@@ -64,7 +73,8 @@ for variant in ${VARIANTS:-inline itc}; do
         log="$OUT/xsim_${variant}_${mode}.log"
         xsim "tb_$variant" -R "${args[@]}" -testplusarg "CSV=$OUT/metrics_${variant}_${mode}.csv" \
             > "$log"
-        grep -E '^(SUMMARY|PASS|FAIL)' "$log"
-        grep -q '^PASS' "$log"
+        grep -E '^(SUMMARY|PASS|FAIL)' "$log" || true
+        grep -q '^PASS' "$log" || { echo "$variant $mode: no PASS, see $log"; failed=1; }
     done
 done
+exit $failed

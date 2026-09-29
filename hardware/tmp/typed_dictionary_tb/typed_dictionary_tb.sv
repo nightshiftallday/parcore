@@ -4,7 +4,9 @@ import libstf::*;
 
 // Drives TypedDictionary (inline ID conversion) or, with +define+DUT_ITC, TypedDictionaryITC
 // (IndexTypeConverter) with the same pre-generated dictionaries and id streams, checks every output
-// beat and reports the cycles each id phase takes.
+// beat and reports the cycles each id phase takes. With +define+DUT_TD2 it drives libstf's
+// TypedDictionary2 instead, which takes untyped values and ids tagged with the type.
+// +define+NO_FLOAT replaces FLOAT_T by INT32_T in the generated dictionaries.
 //
 // Plusargs: +NOSTALL disables the random input gaps and output backpressure, so the cycle counts
 // reflect the pipeline alone. +CSV=<file> writes one line of per-dictionary metrics per dictionary.
@@ -13,7 +15,9 @@ module typed_dictionary_tb;
 localparam int NUM_ELEMENTS  = 16;
 localparam int DATABEAT_SIZE = 64;
 localparam int NUM_RANDOM    = 24;
-localparam int TIMEOUT       = 200000;
+// A dictionary takes a few hundred cycles; xsim runs this design at roughly 100 cycles per second,
+// so a larger timeout makes a deadlock take a long time to report.
+localparam int TIMEOUT       = 5000;
 localparam int SEED          = 1;
 
 // Matches dict_id_t of libstf/hardware/unit-tests/vfpga_tops/typed_dict_test.sv.
@@ -37,11 +41,21 @@ logic clk = 0;
 logic rst_n = 0;
 always #2 clk = ~clk;
 
-typed_ndata_i #(DATABEAT_SIZE)     in_values (.*);
-ndata_i       #(id_t, NUM_ELEMENTS) in_ids   (.*);
+`ifdef DUT_TD2
+ndata_i       #(data8_t, DATABEAT_SIZE) in_values (.*);
+typed_ndata_i #(NUM_ELEMENTS, id_t)     in_ids    (.*);
+`define CONV_IDS dut.untyped_ids
+`else
+typed_ndata_i #(DATABEAT_SIZE)      in_values (.*);
+ndata_i       #(id_t, NUM_ELEMENTS) in_ids    (.*);
+`define CONV_IDS dut.dictionary_in_ids
+`endif
 typed_ndata_i #(DATABEAT_SIZE)     out       (.*);
 
-`ifdef DUT_ITC
+`ifdef DUT_TD2
+localparam string VARIANT = "td2";
+TypedDictionary2 #(
+`elsif DUT_ITC
 localparam string VARIANT = "itc";
 TypedDictionaryITC #(
 `else
@@ -59,7 +73,11 @@ TypedDictionary #(
     .out       (out)
 );
 
+`ifdef NO_FLOAT
+const type_t TYPES[4] = '{INT32_T, INT32_T, INT64_T, DOUBLE_T};
+`else
 const type_t TYPES[4] = '{INT32_T, FLOAT_T, INT64_T, DOUBLE_T};
+`endif
 
 bit    no_stall;
 dict_c dicts[$];
@@ -87,7 +105,7 @@ always @(posedge clk) begin
             num_id_hs++;
         end
         if (in_ids.valid && !in_ids.ready) id_stall_cycles++;
-        if (dut.dictionary_in_ids.valid && dut.dictionary_in_ids.ready) begin
+        if (`CONV_IDS.valid && `CONV_IDS.ready) begin
             if (first_conv_hs < 0) first_conv_hs = cycle;
             last_conv_hs = cycle;
             num_conv_hs++;
@@ -97,6 +115,25 @@ always @(posedge clk) begin
             last_out_hs = cycle;
             num_out_hs++;
         end
+    end
+end
+
+// A deadlock can also stop the value or id senders, which wait for ready without a timeout, so the
+// run ends once no interface has completed a handshake for TIMEOUT cycles.
+longint last_activity = 0;
+always @(posedge clk) begin
+    if (!rst_n || (in_values.valid && in_values.ready) || (in_ids.valid && in_ids.ready) ||
+        (out.valid && out.ready))
+        last_activity = cycle;
+    else if (cycle - last_activity > TIMEOUT) begin
+        $error("deadlock: no handshake for %0d cycles at cycle %0d", TIMEOUT, cycle);
+        $display("DEADLOCK in_values valid=%b ready=%b | in_ids valid=%b ready=%b | out valid=%b ready=%b",
+                 in_values.valid, in_values.ready, in_ids.valid, in_ids.ready, out.valid, out.ready);
+        $display("DEADLOCK conv_ids valid=%b ready=%b last=%b | dut.typ valid=%b data=%s | expected beats %0d",
+                 `CONV_IDS.valid, `CONV_IDS.ready, `CONV_IDS.last, dut.typ.valid, dut.typ.data.name(),
+                 expected.size());
+        $display("FAIL: %s, deadlock after %0d output beats", VARIANT, num_out_beats);
+        $finish;
     end
 end
 
@@ -147,7 +184,9 @@ task automatic send_values(dict_c d);
                 in_values.keep[i * 4 + b] <= kept;
             end
         end
+`ifndef DUT_TD2
         in_values.typ   <= d.typ;
+`endif
         in_values.last  <= base + NUM_ELEMENTS >= d.words.size();
         in_values.valid <= 1'b1;
         do @(posedge clk); while (!in_values.ready);
@@ -163,6 +202,9 @@ task automatic send_ids(dict_c d);
             in_ids.data[i] <= kept ? id_t'(d.ids[base + i]) : 'x;
             in_ids.keep[i] <= kept;
         end
+`ifdef DUT_TD2
+        in_ids.typ   <= d.typ;
+`endif
         in_ids.last  <= base + NUM_ELEMENTS >= d.ids.size();
         in_ids.valid <= 1'b1;
         do @(posedge clk); while (!in_ids.ready);
@@ -276,6 +318,7 @@ initial begin
             $fdisplay(csv, "%s,%0d,%s,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d", VARIANT, n,
                       d.typ.name(), d.words.size() / factor_of(d.typ), d.ids.size(), num_id_hs,
                       num_conv_hs, num_out_hs, conv_cycles, id_cycles, latency, id_stall_cycles);
+        if (csv) $fflush(csv);
         repeat (5) @(posedge clk);
     end
 

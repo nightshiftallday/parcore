@@ -1,8 +1,9 @@
 # Out-of-context implementation of td_synth_top for resource and timing evaluation.
 # Invoked by run_synth.sh:
-#   vivado -mode batch -source synth.tcl -tclargs <root> <here> <out> <part> <period> <variant> <id_bits>
+#   vivado -mode batch -source synth.tcl -tclargs <root> <here> <out> <part> <period> <variant> <id_bits> [unit]
+# With [unit], that single SystemVerilog file is read instead of the concatenated libstf sources.
 
-lassign $argv ROOT HERE OUT PART PERIOD VARIANT ID_BITS
+lassign $argv ROOT HERE OUT PART PERIOD VARIANT ID_BITS UNIT
 
 set HDL "$ROOT/libstf/hardware/src/hdl"
 set TB  "$HERE/../typed_dictionary_tb"
@@ -32,16 +33,20 @@ set srcs [concat \
         $HERE/td_synth_top.sv \
     ] \
 ]
-set unit [open $OUT/sources_unit.sv w]
-foreach src $srcs {
-    set f [open $src r]
-    puts $unit "// ---- $src"
-    puts $unit [read $f]
-    close $f
-    # Files such as util/demultiplexer.sv use lynxTypes before any file imports it.
-    if {[file tail $src] eq "lynx_pkg.sv"} { puts $unit "import lynxTypes::*;" }
+if {$UNIT eq ""} {
+    set unit [open $OUT/sources_unit.sv w]
+    foreach src $srcs {
+        set f [open $src r]
+        puts $unit "// ---- $src"
+        puts $unit [read $f]
+        close $f
+        # Files such as util/demultiplexer.sv use lynxTypes before any file imports it.
+        if {[file tail $src] eq "lynx_pkg.sv"} { puts $unit "import lynxTypes::*;" }
+    }
+    close $unit
+} else {
+    file copy -force $UNIT $OUT/sources_unit.sv
 }
-close $unit
 read_verilog -sv $OUT/sources_unit.sv
 
 set xdc [open $OUT/clock.xdc w]
