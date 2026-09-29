@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2024.2.2 (lin64) Build 6060944 Thu Mar 06 19:10:09 MST 2025
-| Date         : Tue Sep 29 16:23:44 2026
+| Date         : Tue Sep 29 17:26:41 2026
 | Host         : vm running 64-bit Ubuntu 24.04.5 LTS
 | Command      : report_utilization -hierarchical -file /home/skwon/Projects/parcore/.claude/worktrees/typed-dict-conv-analysis/hardware/tmp/typed_dictionary_synth/build_inline_w18_p4.0/reports/route_utilization_hier.rpt
 | Design       : td_synth_top

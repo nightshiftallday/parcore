@@ -5,6 +5,11 @@
 # Needs Vivado's settings64.sh sourced and .slang/generated/lynx_pkg.sv (scripts/gen_slang_pkg.py).
 # Sources are taken from PARCORE_ROOT (default: the checkout containing this script), so the script
 # also works from a worktree whose libstf submodule is not populated.
+# Optional environment:
+#   VARIANTS="inline itc"  variants to run
+#   SRC_UNIT=<file>        compile this single SystemVerilog file (e.g. the sources_unit.sv written
+#                          by ../typed_dictionary_synth/synth.tcl) instead of the libstf sources, so
+#                          simulation and synthesis use the same snapshot
 set -euo pipefail
 
 TB="$(cd "$(dirname "$0")" && pwd)"
@@ -40,14 +45,18 @@ SRCS=(
     "$TB/typed_dictionary_inline.sv"
     "$TB/typed_dictionary_itc.sv"
 )
+[[ -n ${SRC_UNIT:-} ]] && SRCS=("$SRC_UNIT")
 
 xvhdl -2008 "$HDL/fifo/fifo.vhd" "$HDL/fifo/multi_insert_fifo.vhd" > "$OUT/xvhdl.log"
 
-for variant in inline itc; do
+for variant in ${VARIANTS:-inline itc}; do
     define=()
     [[ $variant == itc ]] && define=(-d DUT_ITC)
-    xvlog -sv -i "$HDL" "${define[@]}" "${SRCS[@]}" "$TB/typed_dictionary_tb.sv" > "$OUT/xvlog_$variant.log"
-    xelab -debug typical typed_dictionary_tb -s "tb_$variant" > "$OUT/xelab_$variant.log"
+    rm -f "$OUT/"*"_${variant}"*
+    xvlog -sv -i "$HDL" "${define[@]}" "${SRCS[@]}" "$TB/typed_dictionary_tb.sv" > "$OUT/xvlog_$variant.log" \
+        || { echo "$variant: xvlog failed, see $OUT/xvlog_$variant.log"; exit 1; }
+    xelab -debug typical typed_dictionary_tb -s "tb_$variant" > "$OUT/xelab_$variant.log" \
+        || { echo "$variant: xelab failed, see $OUT/xelab_$variant.log"; exit 1; }
 
     for mode in stall nostall; do
         args=()
