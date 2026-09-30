@@ -41,15 +41,17 @@ module port_type_check #(
 
 localparam type port_data_t = in.data_t;
 localparam bit  EQ = type(port_data_t) == type(data_t);
+// Element count of the interface, from the width of its keep vector.
+localparam int  PORT_N = $bits(in.keep);
 
 `ASSERT_ELAB(!EXPECT || type(port_data_t) == type(data_t))
 
 if (1) begin : gen_report
-    $info("ELAB port type()==%0d expected=%0d", EQ, EXPECT);
+    $info("ELAB port type()==%0d expected=%0d N=%0d", EQ, EXPECT, PORT_N);
 end
 
-initial $display("CASE %-40s type()==%0d expected=%0d %s", $sformatf("%m"), EQ, EXPECT,
-                 EQ == EXPECT ? "ok" : "WRONG");
+initial $display("CASE %-40s type()==%0d expected=%0d %s N=%0d $bits(keep)=%0d", $sformatf("%m"), EQ,
+                 EXPECT, EQ == EXPECT ? "ok" : "WRONG", PORT_N, $bits(in.keep));
 
 endmodule
 
@@ -87,7 +89,7 @@ type_pair #(logic [0:17], logic [17:0], 0)        ascending_range ();
 type_pair #(int, logic signed [31:0], 0)          int_vs_logic32 ();
 
 typed_ndata_i #(4, id_t)   ids   (.*);
-typed_ndata_i #(4, pair_t) pairs (.*);
+typed_ndata_i #(3, pair_t) pairs (.*);
 
 port_type_check #(.data_t(id_t), .EXPECT(1))         port_local_same (.in(ids));
 port_type_check #(.data_t(logic [31:0]), .EXPECT(0)) port_local_diff (.in(ids));
