@@ -94,16 +94,20 @@ DecoderProfile ColumnChunkDecoderConfig::read_profile(libstf::stream_t decoder) 
     auto base = COLUMN_CHUNK_DECODER_INFO_REGS + decoder * COLUMN_CHUNK_DECODER_PROFILE_REGS;
 
     DecoderProfile profile;
-    profile.in.handshakes_cycles  = read_register(base + 0).value();
-    profile.in.starved_cycles     = read_register(base + 1).value();
-    profile.in.stalled_cycles     = read_register(base + 2).value();
-    profile.in.idle_cycles        = read_register(base + 3).value();
-    profile.in.last_handshakes    = read_register(base + 4).value();
-    profile.out.handshakes_cycles = read_register(base + 5).value();
-    profile.out.starved_cycles    = read_register(base + 6).value();
-    profile.out.stalled_cycles    = read_register(base + 7).value();
-    profile.out.idle_cycles       = read_register(base + 8).value();
-    profile.out.last_handshakes   = read_register(base + 9).value();
+    // Ascending order: the read of the last counter resets the profilers
+    auto read_stream = [&](uint32_t offset) {
+        StreamProfile stream;
+        stream.handshakes_cycles = read_register(base + offset + 0).value();
+        stream.starved_cycles    = read_register(base + offset + 1).value();
+        stream.stalled_cycles    = read_register(base + offset + 2).value();
+        stream.idle_cycles       = read_register(base + offset + 3).value();
+        stream.last_handshakes   = read_register(base + offset + 4).value();
+        return stream;
+    };
+    profile.in   = read_stream(0 * STREAM_PROFILE_REGS);
+    profile.out  = read_stream(1 * STREAM_PROFILE_REGS);
+    profile.heap = read_stream(2 * STREAM_PROFILE_REGS);
+    profile.dict = read_stream(3 * STREAM_PROFILE_REGS);
     return profile;
 }
 

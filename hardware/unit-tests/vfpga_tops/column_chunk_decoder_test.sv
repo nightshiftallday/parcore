@@ -11,10 +11,12 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
-// send[1] carries the string heap; recv[1] is unused.
+// send[1] carries the string heap, send[2] the dictionary of dictionary encoded
+// string chunks; recv[1] and recv[2] are unused.
 always_comb axis_host_recv[1].tie_off_s();
+always_comb axis_host_recv[2].tie_off_s();
 
-for (genvar I = 2; I < N_STRM_AXI; I++) begin
+for (genvar I = 3; I < N_STRM_AXI; I++) begin
     always_comb axis_host_recv[I].tie_off_s();
     always_comb axis_host_send[I].tie_off_m();
 end
@@ -108,6 +110,20 @@ NDataToAXI #(data8_t, 64) inst_ndata_to_axi_heap (
 ndata_i #(data8_t, 64) heap_out(clk, rst_n);
 `DATA_ASSIGN(heap_out, heap_u8);
 
+// Dictionary german strings: only carries data for dictionary encoded string
+// chunks.
+AXI4S axi_host_send_2 (.aclk(clk), .aresetn(rst_n));
+`AXIS_ASSIGN(axi_host_send_2, axis_host_send[2])
+
+ndata_i #(data8_t, 64) dict_out(clk, rst_n);
+NDataToAXI #(data8_t, 64) inst_ndata_to_axi_dict (
+    .clk(clk),
+    .rst_n(rst_n),
+
+    .in(dict_out),
+    .out(axi_host_send_2)
+);
+
 /* -- DESIGN WIRING ----------------------------------------------------- */
 
 ColumnChunkDecoder #(
@@ -121,6 +137,7 @@ ColumnChunkDecoder #(
     .in(in),
     .out(out),
     .heap_out(heap_out),
+    .dict_out(dict_out),
 
     .profile(profile[0])
 );

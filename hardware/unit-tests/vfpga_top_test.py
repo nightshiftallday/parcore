@@ -10,9 +10,11 @@ merges each decoder's two output streams onto one physical channel, and the
 cross-channel request/completion arbitration.
 
 Stream numbering follows PairedOutputWriter: decoder I writes its values on
-logical stream 2I and its string heap on 2I + 1, both sharing physical channel I.
-The heap stays completely silent for anything that is not a german string chunk,
-so no transfer and no interrupt are expected on it there.
+logical stream 3I, its string heap on 3I + 1 and the dictionary of a dictionary
+encoded string chunk on 3I + 2, all sharing physical channel I. The heap stays
+completely silent for anything that is not a german string chunk, and the
+dictionary stream for anything that is not a dictionary encoded string chunk, so
+no transfer and no interrupt are expected on them there.
 """
 
 from dataclasses import dataclass
@@ -45,16 +47,23 @@ from column_chunk_decoder_test import (
 # nothing else in the manager assumes one stream per channel.
 memory_manager.MAX_NUMBER_STREAMS = MAX_SUPPORTED_N_STREAMS
 
-# One decoder per physical AXI channel, mirroring N_STREAMS in the vfpga top.
-NUM_DECODERS = constants.MAX_NUMBER_STREAMS
+OUTPUTS_PER_DECODER = 3
+
+# One decoder per physical AXI channel, mirroring N_DECODERS in the vfpga top: the notify
+# value carries a 3-bit stream id, so at most 8 // OUTPUTS_PER_DECODER decoders fit.
+NUM_DECODERS = min(constants.MAX_NUMBER_STREAMS, 8 // OUTPUTS_PER_DECODER)
 
 
 def values_stream(decoder: int) -> int:
-    return 2 * decoder
+    return OUTPUTS_PER_DECODER * decoder
 
 
 def heap_stream(decoder: int) -> int:
-    return 2 * decoder + 1
+    return OUTPUTS_PER_DECODER * decoder + 1
+
+
+def dict_stream(decoder: int) -> int:
+    return OUTPUTS_PER_DECODER * decoder + 2
 
 
 @dataclass
@@ -225,16 +234,21 @@ class VFPGATopTestCase(OutputWriterTestCase):
         another's type or byte scaling."""
         self.run_jobs(
             {
-                0: [plain_job(list(range(0, 200)), fpga_stream.StreamType.UNSIGNED_INT_8)],
-                1: [plain_job(list(range(-100, 100)), fpga_stream.StreamType.SIGNED_INT_32)],
-                2: [plain_job(list(range(0, 150)), fpga_stream.StreamType.SIGNED_INT_64)],
-                3: [plain_job([float(i) for i in range(0, 128)], fpga_stream.StreamType.FLOAT_32)],
+                0: [
+                    plain_job(list(range(0, 200)), fpga_stream.StreamType.UNSIGNED_INT_8),
+                    plain_job(list(range(0, 150)), fpga_stream.StreamType.SIGNED_INT_64),
+                ],
+                1: [
+                    plain_job(list(range(-100, 100)), fpga_stream.StreamType.SIGNED_INT_32),
+                    plain_job([float(i) for i in range(0, 128)], fpga_stream.StreamType.FLOAT_32),
+                ],
             }
         )
 
     def test_all_decoders_strings(self):
-        """All eight logical streams live at once - the heaviest load the pair
-        arbiters and the shared request/completion paths can see."""
+        """Every logical stream of every decoder that carries data for strings
+        live at once - the heaviest load the arbiters and the shared
+        request/completion paths can see."""
         self.run_jobs(
             {
                 d: [string_job([bytes([0x41 + d]) * (10 + 5 * d), b"s%d" % d, b"z" * (20 + d)])]
@@ -248,23 +262,28 @@ class VFPGATopTestCase(OutputWriterTestCase):
         transfer there shows up as an unexpected completion."""
         self.run_jobs(
             {
-                0: [string_job([b"mixed", b"m" * 25])],
-                1: [plain_job(_PLAIN_OUTPUT)],
-                2: [string_job([b"n" * 18, b"ok"])],
-                3: [parquet_job("bpe_data.parquet", list(range(10, 20)) * 15)],
+                0: [string_job([b"mixed", b"m" * 25]), plain_job(_PLAIN_OUTPUT)],
+                1: [
+                    parquet_job("bpe_data.parquet", list(range(10, 20)) * 15),
+                    string_job([b"n" * 18, b"ok"]),
+                ],
             }
         )
 
     def test_all_decoders_hybrid(self):
-        """Four dictionary-encoded chunks in parallel, each with its own
-        decompressor and dictionary."""
+        """Dictionary-encoded chunks in parallel and back to back, each decoder
+        with its own decompressor and dictionary."""
         mixed = ([i**8 for i in range(10, 20) for _ in range(i)] + list(range(128, 256)) * 2) * 2
         self.run_jobs(
             {
-                0: [parquet_job("rle_data.parquet", _RLE_OUTPUT)],
-                1: [parquet_job("bpe_data.parquet", list(range(10, 20)) * 15)],
-                2: [parquet_job("mixed_data.parquet", mixed)],
-                3: [parquet_job("big_bpe_data.parquet", list(range(10, 100)) * 5)],
+                0: [
+                    parquet_job("rle_data.parquet", _RLE_OUTPUT),
+                    parquet_job("mixed_data.parquet", mixed),
+                ],
+                1: [
+                    parquet_job("bpe_data.parquet", list(range(10, 20)) * 15),
+                    parquet_job("big_bpe_data.parquet", list(range(10, 100)) * 5),
+                ],
             }
         )
 
@@ -275,8 +294,7 @@ class VFPGATopTestCase(OutputWriterTestCase):
         self.run_jobs(
             {
                 0: [fixed_job(tricky, _RLE_OUTPUT * 2 + _PLAIN_OUTPUT)],
-                1: [string_job([b"c" * 40, b"dd"])],
-                2: [plain_job(list(range(0, 100)))],
+                1: [string_job([b"c" * 40, b"dd"]), plain_job(list(range(0, 100)))],
             }
         )
 

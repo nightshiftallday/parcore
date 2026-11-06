@@ -18,8 +18,15 @@ ColumnChunkDecoder::ColumnChunkDecoder(
 
 const libstf::stream_t &ColumnChunkDecoder::decoder() const { return decoder_; }
 
-libstf::stream_t ColumnChunkDecoder::values_stream() const { return 2 * decoder_; }
-libstf::stream_t ColumnChunkDecoder::heap_stream() const { return 2 * decoder_ + 1; }
+libstf::stream_t ColumnChunkDecoder::values_stream() const {
+  return OUTPUTS_PER_DECODER * decoder_;
+}
+libstf::stream_t ColumnChunkDecoder::heap_stream() const {
+  return OUTPUTS_PER_DECODER * decoder_ + 1;
+}
+libstf::stream_t ColumnChunkDecoder::dict_stream() const {
+  return OUTPUTS_PER_DECODER * decoder_ + 2;
+}
 
 ColumnChunkDecoder::Handle::Handle(
     std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder,
@@ -67,9 +74,11 @@ ColumnChunkDecoder::decode_column_chunk(
 
   auto type = metadata::to_libstf_type(column_chunk.type);
   const bool is_string = type == metadata::GERMAN_STR_T;
+  // The hardware recognizes these chunks from their leading dictionary page
+  const bool is_dict_vector = is_string && column_chunk.is_dictionary_encoded;
 
-  auto output_handle =
-      output_buffer_manager_->acquire_output_handle(decoder_mask(is_string));
+  auto output_handle = output_buffer_manager_->acquire_output_handle(
+      decoder_mask(is_string, is_dict_vector));
 
   column_chunk_config_->enqueue_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values, type,
@@ -88,11 +97,14 @@ void ColumnChunkDecoder::finished_decoding_column_chunk(
   column_chunk_enqueued_configs_ -= 1;
 }
 
-libstf::stream_mask_t ColumnChunkDecoder::decoder_mask(bool with_heap) const {
+libstf::stream_mask_t ColumnChunkDecoder::decoder_mask(bool with_heap,
+                                                       bool with_dict) const {
   libstf::stream_mask_t mask;
   mask.set(values_stream());
   if (with_heap)
     mask.set(heap_stream());
+  if (with_dict)
+    mask.set(dict_stream());
   return mask;
 }
 

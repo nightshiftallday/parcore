@@ -22,12 +22,21 @@ public:
 
   [[nodiscard]] const libstf::stream_t &decoder() const;
 
-  // PairedOutputWriter gives every decoder two logical output streams sharing
-  // one physical channel: values on 2I, the string heap on 2I + 1. The heap
-  // stays completely silent for anything that is not a BYTE_ARRAY column, so no
-  // transfer and no interrupt are raised on it there.
+  // PairedOutputWriter gives every decoder three logical output streams sharing
+  // one physical channel: values on 3I, the string heap on 3I + 1 and the
+  // dictionary on 3I + 2. The heap stays completely silent for anything that is
+  // not a BYTE_ARRAY column, the dictionary for anything that is not a
+  // dictionary encoded BYTE_ARRAY column, so no transfer and no interrupt are
+  // raised on them there.
+  //
+  // For a dictionary encoded BYTE_ARRAY column the output is a DuckDB
+  // dictionary vector: the values stream holds one uint32_t index per value,
+  // the dictionary stream the german_str_t record of every dictionary entry and
+  // the heap stream their strings longer than 12 bytes.
+  static constexpr libstf::stream_t OUTPUTS_PER_DECODER = 3;
   [[nodiscard]] libstf::stream_t values_stream() const;
   [[nodiscard]] libstf::stream_t heap_stream() const;
+  [[nodiscard]] libstf::stream_t dict_stream() const;
 
   struct Handle {
   public:
@@ -81,9 +90,10 @@ private:
   std::mutex mtx;
   size_t column_chunk_enqueued_configs_;
 
-  // The heap stream is only included for BYTE_ARRAY chunks; for anything else
-  // the hardware never writes there, so waiting on it would hang.
-  libstf::stream_mask_t decoder_mask(bool with_heap) const;
+  // The heap stream is only included for BYTE_ARRAY chunks and the dictionary
+  // stream only for dictionary encoded ones; for anything else the hardware
+  // never writes there, so waiting on them would hang.
+  libstf::stream_mask_t decoder_mask(bool with_heap, bool with_dict) const;
 
   void enqueue_stream_input(const std::shared_ptr<libstf::Buffer> &buffer);
 };

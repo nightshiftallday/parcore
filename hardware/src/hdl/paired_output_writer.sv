@@ -7,11 +7,15 @@ import lynxTypes::*;
 `include "libstf_macros.svh"
 
 /**
- * Writes 2 * N_CHANNELS output streams to host memory over N_CHANNELS physical
- * Coyote channels: each channel I carries a (values, heap) StreamWriter pair
- * for decoder I, merged by a StreamWriterPairArbiter. Streams are indexed
- * writer-first: stream 2I = decoder I values, stream 2I + 1 = decoder I heap;
- * this is also the mem_config slot and the interrupt stream id
+ * Writes N_OUTPUTS * N_CHANNELS output streams to host memory over N_CHANNELS
+ * physical Coyote channels: each channel I carries the N_OUTPUTS StreamWriters
+ * of decoder I, merged by a StreamWriterPairArbiter. Streams are indexed
+ * writer-first: stream N_OUTPUTS * I + J is output J of decoder I. With the
+ * default N_OUTPUTS = 3 these are
+ *   J = 0: values (fixed-width values, german strings or dictionary indices)
+ *   J = 1: string heap
+ *   J = 2: dictionary german strings (dictionary encoded string chunks only)
+ * The stream index is also the mem_config slot and the interrupt stream id
  * (notify value[2:0]), while the request `dest` stays the channel index I.
  *
  * IMPORTANT:
@@ -20,7 +24,8 @@ import lynxTypes::*;
  * last signal.
  */
 module PairedOutputWriter #(
-    parameter N_CHANNELS = N_STRM_AXI
+    parameter N_CHANNELS = N_STRM_AXI,
+    parameter N_OUTPUTS  = 3
 ) (
     input logic clk,
     input logic rst_n,
@@ -29,16 +34,23 @@ module PairedOutputWriter #(
     metaIntf.s cq_wr,
     metaIntf.m notify,
 
-    mem_config_i.s mem_config[2 * N_CHANNELS],
+    mem_config_i.s mem_config[N_OUTPUTS * N_CHANNELS],
 
-    AXI4S.s  data_in[2 * N_CHANNELS],
+    AXI4S.s  data_in[N_OUTPUTS * N_CHANNELS],
     AXI4SR.m data_out[N_CHANNELS]
 );
+
+localparam N_STREAMS = N_OUTPUTS * N_CHANNELS;
+
+// NotifyMetaIntfAdapter puts the stream id into 3 bits of the notify value. The
+// StreamWriter only checks the number of physical channels, so a larger stream
+// id would silently alias another stream.
+`ASSERT_ELAB(N_STREAMS <= 8)
 
 `RESET_RESYNC // Reset pipelining
 
 `ifndef SYNTHESIS
-for (genvar I = 0; I < 2 * N_CHANNELS; I++) begin
+for (genvar I = 0; I < N_STREAMS; I++) begin
     assert property (@(posedge clk) disable iff (!reset_synced)
         !data_in[I].tvalid || data_in[I].tlast || &data_in[I].tkeep)
     else $fatal(1, "Non-last keep signal (%h) must be all 1s!", data_in[I].tkeep);
@@ -49,9 +61,9 @@ end
 `endif
 
 // -- Channel-level arbitration ---------------------------------------------
-metaIntf #(.STYPE(req_t))     sq_wr_chan  [N_CHANNELS]    (.aclk(clk), .aresetn(reset_synced));
-metaIntf #(.STYPE(ack_t))     cq_wr_chan  [N_CHANNELS]    (.aclk(clk), .aresetn(reset_synced));
-metaIntf #(.STYPE(irq_not_t)) notify_strm [2 * N_CHANNELS](.aclk(clk), .aresetn(reset_synced));
+metaIntf #(.STYPE(req_t))     sq_wr_chan  [N_CHANNELS](.aclk(clk), .aresetn(reset_synced));
+metaIntf #(.STYPE(ack_t))     cq_wr_chan  [N_CHANNELS](.aclk(clk), .aresetn(reset_synced));
+metaIntf #(.STYPE(irq_not_t)) notify_strm [N_STREAMS] (.aclk(clk), .aresetn(reset_synced));
 
 MetaIntfArbiter #(
   .N_INTERFACES(N_CHANNELS),
@@ -73,7 +85,7 @@ CQDemultiplexer #(
 );
 
 MetaIntfArbiter #(
-  .N_INTERFACES(2 * N_CHANNELS),
+  .N_INTERFACES(N_STREAMS),
   .STYPE(irq_not_t)
 ) inst_notify_arbiter (
   .clk(clk),
@@ -82,13 +94,13 @@ MetaIntfArbiter #(
   .intf_out(notify)
 );
 
-// -- Writer pairs, one per physical channel ---------------------------------
+// -- Writer groups, one per physical channel --------------------------------
 for (genvar I = 0; I < N_CHANNELS; I++) begin : gen_pairs
-    metaIntf #(.STYPE(req_t)) sq_wr_pair[2](.aclk(clk), .aresetn(reset_synced));
-    metaIntf #(.STYPE(ack_t)) cq_wr_pair[2](.aclk(clk), .aresetn(reset_synced));
-    AXI4SR data_pair[2](.aclk(clk), .aresetn(reset_synced));
+    metaIntf #(.STYPE(req_t)) sq_wr_pair[N_OUTPUTS](.aclk(clk), .aresetn(reset_synced));
+    metaIntf #(.STYPE(ack_t)) cq_wr_pair[N_OUTPUTS](.aclk(clk), .aresetn(reset_synced));
+    AXI4SR data_pair[N_OUTPUTS](.aclk(clk), .aresetn(reset_synced));
 
-    for (genvar J = 0; J < 2; J++) begin : gen_writers
+    for (genvar J = 0; J < N_OUTPUTS; J++) begin : gen_writers
         stream_writer_notify_i stream_notify (.clk(clk), .rst_n(reset_synced));
         stream_writer_notify_i stream_issued (.clk(clk), .rst_n(reset_synced));
         always_comb stream_issued.tie_off_s(); // Unused
@@ -105,22 +117,24 @@ for (genvar I = 0; I < N_CHANNELS; I++) begin : gen_pairs
             .notify(stream_notify),
             .issued(stream_issued),
 
-            .mem_config(mem_config[2 * I + J]),
+            .mem_config(mem_config[N_OUTPUTS * I + J]),
 
-            .input_data(data_in[2 * I + J]),
+            .input_data(data_in[N_OUTPUTS * I + J]),
             .output_data(data_pair[J])
         );
 
         // The interrupt carries the stream id, not the physical channel
         NotifyMetaIntfAdapter #(
-            .AXI_STRM_ID(2 * I + J)
+            .AXI_STRM_ID(N_OUTPUTS * I + J)
         ) inst_notify_adapter (
             .in(stream_notify),
-            .out(notify_strm[2 * I + J])
+            .out(notify_strm[N_OUTPUTS * I + J])
         );
     end
 
-    StreamWriterPairArbiter inst_pair_arbiter (
+    StreamWriterPairArbiter #(
+        .N_WRITERS(N_OUTPUTS)
+    ) inst_pair_arbiter (
         .clk(clk),
         .rst_n(reset_synced),
 
@@ -134,8 +148,10 @@ for (genvar I = 0; I < N_CHANNELS; I++) begin : gen_pairs
     );
 
 `ifdef SYNTHESIS
-    // Both writers of the pair ([0] = values, [1] = heap) plus the merged
-    // channel traffic. Each StreamWriter's FSM state is inferable from its
+    // Writers [0] = values and [1] = heap plus the merged channel traffic. The
+    // dictionary writer [2] is not probed: that needs more probes on the
+    // ila_paired_writer IP (init_ip.tcl).
+    // Each StreamWriter's FSM state is inferable from its
     // handshakes: buffer_ready high = WAIT_FOR_BUFFER, sq valid = REQUEST,
     // data flowing = TRANSFER, notify valid = WAIT_NOTIFY, everything quiet
     // with buffer_ready low = WAIT_COMPLETION (acks missing).
@@ -149,12 +165,12 @@ for (genvar I = 0; I < N_CHANNELS; I++) begin : gen_pairs
         .probe4({data_pair[1].tvalid, data_pair[1].tready, data_pair[1].tlast}),
         .probe5({cq_wr_pair[0].valid, cq_wr_pair[0].ready}),
         .probe6({cq_wr_pair[1].valid, cq_wr_pair[1].ready}),
-        .probe7({notify_strm[2*I].valid, notify_strm[2*I].ready}),
-        .probe8({notify_strm[2*I+1].valid, notify_strm[2*I+1].ready}),
-        .probe9({mem_config[2*I].buffer_valid, mem_config[2*I].buffer_ready,
-                 mem_config[2*I].flush_buffers}),
-        .probe10({mem_config[2*I+1].buffer_valid, mem_config[2*I+1].buffer_ready,
-                  mem_config[2*I+1].flush_buffers}),
+        .probe7({notify_strm[N_OUTPUTS*I].valid, notify_strm[N_OUTPUTS*I].ready}),
+        .probe8({notify_strm[N_OUTPUTS*I+1].valid, notify_strm[N_OUTPUTS*I+1].ready}),
+        .probe9({mem_config[N_OUTPUTS*I].buffer_valid, mem_config[N_OUTPUTS*I].buffer_ready,
+                 mem_config[N_OUTPUTS*I].flush_buffers}),
+        .probe10({mem_config[N_OUTPUTS*I+1].buffer_valid, mem_config[N_OUTPUTS*I+1].buffer_ready,
+                  mem_config[N_OUTPUTS*I+1].flush_buffers}),
 
         .probe11({sq_wr_chan[I].valid, sq_wr_chan[I].ready}),
         .probe12(sq_wr_chan[I].data.len),

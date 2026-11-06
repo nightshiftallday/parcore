@@ -1,7 +1,7 @@
 # Python counterpart of software/parcore/configuration.hpp and of the configurations in
 # hardware/src/hdl/config, built on libstf's configuration utils. Keep the register encodings in
 # sync with the C++ implementation and the hardware.
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import IntEnum
 from typing import Optional, Union
 from coyote_test import fpga_stream
@@ -40,7 +40,9 @@ class StreamProfile:
 @dataclass
 class DecoderProfile:
     input: StreamProfile
-    output: StreamProfile
+    output: StreamProfile  # values, or dictionary indices for a dictionary encoded string chunk
+    heap: StreamProfile
+    dict: StreamProfile
 
 
 class ColumnChunkDecoderConfig(Config):
@@ -50,9 +52,11 @@ class ColumnChunkDecoderConfig(Config):
 
     ID = 0x5c19f934407065bd # COLUMN_CHUNK_DECODER_CONFIG_ID
 
-    # Read registers: info registers followed by the StreamProfiler counters of each decoder
-    INFO_REGS    = 3
-    PROFILE_REGS = 10
+    # Read registers: info registers followed by the StreamProfiler counters of each decoder, 5 for
+    # each of its input, values, heap and dictionary streams
+    INFO_REGS           = 3
+    STREAM_PROFILE_REGS = 5
+    PROFILE_REGS        = len(fields(DecoderProfile)) * STREAM_PROFILE_REGS
 
     # column_chunk_conf_t packs (MSB -> LSB) as:
     #   logical type_t [3 bits] | is_required [1 bit] | compression_t [1 bit] |
@@ -123,15 +127,16 @@ class ColumnChunkDecoderConfig(Config):
 
     def read_profile(self, decoder: int) -> DecoderProfile:
         """
-        Reads the input and output StreamProfiler counters of the given decoder. Reading the last
-        counter resets the profilers once the next stream starts.
+        Reads the StreamProfiler counters of the given decoder's input and three output streams.
+        Reading the last counter resets the profilers once the next stream starts.
         """
         assert decoder < self.num_decoders, (
             f"Attempted to read profile of ColumnChunkDecoder {decoder} out of {self.num_decoders}"
         )
         base = self.INFO_REGS + decoder * self.PROFILE_REGS
         counters = [self.read_register(base + i) for i in range(self.PROFILE_REGS)]
-        return DecoderProfile(StreamProfile(*counters[:5]), StreamProfile(*counters[5:]))
+        n = self.STREAM_PROFILE_REGS
+        return DecoderProfile(*(StreamProfile(*counters[i:i + n]) for i in range(0, self.PROFILE_REGS, n)))
 
 
 class RunDecoderConfig(Config):

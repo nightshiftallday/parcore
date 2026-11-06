@@ -10,6 +10,9 @@ set(COMP_CORES 64)
 set(N_REGIONS 1)
 set(BUILD_OPT 1)
 set(EN_STRM 1)
+# Number of host channels. vfpga_top.svh puts one ColumnChunkDecoder on each, but caps them at 2:
+# every decoder writes 3 logical output streams (values, heap, dictionary) and the notify value
+# carries a 3-bit stream id. The unit-test tops use all channels.
 set(PARCORE_NUM_DECODERS 4 CACHE STRING "Number of ColumnChunkDecoders, each with its own host stream")
 set(N_STRM_AXI ${PARCORE_NUM_DECODERS})
 set(FDEV_NAME u55c)

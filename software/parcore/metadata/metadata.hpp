@@ -51,6 +51,12 @@ struct ColumnChunk {
   // Bit width of the column's integer logical type annotation (INT(bit_width, is_signed) or the
   // converted types INT_8 ... UINT_64), 0 if the column has none.
   uint8_t logical_width = 0;
+  // True if ColumnMetaData.encodings lists a dictionary encoding (RLE_DICTIONARY or
+  // PLAIN_DICTIONARY). ParCore assumes such a chunk never falls back to PLAIN, as DuckDB writes
+  // it. A dictionary encoded string chunk is decoded into a DuckDB dictionary vector: 32-bit
+  // indices on the values stream, the dictionary's german_str_t records on the dictionary stream.
+  // Not part of the binary format read by from(), which keeps the default.
+  bool is_dictionary_encoded = false;
 
   libstf::type_t logical_type() const;
 

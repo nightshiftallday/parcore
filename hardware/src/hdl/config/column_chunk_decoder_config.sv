@@ -38,7 +38,7 @@ module ColumnChunkDecoderConfig #(
 localparam MAX_NUM_ENQUEUED_BUFFERS = 64;
 
 // Info registers followed by the per-decoder profiling counters. Each decoder
-// contributes 10 counters (5 input + 5 output stream profile counters).
+// contributes 5 counters for each of its input, values, heap and dictionary streams.
 localparam NUM_INFO_REGS    = COLUMN_CHUNK_DECODER_INFO_REGS;
 localparam NUM_PROFILE_REGS = COLUMN_CHUNK_DECODER_PROFILE_REGS;
 localparam NUM_READ_REGS    = COLUMN_CHUNK_DECODER_READ_REGS(NUM_DECODERS);
@@ -65,16 +65,21 @@ for (genvar I = 0; I < NUM_DECODERS; I++) begin : gen_profile_regs
         .o_data(registered_counters[I])
     );
 
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 0] = registered_counters[I].in.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 1] = registered_counters[I].in.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 2] = registered_counters[I].in.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 3] = registered_counters[I].in.idle_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 4] = registered_counters[I].in.last_handshakes;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 5] = registered_counters[I].out.handshakes_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 6] = registered_counters[I].out.starved_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 7] = registered_counters[I].out.stalled_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 8] = registered_counters[I].out.idle_cycles;
-    assign values[NUM_INFO_REGS + NUM_PROFILE_REGS * I + 9] = registered_counters[I].out.last_handshakes;
+    // In decoder_profile_t order: input, values, heap, dictionary
+    stream_profile_t streams[COLUMN_CHUNK_DECODER_PROFILED_STREAMS];
+    assign streams[0] = registered_counters[I].in;
+    assign streams[1] = registered_counters[I].out;
+    assign streams[2] = registered_counters[I].heap;
+    assign streams[3] = registered_counters[I].dict;
+
+    for (genvar S = 0; S < COLUMN_CHUNK_DECODER_PROFILED_STREAMS; S++) begin : gen_stream_regs
+        localparam int BASE = NUM_INFO_REGS + NUM_PROFILE_REGS * I + STREAM_PROFILE_REGS * S;
+        assign values[BASE + 0] = streams[S].handshakes_cycles;
+        assign values[BASE + 1] = streams[S].starved_cycles;
+        assign values[BASE + 2] = streams[S].stalled_cycles;
+        assign values[BASE + 3] = streams[S].idle_cycles;
+        assign values[BASE + 4] = streams[S].last_handshakes;
+    end
 end
 
 ConfigReadRegisterFile #(
@@ -88,7 +93,7 @@ ConfigReadRegisterFile #(
 );
 
 // -- Profile stop ---------------------------------------------------------------------------------
-// The host reads a decoder's 10 profile counters in ascending order. We detect the last read
+// The host reads a decoder's profile counters in ascending order. We detect the last read
 // handshake and pulse stop[I] so the profilers reset once the full snapshot has been read out.
 logic read_handshake;
 assign read_handshake = read_config.read_valid && read_config.read_ready;

@@ -8,7 +8,15 @@ import libstf::*;
 always_comb sq_rd.tie_off_m();
 always_comb cq_rd.tie_off_s();
 
-localparam N_STREAMS = N_STRM_AXI;
+// Three output streams per decoder: values on stream 3I, heap on stream 3I+1,
+// dictionary german strings on stream 3I+2. All share physical channel I (see
+// PairedOutputWriter). The notify value carries a 3-bit stream id, so at most
+// 8 / 3 = 2 decoders fit; the remaining host channels are tied off. The host reads
+// the number of decoders from the ColumnChunkDecoderConfig.
+localparam OUTPUTS_PER_DECODER = 3;
+localparam MAX_NOTIFY_STREAMS  = 8;
+localparam N_DECODERS = N_STRM_AXI < MAX_NOTIFY_STREAMS / OUTPUTS_PER_DECODER ?
+                        N_STRM_AXI : MAX_NOTIFY_STREAMS / OUTPUTS_PER_DECODER;
 localparam DATABEAT_SIZE = 64;
 localparam AXI_DATA_SIZE = 64;
 
@@ -23,18 +31,23 @@ logic rst_n;
 assign clk   = aclk;
 assign rst_n = aresetn;
 
+/* -- Unused host channels ---------------------------------------------- */
+for (genvar I = N_DECODERS; I < N_STRM_AXI; I++) begin : gen_unused_channels
+    always_comb axis_host_recv[I].tie_off_s();
+    always_comb axis_host_send[I].tie_off_m();
+end
+
 /* -- CONFIG ------------------------------------------------------------ */
-// Two output streams per decoder: values on stream 2I, heap on stream 2I+1.
-// Both share physical channel I (see PairedOutputWriter).
 // MemConfig has a write register per stream plus flush and 4 read registers.
-localparam MEM_CONFIG_REGS = 2*N_STREAMS+1 > 4 ? 2*N_STREAMS+1 : 4;
+localparam NUM_OUTPUT_STREAMS  = OUTPUTS_PER_DECODER * N_DECODERS;
+localparam MEM_CONFIG_REGS = NUM_OUTPUT_STREAMS+1 > 4 ? NUM_OUTPUT_STREAMS+1 : 4;
 
 write_config_i write_configs[2](.*);
 read_config_i  read_configs [2](.*);
 GlobalConfig #(
     .SYSTEM_ID(PARCORE_SYSTEM_ID),
     .NUM_CONFIGS(2),
-    .ADDR_SPACE_SIZES({MEM_CONFIG_REGS, COLUMN_CHUNK_DECODER_READ_REGS(N_STREAMS)})
+    .ADDR_SPACE_SIZES({MEM_CONFIG_REGS, COLUMN_CHUNK_DECODER_READ_REGS(N_DECODERS)})
 ) inst_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -45,9 +58,9 @@ GlobalConfig #(
     .read_configs(read_configs)
 );
 
-mem_config_i mem_conf[2*N_STREAMS](.*);
+mem_config_i mem_conf[NUM_OUTPUT_STREAMS](.*);
 MemConfig #(
-    .NUM_STREAMS(2*N_STREAMS)
+    .NUM_STREAMS(NUM_OUTPUT_STREAMS)
 ) inst_mem_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -58,11 +71,11 @@ MemConfig #(
     .out(mem_conf)
 );
 
-decoder_profile_i profile[N_STREAMS]();
+decoder_profile_i profile[N_DECODERS]();
 
-ready_valid_i #(column_chunk_conf_t) column_chunk_conf[N_STREAMS](.*);
+ready_valid_i #(column_chunk_conf_t) column_chunk_conf[N_DECODERS](.*);
 ColumnChunkDecoderConfig #(
-    .NUM_DECODERS(N_STREAMS)
+    .NUM_DECODERS(N_DECODERS)
 ) inst_column_chunk_decoder_config (
     .clk(clk),
     .rst_n(rst_n),
@@ -75,10 +88,10 @@ ColumnChunkDecoderConfig #(
     .profile(profile)
 );
 
-AXI4S outputs [2*N_STREAMS](.aclk(clk), .aresetn(rst_n));
+AXI4S outputs [NUM_OUTPUT_STREAMS](.aclk(clk), .aresetn(rst_n));
 
 generate
-    for (genvar I = 0; I < N_STREAMS; I++) begin : gen
+    for (genvar I = 0; I < N_DECODERS; I++) begin : gen
         /* -- INPUT ------------------------------------------------------------- */
 
         AXI4S axi_host_recv (.aclk(clk), .aresetn(rst_n));
@@ -119,7 +132,7 @@ generate
         ndata_i #(data8_t, DATABEAT_SIZE) dec_out(clk, rst_n);
         ndata_i #(data8_t, AXI_DATA_SIZE) dec_out_resized (clk, rst_n);
 
-        // Values -> stream 2I.
+        // Values -> stream 3I.
         AXI4S axi_values (.aclk(clk), .aresetn(rst_n));
         NDataToAXI #(data8_t, AXI_DATA_SIZE) inst_values_to_axi (
             .clk(clk),
@@ -135,10 +148,10 @@ generate
             .aresetn(rst_n),
 
             .s_axis(axi_values),
-            .m_axis(outputs[2*I])
+            .m_axis(outputs[OUTPUTS_PER_DECODER*I])
         );
 
-        // Heap -> stream 2I+1.
+        // Heap -> stream 3I+1.
         ndata_i #(data8_t, DATABEAT_SIZE) dec_heap(clk, rst_n);
         ndata_i #(data8_t, AXI_DATA_SIZE) dec_heap_resized(clk, rst_n);
         AXI4S axi_heap (.aclk(clk), .aresetn(rst_n));
@@ -156,7 +169,28 @@ generate
             .aresetn(rst_n),
 
             .s_axis(axi_heap),
-            .m_axis(outputs[2*I+1])
+            .m_axis(outputs[OUTPUTS_PER_DECODER*I+1])
+        );
+
+        // Dictionary german strings -> stream 3I+2.
+        ndata_i #(data8_t, DATABEAT_SIZE) dec_dict(clk, rst_n);
+        ndata_i #(data8_t, AXI_DATA_SIZE) dec_dict_resized(clk, rst_n);
+        AXI4S axi_dict (.aclk(clk), .aresetn(rst_n));
+        NDataToAXI #(data8_t, AXI_DATA_SIZE) inst_dict_to_axi (
+            .clk(clk),
+            .rst_n(rst_n),
+
+            .in(dec_dict_resized),
+            .out(axi_dict)
+        );
+        axis_reg_array #(
+            .N_STAGES(AXIS_CROSSING_STAGES)
+        ) inst_dict_pipe (
+            .aclk(clk),
+            .aresetn(rst_n),
+
+            .s_axis(axi_dict),
+            .m_axis(outputs[OUTPUTS_PER_DECODER*I+2])
         );
 
         /* -- DESIGN WIRING ----------------------------------------------------- */
@@ -172,6 +206,7 @@ generate
             .in(in),
             .out(dec_out),
             .heap_out(dec_heap),
+            .dict_out(dec_dict),
 
             .profile(profile[I])
         );
@@ -190,6 +225,14 @@ generate
 
             .in(dec_heap),
             .out(dec_heap_resized)
+        );
+
+        NDataWidthConverter #(data8_t) dict_resizer (
+            .clk(clk),
+            .rst_n(rst_n),
+
+            .in(dec_dict),
+            .out(dec_dict_resized)
         );
 
 `ifdef DEBUG
@@ -218,20 +261,27 @@ generate
             .probe13(dec_heap.ready),
             .probe14(dec_heap.last),
 
-            .probe15(outputs[2*I].tvalid),
-            .probe16(outputs[2*I].tready),
-            .probe17(outputs[2*I].tlast),
+            .probe15(outputs[OUTPUTS_PER_DECODER*I].tvalid),
+            .probe16(outputs[OUTPUTS_PER_DECODER*I].tready),
+            .probe17(outputs[OUTPUTS_PER_DECODER*I].tlast),
 
-            .probe18(outputs[2*I+1].tvalid),
-            .probe19(outputs[2*I+1].tready),
-            .probe20(outputs[2*I+1].tlast)
+            .probe18(outputs[OUTPUTS_PER_DECODER*I+1].tvalid),
+            .probe19(outputs[OUTPUTS_PER_DECODER*I+1].tready),
+            .probe20(outputs[OUTPUTS_PER_DECODER*I+1].tlast)
         );
 `endif
     end
 endgenerate
 
+// Decoder I writes on host channel I; channels N_DECODERS and up are tied off above
+AXI4SR host_send[N_DECODERS](.aclk(clk), .aresetn(rst_n));
+for (genvar I = 0; I < N_DECODERS; I++) begin : gen_host_send
+    `AXISR_ASSIGN(host_send[I], axis_host_send[I])
+end
+
 PairedOutputWriter #(
-    .N_CHANNELS(N_STREAMS)
+    .N_CHANNELS(N_DECODERS),
+    .N_OUTPUTS(OUTPUTS_PER_DECODER)
 ) inst_output_writer (
     .clk(clk),
     .rst_n(rst_n),
@@ -243,7 +293,7 @@ PairedOutputWriter #(
     .mem_config(mem_conf),
 
     .data_in(outputs),
-    .data_out(axis_host_send)
+    .data_out(host_send)
 );
 
 `ifdef DEBUG

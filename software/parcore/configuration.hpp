@@ -10,9 +10,14 @@ namespace parcore {
 constexpr const uint64_t COLUMN_CHUNK_DECODER_CONFIG_ID = 0x5c19f934407065bd;
 
 // Read-side register layout of the ColumnChunkDecoderConfig: a few info
-// registers followed by 10 profiling counters per decoder (5 input + 5 output).
+// registers followed by 20 profiling counters per decoder, 5 for each of the
+// input, values, heap and dictionary streams.
 constexpr const uint32_t COLUMN_CHUNK_DECODER_INFO_REGS    = 3;
-constexpr const uint32_t COLUMN_CHUNK_DECODER_PROFILE_REGS = 10;
+constexpr const uint32_t STREAM_PROFILE_REGS               = 5;
+// The streams of DecoderProfile below; matches COLUMN_CHUNK_DECODER_PROFILED_STREAMS in common.sv
+constexpr const uint32_t COLUMN_CHUNK_DECODER_PROFILED_STREAMS = 4;
+constexpr const uint32_t COLUMN_CHUNK_DECODER_PROFILE_REGS =
+    COLUMN_CHUNK_DECODER_PROFILED_STREAMS * STREAM_PROFILE_REGS;
 
 struct StreamProfile {
     uint64_t handshakes_cycles;
@@ -23,9 +28,13 @@ struct StreamProfile {
 };
 
 struct DecoderProfile {
-    StreamProfile in;
-    StreamProfile out;
+    StreamProfile in;   // raw column-chunk bytes
+    StreamProfile out;  // values, or dictionary indices for a dictionary encoded string chunk
+    StreamProfile heap; // string heap
+    StreamProfile dict; // string dictionary
 };
+static_assert(sizeof(DecoderProfile) == COLUMN_CHUNK_DECODER_PROFILED_STREAMS * sizeof(StreamProfile),
+              "COLUMN_CHUNK_DECODER_PROFILED_STREAMS must match the streams of DecoderProfile");
 
 class ColumnChunkDecoderConfig : public libstf::Config {
   public:
@@ -33,7 +42,8 @@ class ColumnChunkDecoderConfig : public libstf::Config {
                              uint32_t num_regs);
 
     /**
-     * Reads the input and output StreamProfiler counters for the given decoder.
+     * Reads the StreamProfiler counters of the given decoder's input and three output streams.
+     * Reading the last counter resets the profilers.
      *
      * @param decoder The decoder whose profiling counters to read.
      */

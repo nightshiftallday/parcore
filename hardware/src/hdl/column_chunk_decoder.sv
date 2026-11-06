@@ -13,6 +13,31 @@ import libstf::INT64_T;
 import libstf::BYTE_T;
 import parcore::*;
 
+/**
+ * Decodes one column chunk at a time.
+ *
+ * Outputs per chunk:
+ *   out      - the values: fixed-width values, german_str_t records for PLAIN
+ *              encoded string chunks, or 32-bit dictionary indices for
+ *              dictionary encoded string chunks (see below).
+ *   heap_out - the string heap (strings longer than 12 bytes) of string chunks.
+ *   dict_out - the german_str_t records of the dictionary page of a dictionary
+ *              encoded string chunk; silent for every other chunk.
+ *
+ * Dictionary encoded string chunks (prototype, "dictionary vector" mode)
+ * ------------------------------------------------------------------------
+ * The output matches DuckDB's dictionary vector: out holds one 32-bit index per
+ * value, dict_out the dictionary's string_t records and heap_out their heap.
+ * The dictionary page goes through the ParallelStringDecoder as before, but its
+ * german strings leave on dict_out instead of filling the on-chip Dictionary.
+ * The indices of the data pages bypass DictionaryID and the Dictionary.
+ *
+ * Assumption: the chunk is written by DuckDB, i.e., it is either dictionary
+ * encoded throughout or PLAIN throughout. A dictionary encoded chunk that falls
+ * back to PLAIN is NOT supported in this mode. The host knows the mode from the
+ * encodings in ColumnMetaData; the hardware recognizes it from the first page
+ * being a dictionary page.
+ */
 module ColumnChunkDecoder #(
     parameter DATABEAT_SIZE = AXI_DATA_BITS / 8
 ) (
@@ -24,6 +49,7 @@ module ColumnChunkDecoder #(
     ndata_i.s       in,     // #(data8_t, DATABEAT_SIZE) raw column-chunk bytes
     ndata_i.m out,          // #(DATABEAT_SIZE)
     ndata_i.m heap_out,     // #(DATABEAT_SIZE)
+    ndata_i.m dict_out,     // #(data8_t, DATABEAT_SIZE) dictionary german strings
 
     decoder_profile_i.m profile
 );
@@ -202,7 +228,7 @@ StringRouter #(DATABEAT_SIZE) inst_str_router (
 );
 
 // ------ Dictionary Page Path ---------------
-ndata_i #(data8_t, DATABEAT_SIZE) dict_body_to_dict (clk, rst_n);
+ndata_i #(data8_t, DATABEAT_SIZE) dict_body_out (clk, rst_n);
 ready_valid_i #(type_t) dict_body_conf (clk, reset_synced);
 DictionaryBody #(DATABEAT_SIZE) inst_dict_body (
     .clk (clk),
@@ -214,7 +240,42 @@ DictionaryBody #(DATABEAT_SIZE) inst_dict_body (
     .in_german_strings (str_decoder_to_dict_body),
 
     .out_to_psd (dict_body_to_str_decoder),
-    .out_to_dict (dict_body_to_dict)
+    .out_to_dict (dict_body_out)
+);
+
+// The decoded dictionary page either fills the on-chip Dictionary or, for
+// dictionary encoded string chunks, leaves the decoder as the dictionary of
+// the DuckDB dictionary vector. One select per dictionary page.
+localparam int NUM_DICT_VALUES_ROUTES = 2;
+typedef enum logic {
+    DICT_VALUES_TO_DICTIONARY = 0,
+    DICT_VALUES_TO_HOST       = 1
+} dict_values_route_t;
+
+ready_valid_i #(dict_values_route_t) dict_values_route_conf (clk, reset_synced);
+ndata_i #(data8_t, DATABEAT_SIZE) dict_values_routes[NUM_DICT_VALUES_ROUTES](clk, reset_synced);
+DataDemultiplexer #(NUM_DICT_VALUES_ROUTES) inst_dict_values_demux (
+    .clk (clk),
+    .rst_n (reset_synced),
+
+    .select (dict_values_route_conf),
+
+    .in (dict_body_out),
+    .out (dict_values_routes)
+);
+
+ndata_i #(data8_t, DATABEAT_SIZE) dict_body_to_dict (clk, rst_n);
+`DATA_ASSIGN(dict_values_routes[DICT_VALUES_TO_DICTIONARY], dict_body_to_dict)
+
+// The ParallelStringDecoder packs the strings into full beats and ends the page
+// with last, so the stream is already normalized for the output writer. The skid
+// buffer keeps the writer's ready out of the demultiplexer.
+NDataSkidBuffer #(data8_t, DATABEAT_SIZE) inst_dict_out_skid_buffer (
+    .clk (clk),
+    .rst_n (reset_synced),
+
+    .in (dict_values_routes[DICT_VALUES_TO_HOST]),
+    .out (dict_out)
 );
 
 
@@ -245,6 +306,29 @@ HybridPageDecoder #(
     .out(dict_ids_native)
 );
 
+// The indices are either looked up in the on-chip Dictionary or, for dictionary
+// encoded string chunks, emitted as they are.
+localparam int NUM_INDEX_ROUTES = 2;
+typedef enum logic {
+    INDEX_TO_DICTIONARY = 0,
+    INDEX_TO_OUTPUT     = 1
+} index_route_t;
+
+ready_valid_i #(index_route_t) index_demux_conf (clk, reset_synced);
+ndata_i #(id_t, NUM_DICT_ELEM) index_routes[NUM_INDEX_ROUTES](clk, reset_synced);
+DataDemultiplexer #(NUM_INDEX_ROUTES) inst_index_demux (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(index_demux_conf),
+
+    .in(dict_ids_native),
+    .out(index_routes)
+);
+
+ndata_i #(id_t, NUM_DICT_ELEM) dict_ids_to_lookup (clk, reset_synced);
+`DATA_ASSIGN(index_routes[INDEX_TO_DICTIONARY], dict_ids_to_lookup)
+
 ready_valid_i #(type_t) dict_id_conf (clk, rst_n);
 ndata_i #(id_t, NUM_DICT_ELEM) dict_ids_scaled (clk, reset_synced);
 DictionaryID #(
@@ -256,14 +340,38 @@ DictionaryID #(
 
     .conf (dict_id_conf),
 
-    .in (dict_ids_native),
+    .in (dict_ids_to_lookup),
     .out (dict_ids_scaled)
+);
+
+// Index output: every id_t widened to a 32-bit index (DuckDB's sel_t). The
+// HybridPageDecoder emits entry indices, the per-type scaling of DictionaryID
+// only addresses the on-chip Dictionary and is skipped here.
+ndata_i #(data32_t, NUM_DICT_ELEM) index_values (clk, reset_synced);
+ndata_i #(data32_t, NUM_DICT_ELEM) index_values_skidded (clk, reset_synced);
+
+for (genvar I = 0; I < NUM_DICT_ELEM; I++) begin : gen_index_widen
+    assign index_values.data[I] = data32_t'(index_routes[INDEX_TO_OUTPUT].data[I]);
+end
+assign index_values.keep  = index_routes[INDEX_TO_OUTPUT].keep;
+assign index_values.last  = index_routes[INDEX_TO_OUTPUT].last;
+assign index_values.valid = index_routes[INDEX_TO_OUTPUT].valid;
+assign index_routes[INDEX_TO_OUTPUT].ready = index_values.ready;
+
+NDataSkidBuffer #(data32_t, NUM_DICT_ELEM) inst_index_values_skid_buffer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(index_values),
+    .out(index_values_skidded)
 );
 
 // The Dictionary indexes 32-bit values while the rest of the path moves bytes.
 // These wires logically convert one to another
 ndata_i #(data32_t, NUM_DICT_ELEM) dict_in_values  (clk, reset_synced);
 ndata_i #(data32_t, NUM_DICT_ELEM) dict_out_values (clk, reset_synced);
+ndata_i #(data32_t, NUM_DICT_ELEM) hybrid_values_muxed (clk, reset_synced);
+ndata_i #(data32_t, NUM_DICT_ELEM) hybrid_values   (clk, reset_synced);
 ndata_i #(data8_t, DATABEAT_SIZE) dict_decoded_bytes (.*);
 
 assign dict_in_values.data     = dict_body_to_dict.data;
@@ -271,14 +379,14 @@ assign dict_in_values.last     = dict_body_to_dict.last;
 assign dict_in_values.valid    = dict_body_to_dict.valid;
 assign dict_body_to_dict.ready = dict_in_values.ready;
 
-assign dict_decoded_bytes.data  = dict_out_values.data;
-assign dict_decoded_bytes.last  = dict_out_values.last;
-assign dict_decoded_bytes.valid = dict_out_values.valid;
-assign dict_out_values.ready    = dict_decoded_bytes.ready;
+assign dict_decoded_bytes.data  = hybrid_values.data;
+assign dict_decoded_bytes.last  = hybrid_values.last;
+assign dict_decoded_bytes.valid = hybrid_values.valid;
+assign hybrid_values.ready      = dict_decoded_bytes.ready;
 
 for (genvar I = 0; I < NUM_DICT_ELEM; I++) begin
     assign dict_in_values.keep[I] = &dict_body_to_dict.keep[4*I +: 4];
-    assign dict_decoded_bytes.keep[4*I +: 4] = {4{dict_out_values.keep[I]}};
+    assign dict_decoded_bytes.keep[4*I +: 4] = {4{hybrid_values.keep[I]}};
 end
 
 Dictionary #(
@@ -293,6 +401,37 @@ Dictionary #(
     .in_ids(dict_ids_scaled),
 
     .out(dict_out_values)
+);
+
+// Rejoins the index route with the looked-up values. Both carry 32-bit lanes,
+// so everything after this point (last rewriting, output multiplexing,
+// normalization) is shared.
+ready_valid_i #(index_route_t) index_mux_conf (clk, reset_synced);
+ndata_i #(data32_t, NUM_DICT_ELEM) hybrid_routes[NUM_INDEX_ROUTES](clk, reset_synced);
+`DATA_ASSIGN(dict_out_values, hybrid_routes[INDEX_TO_DICTIONARY])
+`DATA_ASSIGN(index_values_skidded, hybrid_routes[INDEX_TO_OUTPUT])
+
+DataMultiplexer #(
+    data32_t,
+    NUM_DICT_ELEM,
+    NUM_INDEX_ROUTES
+) inst_index_mux (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .select(index_mux_conf),
+
+    .in(hybrid_routes),
+    .out(hybrid_values_muxed)
+);
+
+// Keeps the multiplexer's combinational ready out of DataRewriteLast's path
+NDataSkidBuffer #(data32_t, NUM_DICT_ELEM) inst_hybrid_values_skid_buffer (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .in(hybrid_values_muxed),
+    .out(hybrid_values)
 );
 
 ready_valid_i #(data32_t) rewrite_last_conf (clk, rst_n);
@@ -473,6 +612,27 @@ endfunction
 
 localparam logic FOR_EVERY_PAGE = 1;
 
+// ------ Dictionary vector mode ---------------------------------------
+// A string chunk is dictionary encoded iff its first page is a dictionary page.
+// Under the DuckDB-writer assumption all its data pages are then hybrid pages,
+// and the chunk is emitted as a DuckDB dictionary vector (see the module header).
+// While the first page is configured dict_page_seen is not yet set, so the page
+// itself decides.
+logic dict_vector_chunk;
+assign dict_vector_chunk =
+        cc_conf_latched.typ == GERMAN_STR_T &&
+        (first_page ? page_conf_r.page_type == PAGE_TYPE_DICT : dict_page_seen);
+
+// The type of the values on `out`: 32-bit indices in dictionary vector mode
+type_t out_typ;
+assign out_typ = dict_vector_chunk ? INT32_T : cc_conf_latched.typ;
+
+`ifndef SYNTHESIS
+assert property (@(posedge clk) disable iff (!reset_synced)
+    !(state == CONFIGURE && dict_vector_chunk && page_conf_r.page_type == PAGE_TYPE_PLAIN))
+else $fatal(1, "PLAIN fallback in a dictionary encoded string chunk is not supported");
+`endif
+
 // ------ Frontend configuration ---------------------------------------
 ready_valid_i #(compression_t) _decompressor_conf (clk, reset_synced);
 always_ff @( posedge clk ) begin : configure_decompressor
@@ -538,16 +698,41 @@ end
 `SKID_DATA_SIGNAL(hybrid_page_conf_t, clk, rst_n, _hybrid_page_decoder_conf, hybrid_page_decoder_conf)
 
 // The Hybrid path routing needs to be once per hybrid pages group
-ready_valid_i #(type_t) _dict_id_conf (clk, rst_n);
-logic enqueue_dict_id_conf;
-assign enqueue_dict_id_conf =
+logic enqueue_hybrid_routing_conf;
+assign enqueue_hybrid_routing_conf =
         !hybrid_page_seen &&
         (hybrid_flush || page_conf_r.page_type == PAGE_TYPE_HYBRID);
+
+// Dictionary vector chunks bypass the lookup. The flush beat of a PLAIN fallback
+// keeps taking the lookup route, as before.
+logic index_to_output;
+assign index_to_output = dict_vector_chunk && !hybrid_flush;
+
+ready_valid_i #(index_route_t) _index_demux_conf (clk, reset_synced);
+ready_valid_i #(index_route_t) _index_mux_conf (clk, reset_synced);
+always_ff @( posedge clk ) begin : configure_index_routing
+    _index_demux_conf.valid <= n_conf_valid(
+        _index_demux_conf.valid,
+        _index_demux_conf.ready,
+        enqueue_hybrid_routing_conf
+    );
+    _index_mux_conf.valid <= n_conf_valid(
+        _index_mux_conf.valid,
+        _index_mux_conf.ready,
+        enqueue_hybrid_routing_conf
+    );
+    _index_demux_conf.data <= index_to_output ? INDEX_TO_OUTPUT : INDEX_TO_DICTIONARY;
+    _index_mux_conf.data   <= index_to_output ? INDEX_TO_OUTPUT : INDEX_TO_DICTIONARY;
+end
+`SKID_SIGNAL(index_route_t, clk, rst_n, _index_demux_conf, index_demux_conf)
+`SKID_SIGNAL(index_route_t, clk, rst_n, _index_mux_conf, index_mux_conf)
+
+ready_valid_i #(type_t) _dict_id_conf (clk, rst_n);
 always_ff @( posedge clk ) begin : configure_dict_id
     _dict_id_conf.valid <= n_conf_valid(
         _dict_id_conf.valid,
         _dict_id_conf.ready,
-        enqueue_dict_id_conf
+        enqueue_hybrid_routing_conf && !index_to_output
     );
     _dict_id_conf.data <= hybrid_flush ? INT32_T : cc_conf_latched.typ;
 end
@@ -561,7 +746,7 @@ always_ff @( posedge clk ) begin : configure_rewrite_last
         page_conf_r.page_type == PAGE_TYPE_HYBRID
     );
     _rewrite_last_conf.data <=
-        page_conf_r.num_values * GET_TYPE_BYTES(cc_conf_latched.typ);
+        page_conf_r.num_values * GET_TYPE_BYTES(out_typ);
 end
 `SKID_SIGNAL(data32_t, clk, rst_n, _rewrite_last_conf, rewrite_last_conf)
 
@@ -576,6 +761,19 @@ always_ff @( posedge clk ) begin : configure_dict_body
     _dict_body_conf.data <= cc_conf_latched.typ;
 end
 `SKID_SIGNAL(type_t, clk, rst_n, _dict_body_conf, dict_body_conf)
+
+ready_valid_i #(dict_values_route_t) _dict_values_route_conf (clk, reset_synced);
+always_ff @( posedge clk ) begin : configure_dict_values_route
+    _dict_values_route_conf.valid <= n_conf_valid(
+        _dict_values_route_conf.valid,
+        _dict_values_route_conf.ready,
+        page_conf_r.page_type == PAGE_TYPE_DICT
+    );
+    _dict_values_route_conf.data <= dict_vector_chunk ?
+            DICT_VALUES_TO_HOST :
+            DICT_VALUES_TO_DICTIONARY;
+end
+`SKID_SIGNAL(dict_values_route_t, clk, rst_n, _dict_values_route_conf, dict_values_route_conf)
 
 // ------ Plain Data Page Path configuration ---------------------------------------
 ready_valid_i #(type_t) _plain_router_conf (clk, rst_n);
@@ -673,8 +871,8 @@ always_ff @( posedge clk ) begin : configure_normalize_until
         _normalize_until_conf.ready,
         first_page
     );
-    _normalize_until_conf.data <= 
-        cc_conf_latched.num_values * GET_TYPE_BYTES(cc_conf_latched.typ);
+    _normalize_until_conf.data <=
+        cc_conf_latched.num_values * GET_TYPE_BYTES(out_typ);
 end
 `SKID_SIGNAL(data32_t, clk, rst_n, _normalize_until_conf, normalize_until_conf)
 
@@ -697,11 +895,13 @@ always_ff @( posedge clk ) begin : configure_casts
         _logical_type_conf.ready,
         first_page
     );
-    _physical_type_conf.data <= cc_conf_latched.typ;
-    _path_type_conf.data     <= cc_conf_latched.typ == INT64_T &&
+    // In dictionary vector mode out carries plain 32-bit indices, so all three
+    // types are INT32_T and both casts pass the data through.
+    _physical_type_conf.data <= out_typ;
+    _path_type_conf.data     <= out_typ == INT64_T &&
                                 cc_conf_latched.logical_typ inside {INT32_T, INT16_T, BYTE_T} ?
-                                INT32_T : cc_conf_latched.typ;
-    _logical_type_conf.data  <= cc_conf_latched.logical_typ;
+                                INT32_T : out_typ;
+    _logical_type_conf.data  <= dict_vector_chunk ? INT32_T : cc_conf_latched.logical_typ;
 end
 `SKID_SIGNAL(type_t, clk, rst_n, _physical_type_conf, physical_type_conf)
 `SKID_SIGNAL(type_t, clk, rst_n, _path_type_conf, path_type_conf)
@@ -711,8 +911,11 @@ assign all_modules_consumed_configs =
         !_decompressor_conf.valid &&
         !_data_page_path_conf.valid &&
         !_hybrid_page_decoder_conf.valid &&
+        !_index_demux_conf.valid &&
+        !_index_mux_conf.valid &&
         !_dict_id_conf.valid &&
         !_dict_body_conf.valid &&
+        !_dict_values_route_conf.valid &&
         !_plain_router_conf.valid &&
         !_str_router_conf.valid &&
         !_plain_str_decoder_conf.valid &&
@@ -729,11 +932,17 @@ assign page_conf.ready = state == WAIT_FOR_PAGE_CONF;
 // ------ Stream profiling ------------------------
 stream_profile_i profile_in ();
 stream_profile_i profile_out();
+stream_profile_i profile_heap();
+stream_profile_i profile_dict();
 
-assign profile.counters.in  = profile_in.counters;
-assign profile.counters.out = profile_out.counters;
-assign profile_in.stop      = profile.stop;
-assign profile_out.stop     = profile.stop;
+assign profile.counters.in   = profile_in.counters;
+assign profile.counters.out  = profile_out.counters;
+assign profile.counters.heap = profile_heap.counters;
+assign profile.counters.dict = profile_dict.counters;
+assign profile_in.stop       = profile.stop;
+assign profile_out.stop      = profile.stop;
+assign profile_heap.stop     = profile.stop;
+assign profile_dict.stop     = profile.stop;
 
 StreamProfiler inst_profile_in (
     .clk(clk),
@@ -755,6 +964,28 @@ StreamProfiler inst_profile_out (
     .ready(out.ready),
 
     .profile(profile_out)
+);
+
+StreamProfiler inst_profile_heap (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .last (heap_out.last),
+    .valid(heap_out.valid),
+    .ready(heap_out.ready),
+
+    .profile(profile_heap)
+);
+
+StreamProfiler inst_profile_dict (
+    .clk(clk),
+    .rst_n(reset_synced),
+
+    .last (dict_out.last),
+    .valid(dict_out.valid),
+    .ready(dict_out.ready),
+
+    .profile(profile_dict)
 );
 
 // ------ Heap path instrumentation ---------------------------------------

@@ -178,6 +178,10 @@ parcore::metadata::Metadata read_metadata(std::shared_ptr<arrow::io::RandomAcces
                                                      : cc->data_page_offset();
             chunk.total_compressed_size = cc->total_compressed_size();
             chunk.is_required           = schema->Column(j)->max_definition_level() == 0;
+            for (auto encoding : cc->encodings()) {
+                chunk.is_dictionary_encoded |= encoding == parquet::Encoding::RLE_DICTIONARY ||
+                                               encoding == parquet::Encoding::PLAIN_DICTIONARY;
+            }
             group.chunks.push_back(chunk);
         }
         meta.groups.push_back(std::move(group));
@@ -207,14 +211,17 @@ std::shared_ptr<Buffer> load_chunk(std::shared_ptr<arrow::io::RandomAccessFile> 
 }
 
 // The output of one column chunk. String chunks write their german_str_t records to the values
-// stream and the strings that do not fit inline to the heap stream.
+// stream and the strings that do not fit inline to the heap stream. Dictionary encoded string
+// chunks instead write a DuckDB dictionary vector: uint32_t indices to the values stream and the
+// dictionary's german_str_t records to the dictionary stream.
 struct Output {
     std::vector<std::shared_ptr<Buffer>> values;
     std::vector<std::shared_ptr<Buffer>> heap;
+    std::vector<std::shared_ptr<Buffer>> dict;
 
     size_t size() const {
         size_t bytes = 0;
-        for (const auto *buffers : {&values, &heap}) {
+        for (const auto *buffers : {&values, &heap, &dict}) {
             for (const auto &buffer : *buffers) {
                 bytes += buffer->size;
             }
@@ -268,6 +275,11 @@ void decode_column(const std::vector<std::shared_ptr<parcore::ColumnChunkDecoder
         if (parcore::metadata::is_string_type(p.chunk.type)) {
             while (p.output->stream_has_more_output(p.decoder->heap_stream())) {
                 output.heap.push_back(p.output->get_next_stream_output(p.decoder->heap_stream()));
+            }
+        }
+        if (parcore::metadata::is_string_type(p.chunk.type) && p.chunk.is_dictionary_encoded) {
+            while (p.output->stream_has_more_output(p.decoder->dict_stream())) {
+                output.dict.push_back(p.output->get_next_stream_output(p.decoder->dict_stream()));
             }
         }
         p.decoder->finished_decoding_column_chunk(p.chunk);
@@ -333,6 +345,28 @@ void verify_strings(size_t i, size_t j, const std::vector<std::string> &expected
 
     auto records = concatenate(output.values);
     auto heap    = concatenate(output.heap);
+    if (!output.dict.empty()) {
+        // Dictionary vector: materialize the records through the indices, then check them like
+        // the records of a PLAIN chunk.
+        auto dict = concatenate(output.dict);
+        if (records.size() % sizeof(uint32_t) != 0 || dict.size() % RECORD_BYTES != 0) {
+            fail("dictionary vector of " + std::to_string(records.size()) + " index bytes and " +
+                 std::to_string(dict.size()) + " dictionary bytes is misaligned");
+        }
+        size_t               num_entries = dict.size() / RECORD_BYTES;
+        std::vector<uint8_t> materialized(records.size() / sizeof(uint32_t) * RECORD_BYTES);
+        for (size_t k = 0; k < records.size() / sizeof(uint32_t); ++k) {
+            uint32_t index;
+            std::memcpy(&index, records.data() + k * sizeof(index), sizeof(index));
+            if (index >= num_entries) {
+                fail("index " + std::to_string(index) + " of string " + std::to_string(k) +
+                     " is outside the dictionary of " + std::to_string(num_entries) + " entries");
+            }
+            std::memcpy(materialized.data() + k * RECORD_BYTES,
+                        dict.data() + index * RECORD_BYTES, RECORD_BYTES);
+        }
+        records = std::move(materialized);
+    }
     if (records.size() != expected.size() * RECORD_BYTES) {
         fail("expected " + std::to_string(expected.size()) + " string records, got " +
              std::to_string(records.size()) + " bytes");

@@ -124,7 +124,8 @@ bool ColumnChunk::operator==(const ColumnChunk &rhs) const {
   return type == rhs.type && num_values == rhs.num_values &&
          compression == rhs.compression && offset == rhs.offset &&
          total_compressed_size == rhs.total_compressed_size &&
-         is_required == rhs.is_required && logical_width == rhs.logical_width;
+         is_required == rhs.is_required && logical_width == rhs.logical_width &&
+         is_dictionary_encoded == rhs.is_dictionary_encoded;
 }
 
 RowGroup RowGroup::from(std::istream &is) {
