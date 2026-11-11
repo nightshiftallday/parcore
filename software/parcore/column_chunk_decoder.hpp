@@ -6,6 +6,7 @@
 #include <libstf/output_buffer_manager.hpp>
 #include <libstf/output_handle.hpp>
 #include <parcore/configuration.hpp>
+#include <parcore/dictionary_vector.hpp>
 #include <parcore/metadata/metadata.hpp>
 
 namespace parcore {
@@ -33,7 +34,7 @@ public:
     Handle(std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder,
            std::unique_lock<std::mutex> lock,
            std::shared_ptr<libstf::OutputHandle> output_handle,
-           uint64_t string_heap_address);
+           uint64_t string_heap_address, bool defer_dict_decoding);
 
     void add_chunk(const std::shared_ptr<libstf::Buffer> &buffer);
 
@@ -42,6 +43,12 @@ public:
      * chunk are relative to, as passed to decode_column_chunk.
      */
     [[nodiscard]] uint64_t string_heap_address() const;
+
+    /**
+     * Whether the chunk is decoded with defer_dict_decoding: The values stream then holds the
+     * dictionary followed by the indices, see DeferredDictLayout and deferred_dict_layout().
+     */
+    [[nodiscard]] bool defers_dict_decoding() const;
 
     // The && qualifier means this can only be called on a moving handle
     std::shared_ptr<libstf::OutputHandle> done() &&;
@@ -52,6 +59,7 @@ public:
 
     std::shared_ptr<libstf::OutputHandle> output_handle_;
     uint64_t string_heap_address_;
+    bool defer_dict_decoding_;
     bool chunk_written_;
   };
 
@@ -62,10 +70,15 @@ public:
    * OutputBufferManager, whose addresses are not known up front, so this
    * defaults to 0, i.e., the records hold offsets into the heap. Callers that
    * provide the heap buffer themselves pass its address to get pointers.
+   *
+   * With defer_dict_decoding, the decoder writes the dictionary and one index per
+   * value instead of the values (see DeferredDictLayout). Throws
+   * std::invalid_argument for a chunk that can_defer_dict_decoding rejects.
    */
   [[nodiscard]] std::unique_ptr<Handle>
   decode_column_chunk(const metadata::ColumnChunk &column_chunk,
-                      uint64_t string_heap_address = 0);
+                      uint64_t string_heap_address = 0,
+                      bool defer_dict_decoding = false);
 
   void
   finished_decoding_column_chunk(const metadata::ColumnChunk &column_chunk);

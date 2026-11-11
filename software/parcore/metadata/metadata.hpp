@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <istream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -51,6 +52,16 @@ struct ColumnChunk {
   // Bit width of the column's integer logical type annotation (INT(bit_width, is_signed) or the
   // converted types INT_8 ... UINT_64), 0 if the column has none.
   uint8_t logical_width = 0;
+  // Whether ColumnMetaData.encodings lists PLAIN_DICTIONARY or RLE_DICTIONARY. For DuckDB-written
+  // files that means a dictionary page and only dictionary encoded data pages (see
+  // can_defer_dict_decoding in parcore/dictionary_vector.hpp).
+  bool is_dictionary_encoded = false;
+  // NULL count from the chunk's statistics, if the writer wrote them.
+  std::optional<uint64_t> null_count;
+  // ColumnMetaData.total_uncompressed_size, 0 if unknown.
+  uint64_t total_uncompressed_size = 0;
+  // Like is_required, these are not part of the binary format read by from(), which keeps the
+  // defaults.
 
   libstf::type_t logical_type() const;
 

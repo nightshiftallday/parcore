@@ -35,6 +35,7 @@ add_library(parcore SHARED)
 target_sources(parcore PRIVATE
     parcore/configuration.cpp
     parcore/column_chunk_decoder.cpp
+    parcore/dictionary_vector.cpp
 
     parcore/metadata/metadata.cpp
 )

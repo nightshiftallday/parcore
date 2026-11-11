@@ -35,13 +35,18 @@ ColumnChunkDecoder::Handle::Handle(
     std::shared_ptr<ColumnChunkDecoder> column_chunk_decoder,
     std::unique_lock<std::mutex> lock,
     std::shared_ptr<libstf::OutputHandle> output_handle,
-    uint64_t string_heap_address)
+    uint64_t string_heap_address, bool defer_dict_decoding)
     : column_chunk_decoder_(std::move(column_chunk_decoder)),
       lock_(std::move(lock)), output_handle_(output_handle),
-      string_heap_address_(string_heap_address), chunk_written_(false) {}
+      string_heap_address_(string_heap_address),
+      defer_dict_decoding_(defer_dict_decoding), chunk_written_(false) {}
 
 uint64_t ColumnChunkDecoder::Handle::string_heap_address() const {
   return string_heap_address_;
+}
+
+bool ColumnChunkDecoder::Handle::defers_dict_decoding() const {
+  return defer_dict_decoding_;
 }
 
 void ColumnChunkDecoder::Handle::add_chunk(
@@ -69,7 +74,13 @@ const std::string prefix = "parcore::ColumnChunkDecoder";
 
 std::unique_ptr<ColumnChunkDecoder::Handle>
 ColumnChunkDecoder::decode_column_chunk(
-    const metadata::ColumnChunk &column_chunk, uint64_t string_heap_address) {
+    const metadata::ColumnChunk &column_chunk, uint64_t string_heap_address,
+    bool defer_dict_decoding) {
+  if (defer_dict_decoding && !can_defer_dict_decoding(column_chunk)) {
+    throw std::invalid_argument(
+        "defer_dict_decoding needs a dictionary encoded chunk without NULLs of at most " +
+        std::to_string(MAX_DEFERRED_DICT_ENTRIES) + " values");
+  }
   std::unique_lock lock(mtx);
   Profiler::open_regions({prefix + "decode_column_chunk"});
   assert(column_chunk_enqueued_configs_ + 1 <
@@ -83,13 +94,15 @@ ColumnChunkDecoder::decode_column_chunk(
 
   column_chunk_config_->enqueue_column_chunk(
       decoder_, column_chunk.compression, column_chunk.num_values, type,
-      column_chunk.is_required, column_chunk.logical_type(), false, string_heap_address);
+      column_chunk.is_required, column_chunk.logical_type(), defer_dict_decoding,
+      string_heap_address);
 
   column_chunk_enqueued_configs_ += 1;
 
   Profiler::close_regions({prefix + "decode_column_chunk"});
   return std::make_unique<Handle>(shared_from_this(), std::move(lock),
-                                  output_handle, string_heap_address);
+                                  output_handle, string_heap_address,
+                                  defer_dict_decoding);
 }
 
 void ColumnChunkDecoder::finished_decoding_column_chunk(
